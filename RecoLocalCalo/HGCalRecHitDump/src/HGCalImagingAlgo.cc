@@ -181,8 +181,17 @@ std::vector<reco::BasicCluster> HGCalImagingAlgo::getClusters(bool doSharing){
       std::vector< KDNode >::iterator it;
       for (it = current_v[i].begin(); it != current_v[i].end(); it++)
 	{
+	  
+	  float fraction = 1.;
+	  if((*it).data.isHalo && (*it).data.isBorder)
+	    fraction = -0.000001;
+	  else if(!(*it).data.isHalo && (*it).data.isBorder)
+	    fraction =  0.999999;
+	  else if((*it).data.isHalo && !(*it).data.isBorder)
+	    fraction =  0.0;
+		  
 	  energy += (*it).data.isHalo ? 0. : (*it).data.weight;
-	  thisCluster.emplace_back(std::pair<DetId, float>((*it).data.detid,((*it).data.isHalo?0.:1.)));
+	  thisCluster.emplace_back(std::pair<DetId, float>((*it).data.detid,fraction));
 	};
       if (verbosity < pINFO)
 	{ 
@@ -565,4 +574,12 @@ void HGCalImagingAlgo::shareEnergy(const std::vector<KDNode>& incluster,
     diff = std::sqrt(diff2);
     //std::cout << " iteration = " << iter << " diff = " << diff << std::endl;
   } 
+}
+
+
+void HGCalImagingAlgo::dumpToDisplayMaybe(const edm::Event& iEvent){
+  if(eventsToDisplay>0){
+    dumper.writeAll(current_v,dumper.getFileName(iEvent));
+    eventsToDisplay--;
+  }
 }
