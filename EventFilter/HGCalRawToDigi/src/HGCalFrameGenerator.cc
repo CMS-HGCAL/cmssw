@@ -115,7 +115,7 @@ namespace hgcal {
     return chmap;
   }
 
-  std::vector<uint32_t> HGCalFrameGenerator::generateERxData(const econd::ERxEvent& event) const {
+  std::vector<uint32_t> HGCalFrameGenerator::generateERxData(const econd::ERxInput& event) const {
     std::vector<uint32_t> erxData;
     for (const auto& jt : event) {
       auto chmap =
@@ -149,7 +149,7 @@ namespace hgcal {
     return erxData;
   }
 
-  std::vector<uint32_t> HGCalFrameGenerator::produceECONEvent(const econd::ECONDEvent& event) const {
+  std::vector<uint32_t> HGCalFrameGenerator::produceECONEvent(const econd::ECONDInput& event) const {
     auto header_bits = generateStatusBits();
     auto econd_event = generateERxData(event.second);
     LogDebug("HGCalFrameGenerator") << econd_event.size() << " word(s) of eRx payloads inserted.";
@@ -187,8 +187,10 @@ namespace hgcal {
     return econd_event;
   }
 
+
+  //FIXME shouldn't this take instead an ECONDInputColl instead of a single ECON?
   std::vector<uint64_t> HGCalFrameGenerator::produceSlinkEvent(uint32_t fed_id,
-                                                               const econd::ECONDEvent& econd_event) const {
+                                                               const econd::ECONDInput& econd_event) const {
     std::vector<uint64_t> slink_event;
 
     const auto& eid = econd_event.first;

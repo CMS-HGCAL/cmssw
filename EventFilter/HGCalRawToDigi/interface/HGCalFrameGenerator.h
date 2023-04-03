@@ -24,11 +24,11 @@ namespace hgcal {
 
     void setRandomEngine(CLHEP::HepRandomEngine& rng);
 
-    std::vector<uint32_t> produceECONEvent(const econd::ECONDEvent&) const;
+    std::vector<uint32_t> produceECONEvent(const econd::ECONDInput&) const;
     const HGCalECONDEmulatorInfo& lastECONDEmulatedInfo() const { return last_econd_emul_info_; }
 
     /// Produce a S-link event from an input emulated event
-    std::vector<uint64_t> produceSlinkEvent(uint32_t fed_id, const econd::ECONDEvent&) const;
+    std::vector<uint64_t> produceSlinkEvent(uint32_t fed_id, const econd::ECONDInput&) const;
     const HGCalSlinkEmulatorInfo& lastSlinkEmulatedInfo() const { return last_slink_emul_info_; }
 
     struct ECONDParameters {
@@ -49,7 +49,7 @@ namespace hgcal {
 
   private:
     std::vector<bool> generateEnabledChannels() const;
-    std::vector<uint32_t> generateERxData(const econd::ERxEvent&) const;
+    std::vector<uint32_t> generateERxData(const econd::ERxInput&) const;
 
     static constexpr size_t max_num_econds_ = 12;
     const bool pass_through_;

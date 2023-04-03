@@ -17,7 +17,7 @@
 
 #include "DataFormats/HGCalDigi/interface/HGCalRawDataEmulatorInfo.h"
 #include "EventFilter/HGCalRawToDigi/interface/HGCalFrameGenerator.h"
-#include "EventFilter/HGCalRawToDigi/interface/TBTreeReader.h"
+#include "EventFilter/HGCalRawToDigi/interface/HGCalModuleTreeReader.h"
 
 class HGCalSlinkEmulator : public edm::stream::EDProducer<> {
 public:
@@ -53,11 +53,11 @@ HGCalSlinkEmulator::HGCalSlinkEmulator(const edm::ParameterSet& iConfig)
   else if (emul_type == "trivial")
     emulator_ = std::make_unique<hgcal::econd::TrivialEmulator>(
         frame_gen_.econdParams().num_channels, iConfig.getUntrackedParameter<std::vector<unsigned int>>("channels"));
-  else if (emul_type == "tbTree")
+  else if (emul_type == "hgcmodule")
     emulator_ =
-        std::make_unique<hgcal::econd::TBTreeReader>(iConfig.getUntrackedParameter<std::string>("treeName"),
-                                                     iConfig.getUntrackedParameter<std::vector<std::string>>("inputs"),
-                                                     frame_gen_.econdParams().num_channels);
+      std::make_unique<hgcal::econd::HGCalModuleTreeReader>(iConfig.getUntrackedParameter<std::string>("treeName"),
+                                                            iConfig.getUntrackedParameter<std::vector<std::string>>("inputs"),
+                                                            frame_gen_.econdParams().num_channels);
   else
     throw cms::Exception("HGCalSlinkEmulator") << "Invalid emulator type chosen: '" << emul_type << "'.";
 
@@ -142,6 +142,7 @@ void HGCalSlinkEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iSet
   }
 }
 
+//
 void HGCalSlinkEmulator::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   auto desc = hgcal::HGCalFrameGenerator::description();
   desc.ifValue(edm::ParameterDescription<std::string>("emulatorType", "empty", true),
@@ -150,8 +151,8 @@ void HGCalSlinkEmulator::fillDescriptions(edm::ConfigurationDescriptions& descri
                    // trivial emulator
                    "trivial" >> edm::ParameterDescription<std::vector<unsigned int>>("channels", {}, false) or
                    // test beam tree content
-                   "tbTree" >> (edm::ParameterDescription<std::string>("treeName", "unpacker_data/hgcroc", false) and
-                                edm::ParameterDescription<std::vector<std::string>>("inputs", {}, false)));
+                   "hgcmodule" >> (edm::ParameterDescription<std::string>("treeName", "hgcroc_rawdata/eventdata", false) and
+                                   edm::ParameterDescription<std::vector<std::string>>("inputs", {}, false)));
   desc.add<unsigned int>("fedId", 0)->setComment("FED number delivering the emulated frames");
   desc.add<bool>("fedHeaderTrailer", false)->setComment("also add FED header/trailer info");
   desc.add<bool>("storeEmulatorInfo", true)

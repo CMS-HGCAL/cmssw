@@ -10,7 +10,7 @@ options.register('debug', True, VarParsing.VarParsing.multiplicity.singleton, Va
 options.register('dumpFedRawData', False, VarParsing.VarParsing.multiplicity.singleton, VarParsing.VarParsing.varType.int, 'also dump the FEDRawData content')
 options.register('channels', [], VarParsing.VarParsing.multiplicity.list, VarParsing.VarParsing.varType.int, 'list of ERx enabled')
 options.register('storeOutput', False, VarParsing.VarParsing.multiplicity.singleton, VarParsing.VarParsing.varType.int, 'also store the output into an EDM file')
-options.inputFiles = 'file:/eos/cms/store/group/dpg_hgcal/tb_hgcal/2022/sps_oct2022/electron_beam_100_160fC/beam_run/run_20221009_222828/beam_run0.root'
+options.inputFiles = 'file:/eos/cms/store/group/dpg_hgcal/tb_hgcal/2023/labtest/module822/pedestal_run0.root'
 options.maxEvents = 20
 options.secondaryOutputFile = 'output.raw'
 options.parseArguments()
@@ -32,8 +32,8 @@ process.source = cms.Source("EmptySource")
 process.hgcalEmulatedSlinkRawData.emulatorType = options.mode
 if process.hgcalEmulatedSlinkRawData.emulatorType == 'trivial':
     process.hgcalEmulatedSlinkRawData.channels = cms.untracked.vuint32(options.channels)
-elif process.hgcalEmulatedSlinkRawData.emulatorType == 'tbTree':
-    process.hgcalEmulatedSlinkRawData.inputs = cms.vstring(options.inputFiles)
+elif process.hgcalEmulatedSlinkRawData.emulatorType == 'hgcmodule':
+    process.hgcalEmulatedSlinkRawData.inputs = cms.untracked.vstring(options.inputFiles)
 #process.hgcalEmulatedSlinkRawData.econdParams.channelSurv = 0.5
 #process.hgcalEmulatedSlinkRawData.econdParams.enabledChannels = [1, 2]
 process.hgcalDigis.src = cms.InputTag('hgcalEmulatedSlinkRawData')

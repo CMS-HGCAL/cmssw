@@ -1,23 +1,30 @@
 #include "EventFilter/HGCalRawToDigi/interface/Emulator.h"
 
-namespace hgcal::econd {
-  TrivialEmulator::TrivialEmulator(size_t num_channels, const std::vector<unsigned int>& erx_ids)
-      : Emulator(num_channels), erx_ids_(erx_ids) {}
+using namespace hgcal::econd;
 
-  ECONDEvent TrivialEmulator::next() {
-    EventId evt_id{event_id_++, bx_id_++, orbit_id_++};
-    ERxEvent evt;
-    for (const auto& erx_id : erx_ids_) {
-      ERx_t id{erx_id /*chip*/, 0 /*half*/};
-      ERxData dummy_data{.adc = std::vector<uint16_t>(num_channels_, 0),
-                         .adcm = std::vector<uint16_t>(num_channels_, 0),
-                         .toa = std::vector<uint16_t>(num_channels_, 0),
-                         .tot = std::vector<uint16_t>(num_channels_, 0),
-                         .tctp = std::vector<uint8_t>(num_channels_, 3),
-                         .cm0 = 0,
-                         .cm1 = 0};
-      evt[id] = dummy_data;
-    }
-    return ECONDEvent{evt_id, evt};
+//
+TrivialEmulator::TrivialEmulator(size_t num_channels, const std::vector<unsigned int>& erx_ids)
+  : Emulator(num_channels), erx_ids_(erx_ids) {
+}
+
+//
+ECONDInput TrivialEmulator::next() {
+  EventId evt_id{event_id_++, bx_id_++, orbit_id_++};
+  ERxInput erx;
+  for (const auto& erx_id : erx_ids_) {
+    ERxId_t id{erx_id /*chip*/, 0 /*half*/};
+    ERxData dummy_data{.cm0 = 0,
+                       .cm1 = 0,
+                       .tctp = std::vector<uint8_t>(num_channels_, 3),
+                       .adc = std::vector<uint16_t>(num_channels_, 0),
+                       .adcm = std::vector<uint16_t>(num_channels_, 0),
+                       .toa = std::vector<uint16_t>(num_channels_, 0),
+                       .tot = std::vector<uint16_t>(num_channels_, 0),
+                       .meta = std::vector<uint32_t>(0)
+    };
+    erx[id] = dummy_data;
   }
-}  // namespace hgcal::econd
+
+  //return result
+  return ECONDInput{evt_id, erx};
+}
