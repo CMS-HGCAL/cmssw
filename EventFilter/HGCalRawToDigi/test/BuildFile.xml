@@ -1,0 +1,13 @@
+<bin file="HGCECONDEmulatorTest.cc" name="HGCECONDEmulatorTest">
+  <flags TEST_RUNNER_ARGS=" EventFilter/HGCalRawToDigi/test/HGCECONDEmulatorTest_cfi.py passthroughTest"/>
+  <use name="DataFormats/HGCalDigi"/>
+  <use name="EventFilter/HGCalRawToDigi"/>
+  <use name="FWCore/ParameterSetReader"/>
+</bin>
+<bin file="HGCalUnpackerTest.cc" name="HGCalUnpacker">
+  <use name="DataFormats/HGCalDigi"/>
+  <use name="FWCore/MessageLogger"/>
+  <use name="EventFilter/HGCalRawToDigi"/>
+</bin>
+<test name="emul_emptyECOND" command="cmsRun ${LOCALTOP}/src/EventFilter/HGCalRawToDigi/test/emulation_and_unpacking_cfg.py mode=empty"/>
+<test name="emul_trivialECOND" command="cmsRun ${LOCALTOP}/src/EventFilter/HGCalRawToDigi/test/emulation_and_unpacking_cfg.py mode=trivial"/>
