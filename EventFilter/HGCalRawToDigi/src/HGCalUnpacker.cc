@@ -83,8 +83,14 @@ void HGCalUnpacker::parseSLink(
       //----- parse the capture block body
       for (uint8_t econd = 0; econd < config_.captureBlockECONDMax; econd++) {  // loop through all ECON-Ds
 
-        if (((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask) >= 0b100)
-          continue;  // only pick active ECON-Ds
+        auto econd_status_flag = ((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask);
+        if (config_.applyFWworkaround) {
+          if (econd_status_flag == 0b111 || econd_status_flag == 0b001)
+            continue;
+        } else {
+          if (econd_status_flag >= 0b100)
+            continue;  // only pick active ECON-Ds
+        }
 
         HGCalElectronicsId eleid(zside, sLink, captureBlock, econd, 0, 0);
         LogDebug("[HGCalUnpacker::parseSLink]") << std::dec << (uint32_t)zside << " " << (uint32_t)sLink << " " << (uint32_t)captureBlock << " " << (uint32_t)econd << std::endl;
