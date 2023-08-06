@@ -290,7 +290,7 @@ void HGCalDigisClient::bookHistograms(DQMStore::IBooker& ibook, edm::Run const& 
 
   for(auto m : moduleInfo.params_) {
     
-    TString tag=Form("zside%d_plane%d_u%d_v%d",m.zside,m.plane,m.u,m.v);
+    TString tag=Form("%d_%d_%d_%d",m.zside,m.plane,m.u,m.v);
     MonitorKey_t k(m.zside,m.plane,m.u,m.v);
     modbins_[k]=modbins_.size();
     TString modlabel(tag);
