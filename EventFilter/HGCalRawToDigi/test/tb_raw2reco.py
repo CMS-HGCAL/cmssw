@@ -6,7 +6,7 @@ process = cms.Process("TEST")
 options = VarParsing.VarParsing('standard')
 options.register('mode', 'hgcmodule', VarParsing.VarParsing.multiplicity.singleton, VarParsing.VarParsing.varType.string,
                  'type of emulation')
-options.register('fedId', 0, VarParsing.VarParsing.multiplicity.singleton, VarParsing.VarParsing.varType.int,
+options.register('fedId', [0], VarParsing.VarParsing.multiplicity.list, VarParsing.VarParsing.varType.int,
                  'emulated FED id')
 options.register('debug', False, VarParsing.VarParsing.multiplicity.singleton, VarParsing.VarParsing.varType.int,
                  'debugging mode')
@@ -52,7 +52,7 @@ options.register('conditions',
                  'conditions tag')
 options.register('inputFiles',
                  'file:/eos/cms/store/group/dpg_hgcal/tb_hgcal/2023/labtest/module822/pedestal_run0.root',
-                 VarParsing.VarParsing.multiplicity.singleton, VarParsing.VarParsing.varType.string,
+                 VarParsing.VarParsing.multiplicity.list, VarParsing.VarParsing.varType.string,
                  'input TB file')
 options.register('inputTrigFiles',
                  '',
@@ -101,6 +101,7 @@ if process.hgcalEmulatedSlinkRawData.emulatorType == 'hgcmodule':
     process.hgcalEmulatedSlinkRawData.inputs = cms.untracked.vstring(options.inputFiles)
     process.hgcalEmulatedSlinkRawData.storeEmulatorInfo = bool(options.storeEmulatorInfo)
 elif process.hgcalEmulatedSlinkRawData.emulatorType == 'slinkfromraw':
+    process.hgcalEmulatedSlinkRawData.fedIds = cms.untracked.vuint32(options.fedId)
     process.hgcalEmulatedSlinkRawData.inputs = cms.untracked.vstring(options.inputFiles)
     process.hgcalEmulatedSlinkRawData.trig_inputs = cms.untracked.vstring(options.inputTrigFiles)
 

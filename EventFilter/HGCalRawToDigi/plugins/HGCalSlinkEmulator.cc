@@ -194,7 +194,7 @@ void HGCalSlinkEmulator::fillDescriptions(edm::ConfigurationDescriptions& descri
           "trivial" >> edm::EmptyGroupDescription() or
               //slinkemulator
               "slinkfromraw" >>
-                  (edm::ParameterDescription<std::string>("treeName", "hgcroc_rawdata/eventdata", false) and
+                  (edm::ParameterDescription<std::vector<unsigned>>("fedIds", {}, false) and
                    edm::ParameterDescription<std::vector<std::string>>("inputs", {}, false) and
                    edm::ParameterDescription<std::vector<std::string>>("trig_inputs", {}, false)) or
               // test beam tree content

@@ -1,189 +1,97 @@
 #include "EventFilter/HGCalRawToDigi/interface/HGCalSlinkFromRaw.h"
+#include <filesystem>
 
 // example reader by P.Dauncey, using https://gitlab.cern.ch/pdauncey/hgcal10glinkreceiver
 
 using namespace hgcal;
 
-SlinkFromRaw::SlinkFromRaw(const edm::ParameterSet &iConfig) : SlinkEmulatorBase(iConfig) {
-  inputfiles_ = iConfig.getUntrackedParameter<std::vector<std::string>>("inputs");
-  inputfiles_trg_ = iConfig.getUntrackedParameter<std::vector<std::string>>("trig_inputs");
-  ifile_ = 0;
-
-  if (!inputfiles_trg_.empty()) {
-    // `inputfiles_` and `inputfiles_trg_` must be 1-to-1 matched
-    assert(inputfiles_.size() == inputfiles_trg_.size());
+SlinkFromRaw::SlinkFromRaw(const edm::ParameterSet &iConfig)
+    : SlinkEmulatorBase(iConfig), fedIds_(iConfig.getUntrackedParameter<std::vector<unsigned>>("fedIds")) {
+  auto inputfiles = iConfig.getUntrackedParameter<std::vector<std::string>>("inputs");
+  if (inputfiles.size() % fedIds_.size() != 0) {
+    throw cms::Exception("[HGCalSlinkFromRaw::SlinkFromRaw]")
+        << "Number of inputs (" << inputfiles.size() << ") cannot be devided by the number of fedIds ("
+        << fedIds_.size() << ")";
   }
 
-  edm::LogInfo("SlinkFromRaw") << "files: \n";
-  copy(begin(inputfiles_), end(inputfiles_), std::ostream_iterator<std::string>{std::cout, "\n"});
+  std::vector<std::vector<std::string>> fileLists(fedIds_.size());
+  for (unsigned i = 0; i < inputfiles.size(); ++i) {
+    if (std::filesystem::exists(inputfiles[i])) {
+      fileLists.at(i % fedIds_.size()).push_back(inputfiles[i]);
+    }
+  }
 
-  edm::LogInfo("SlinkFromRaw") << "trig files: \n";
-  copy(begin(inputfiles_trg_), end(inputfiles_trg_), std::ostream_iterator<std::string>{std::cout, "\n"});
+  for (unsigned idx = 0; idx < fedIds_.size(); ++idx) {
+    readers_[fedIds_[idx]] = std::make_shared<SlinkFileReader>(fileLists[idx], fedIds_[idx]);
+  }
 
-  // Make the buffer space for the records
-  record_ = new hgcal_slinkfromraw::RecordT<4095>;
-  record_trg_ = new hgcal_slinkfromraw::RecordT<4095>;
-  nEvents_ = 0;
+  auto trig_inputs = iConfig.getUntrackedParameter<std::vector<std::string>>("trig_inputs", {});
+  readers_[SlinkFileReader::kTrigIdOffset] =
+      std::make_shared<SlinkFileReader>(trig_inputs, SlinkFileReader::kTrigIdOffset);
 }
 
-//
 std::unique_ptr<FEDRawDataCollection> SlinkFromRaw::next() {
-  //open for the first time
-  if (fileReader_.closed()) {
-    fileReader_.open(inputfiles_[ifile_]);
-
-    // open the corresponding trigger file
-    if (!inputfiles_trg_.empty()) {
-      fileReader_trg_.close();
-      fileReader_trg_.open(inputfiles_trg_[ifile_]);
-    }
-  }
-
-  //no more records in the file, move to next
-  if (!fileReader_.read(record_)) {
-    fileReader_.close();
-
-    ifile_++;
-    if (ifile_ >= inputfiles_.size())
-      throw cms::Exception("FileReadError") << "no more files";
-
-    return next();
-  }
-
-  //if record is stop or starting read again
-  if (record_->state() == hgcal_slinkfromraw::FsmState::Stopping) {
-    edm::LogInfo("SlinkFromRaw") << "RecordStopping will search for next";
-    const hgcal_slinkfromraw::RecordStopping *rStop((hgcal_slinkfromraw::RecordStopping *)record_);
-    rStop->print();
-    return next();
-  }
-  if (record_->state() == hgcal_slinkfromraw::FsmState::Starting) {
-    edm::LogInfo("SlinkFromRaw") << "RecordStarting will search for next";
-    const hgcal_slinkfromraw::RecordStarting *rStart((hgcal_slinkfromraw::RecordStarting *)record_);
-    rStart->print();
-    return next();
-  }
-  if (record_->state() == hgcal_slinkfromraw::FsmState::Continuing) {
-    edm::LogInfo("SlinkFromRaw") << "RecordContinuing";
-    const hgcal_slinkfromraw::RecordContinuing *rCont((hgcal_slinkfromraw::RecordContinuing *)record_);
-    rCont->print();
-    return next();
-  }
-
-  //analyze event
-  auto nextTrgEvent = [&]() {
-    const hgcal_slinkfromraw::RecordRunning *rTrgEvent = nullptr;
-
-    if (!fileReader_trg_.closed()) {
-      fileReader_trg_.read(record_trg_);
-
-      if (record_trg_->state() == hgcal_slinkfromraw::FsmState::Stopping) {
-        const hgcal_slinkfromraw::RecordStopping *rStop((hgcal_slinkfromraw::RecordStopping *)record_trg_);
-        std::cout << "[Trigger Link]";
-        rStop->print();
-        return rTrgEvent;
-      }
-      if (record_trg_->state() == hgcal_slinkfromraw::FsmState::Starting) {
-        const hgcal_slinkfromraw::RecordStarting *rStart((hgcal_slinkfromraw::RecordStarting *)record_trg_);
-        std::cout << "[Trigger Link]";
-        rStart->print();
-        fileReader_trg_.read(record_trg_);
-      }
-      if (record_trg_->state() == hgcal_slinkfromraw::FsmState::Continuing) {
-        const hgcal_slinkfromraw::RecordContinuing *rCont((hgcal_slinkfromraw::RecordContinuing *)record_trg_);
-        std::cout << "[Trigger Link]";
-        rCont->print();
-        fileReader_trg_.read(record_trg_);
-      }
-
-      rTrgEvent = ((hgcal_slinkfromraw::RecordRunning *)record_trg_);
-      if (!rTrgEvent->valid())
-        throw cms::Exception("[HGCalSlinkFromRaw::next]") << "trg record running is invalid";
-    }
-    return rTrgEvent;
+  auto raw_data = std::make_unique<FEDRawDataCollection>();
+  auto copyToFEDRawData = [&raw_data](const hgcal_slinkfromraw::RecordRunning *rEvent, unsigned fedId) {
+    //rEvent->payloadLength() - 1: last word is a 0xdeadbeefdeadbeef which can be disregarded
+    size_t total_event_size = (rEvent->payloadLength() - 1) * sizeof(uint64_t) / sizeof(char);
+    auto &fed_data = raw_data->FEDData(fedId);
+    fed_data.resize(total_event_size);
+    memcpy(fed_data.data(), (const char *)rEvent->payload(), total_event_size);
   };
 
-  edm::LogInfo("SlinkFromRaw: Reading record from file #") << ifile_ << "nevents=" << nEvents_ << "\n";
-  const hgcal_slinkfromraw::RecordRunning *rEvent((hgcal_slinkfromraw::RecordRunning *)record_);
-  if (!rEvent->valid())
-    throw cms::Exception("[HGCalSlinkFromRaw::next]") << "record running is invalid";
-  nEvents_++;
+  // read DAQ Slinks
+  for (unsigned idx = 0; idx < fedIds_.size(); ++idx) {
+    const auto &fedId = fedIds_[idx];
+    auto reader = readers_.at(fedId);
+    auto rEvent = reader->nextEvent();
+    if (!rEvent) {
+      throw cms::Exception("[SlinkFromRaw::next]") << "record is null for fedId=" << fedId;
+    }
 
-  const hgcal_slinkfromraw::RecordRunning *rTrgEvent = nextTrgEvent();
-
-  bool print(nEvents_ <= 1);
-  if (print) {
-    rEvent->print();
-    if (rTrgEvent) {
-      std::cout << "[Trigger Link]";
-      rTrgEvent->print();
+    if (idx == 0) {
+      eventId_ = rEvent->slinkBoe()->eventId();
+      bxId_ = rEvent->slinkEoe()->bxId();
+      orbitId_ = rEvent->slinkEoe()->orbitId();
+      copyToFEDRawData(rEvent, fedId);
+    } else {
+      // find the event matched to the first slink
+      while (rEvent) {
+        if (rEvent->slinkBoe()->eventId() < eventId_) {
+          rEvent = reader->nextEvent();
+          continue;
+        }
+        if (rEvent->slinkBoe()->eventId() == eventId_ && rEvent->slinkEoe()->bxId() == bxId_ &&
+            rEvent->slinkEoe()->orbitId() == orbitId_) {
+          copyToFEDRawData(rEvent, fedId);
+          break;
+        }
+      }
     }
   }
 
-  //FIXME: these have to be read from the TCDS block
-  metaData_.trigType_ = 0;
-  metaData_.trigTime_ = 0;
-  metaData_.trigWidth_ = 0;
+  // read trigger Slink
+  metaData_ = HGCalTestSystemMetaData();
+  {
+    auto reader = readers_.at(SlinkFileReader::kTrigIdOffset);
 
-  while (rTrgEvent) {
-    if (rTrgEvent->slinkBoe()->eventId() < rEvent->slinkBoe()->eventId()) {
-      rTrgEvent = nextTrgEvent();
-      continue;
-    }
-    if (rTrgEvent->slinkBoe()->eventId() == rEvent->slinkBoe()->eventId() &&
-        rTrgEvent->slinkEoe()->bxId() == rEvent->slinkEoe()->bxId() &&
-        rTrgEvent->slinkEoe()->orbitId() == rEvent->slinkEoe()->orbitId()) {
-      metaData_.trigType_ = rTrgEvent->slinkBoe()->l1aType();
-      readTriggerData(rTrgEvent);
-      break;
+    // rTrgEvent will be null if there are no trig_inputs
+    auto rTrgEvent = reader->nextEvent();
+
+    while (rTrgEvent) {
+      // find the trigger event matched to the first DAQ slink
+      if (rTrgEvent->slinkBoe()->eventId() < eventId_) {
+        rTrgEvent = reader->nextEvent();
+        continue;
+      }
+      if (rTrgEvent->slinkBoe()->eventId() == eventId_ && rTrgEvent->slinkEoe()->bxId() == bxId_ &&
+          rTrgEvent->slinkEoe()->orbitId() == orbitId_) {
+        metaData_.trigType_ = rTrgEvent->slinkBoe()->l1aType();
+        readTriggerData(rTrgEvent);
+        break;
+      }
     }
   }
-
-  // Access the Slink header ("begin-of-event")
-  const hgcal_slinkfromraw::SlinkBoe *b(rEvent->slinkBoe());
-  assert(b != nullptr);
-  if (!b->validPattern())
-    throw cms::Exception("[HGCalSlinkFromRaw::next]") << "SlinkBoe has invalid pattern";
-
-  // Access the Slink trailer ("end-of-event")
-  const hgcal_slinkfromraw::SlinkEoe *e(rEvent->slinkEoe());
-  assert(e != nullptr);
-  if (!e->validPattern())
-    throw cms::Exception("[HGCalSlinkFromRaw::next]") << "SlinkEoe has invalid pattern";
-
-  // Access the BE packet header
-  const hgcal_slinkfromraw::BePacketHeader *bph(rEvent->bePacketHeader());
-  if (bph == nullptr)
-    throw cms::Exception("[HGCalSlinkFromRaw::next]") << "Null pointer to BE packet header";
-
-  // Access ECON-D packet as an array of 32-bit words
-  const uint32_t *pEcond(rEvent->econdPayload());
-  if (pEcond == nullptr)
-    throw cms::Exception("[HGCalSlinkFromRaw::next]") << "Null pointer to ECON-D payload";
-
-  //get payload and its length
-  auto *payload = record_->getPayload();
-  auto payloadLength = record_->payloadLength();
-
-  //  for(auto i=0; i<=payloadLength; i++)
-  //    std::cout <<std::dec << i << "  " << std::hex << std::setfill('0') << payload[i] << std::endl;
-
-  //NOTE these were hacks for Paul's file which reverts the
-  //ECOND pseudo-endianness wrt to capture block and s-link
-  //so we invert the first 3 64b word (s-link + capture block)
-  //unclear how the final system will be
-  //payloadLength-=2;
-  // for(auto i=0; i<payloadLength; i++) {
-  //   payload[i]=((payload[i]&0xffffffff)<<32) | payload[i]>>32;
-  // }
-
-  //put in the event (last word is a 0xdeadbeefdeadbeef which can be disregarded)
-  auto raw_data = std::make_unique<FEDRawDataCollection>();
-  size_t total_event_size = (payloadLength - 1) * sizeof(uint64_t) / sizeof(char);
-  auto &fed_data = raw_data->FEDData(1);  //data for one FED
-  fed_data.resize(total_event_size);
-  auto *ptr = fed_data.data();
-  memcpy(ptr, (char *)payload, total_event_size);
 
   return raw_data;
 }
@@ -238,8 +146,8 @@ void SlinkFromRaw::readTriggerData(const hgcal_slinkfromraw::RecordRunning *rTrg
           assert((*p_scint >> 32) == 0xABCDFEED);
           uint32_t trigbits = *p_scint & 0xFFFFFFFF;
           LogDebug("SlinkFromRaw") << "BX " << (p_scint - p) / 5 << ": " << std::hex << std::setfill('0') << "0x"
-                                        << *p_scint << ", trigbits = "
-                                        << "0x" << trigbits << std::endl;
+                                   << *p_scint << ", trigbits = "
+                                   << "0x" << trigbits << std::endl;
           if (not triggered) {
             trigtime += countl_zero(trigbits);
             if (trigbits > 0) {
@@ -262,7 +170,7 @@ void SlinkFromRaw::readTriggerData(const hgcal_slinkfromraw::RecordRunning *rTrg
           p_scint += 5;
         }
         LogDebug("SlinkFromRaw") << "==> trigtime = " << std::dec << std::setfill(' ') << trigtime
-                                      << ", trigwidth = " << trigwidth << std::endl;
+                                 << ", trigwidth = " << trigwidth << std::endl;
         metaData_.trigTime_ = trigtime;
         metaData_.trigWidth_ = trigwidth;
         break;
