@@ -144,17 +144,23 @@ void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
     LogDebug("HGCalRawToDigi")
               << std::dec << "FED ID=" << fed_id
               << std::hex << " First words: 0x" << data_32bit[0] << " 0x" << data_32bit[1]  
-              << std::dec << " Data size=" << fed_size;    
-    
+              << std::dec << " Data size=" << fed_size;
+
     unpacker_->parseSLink(
         data_32bit,
-        [this](uint16_t sLink, uint8_t captureBlock, uint8_t econd) { 
-          return this->erxEnableBits_[HGCalCondSerializableModuleInfo::erxBitPatternMapDenseIndex(sLink,captureBlock,econd,0,0)]; 
+        [this](uint16_t sLink, uint8_t captureBlock, uint8_t econd) {
+          return this->erxEnableBits_[HGCalCondSerializableModuleInfo::erxBitPatternMapDenseIndex(
+              sLink, captureBlock, econd, 0, 0)];
         },
-        [this](uint16_t fedid) { 
-          return this->fed2slink_[fedid]; 
+        [this](uint16_t fedid) {
+          if (auto it = this->fed2slink_.find(fedid); it != this->fed2slink_.end()) {
+            return this->fed2slink_.at(fedid);
+          } else {
+            // FIXME: throw an error or return 0?
+            return (uint16_t)0;
+          }
         });
-         
+
     auto channeldata = unpacker_->channelData();
     auto commonModeSum=unpacker_->commonModeSum();
     for (unsigned int i = 0; i < channeldata.size(); i++) {
