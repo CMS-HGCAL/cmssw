@@ -8,7 +8,7 @@ jobtag=$3
 [[ -z ${jobtag} ]] && jobtag=""
 
 configfile=$4
-[[ -z ${configfile} ]] && configfile="/eos/cms/store/group/dpg_hgcal/tb_hgcal/2023/calibration_module815/calib_withOct2022/80fC/80fC_inj_lowgain_loop_module815_beamtest/pedestal_run/run_20230412_160049/pedestal_run0.yaml"
+[[ -z ${configfile} ]] && configfile="/eos/cms/store/group/dpg_hgcal/tb_hgcal/2023/calibration_module815/calib_withOct2022/80fC/80fC_inj_lowgain_loop_module815_beamtest/pedestal_run/run_20230412_160049/pedestal_run0_characModeOFF.yaml"
 
 cmsDriver.py NANO \
     -s USER:DPGAnalysis/HGCalNanoAOD/hgcRecHits_cff.hgctbTask \
