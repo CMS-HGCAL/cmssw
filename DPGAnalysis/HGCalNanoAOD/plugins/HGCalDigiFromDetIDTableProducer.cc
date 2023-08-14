@@ -64,15 +64,18 @@ class HGCalDigiFromDetIDTableProducer : public DigiInfoTableProducer< edm::View<
   }
 
   float getTOT(const HGCROCChannelDataFrameElecSpec& digi) {
-    return digi.tot(charMode_);
+    // FIXME: in the current HGCROC the calib channels (=18) is always in characterization model; to be fixed in ROCv3b
+    return digi.tot(charMode_ || (fixCalibChannel_ && digi.id().halfrocChannel() == 18));
   }
 
   float getADC(const HGCROCChannelDataFrameElecSpec& digi) {
-    return digi.adc(charMode_);
+    // FIXME: in the current HGCROC the calib channels (=18) is always in characterization model; to be fixed in ROCv3b
+    return digi.adc(charMode_ || (fixCalibChannel_ && digi.id().halfrocChannel() == 18));
   }
 
   float getADCm1(const HGCROCChannelDataFrameElecSpec& digi) {
-    return digi.adcm1(charMode_);
+    // FIXME: in the current HGCROC the calib channels (=18) is always in characterization model; to be fixed in ROCv3b
+    return digi.adcm1(charMode_ || (fixCalibChannel_ && digi.id().halfrocChannel() == 18));
   }
 
   float getTctp(const HGCROCChannelDataFrameElecSpec& digi) {

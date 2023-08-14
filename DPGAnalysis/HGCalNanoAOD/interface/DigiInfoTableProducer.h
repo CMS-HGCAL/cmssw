@@ -32,6 +32,7 @@ template <typename T1, typename T2>
     srcHits_(consumes<T1>(params.getParameter<edm::InputTag>("srcHits"))),
     srcDigis_(consumes<T2>(params.getParameter<edm::InputTag>("srcDigis"))),
     cut_(params.getParameter<std::string>("cut"), true),
+    fixCalibChannel_(params.getParameter<bool>("fixCalibChannel")),
     moduleInfoToken_(esConsumes<HGCalCondSerializableModuleInfo,HGCalCondSerializableModuleInfoRcd,edm::Transition::BeginRun>()),
     siModuleInfoToken_(esConsumes<HGCalCondSerializableSiCellChannelInfo,HGCalCondSerializableSiCellChannelInfoRcd,edm::Transition::BeginRun>()),
     configToken_(esConsumes<HGCalCondSerializableConfig, HGCalCondSerializableConfigRcd, edm::Transition::BeginRun>())
@@ -165,6 +166,7 @@ template <typename T1, typename T2>
   const edm::EDGetTokenT<T1> srcHits_;
   const edm::EDGetTokenT<T2> srcDigis_;
   const StringCutObjectSelector<typename T1::value_type> cut_;
+  const bool fixCalibChannel_;
 
   //tokens and record watches
   edm::ESGetToken<HGCalCondSerializableModuleInfo, HGCalCondSerializableModuleInfoRcd> moduleInfoToken_;

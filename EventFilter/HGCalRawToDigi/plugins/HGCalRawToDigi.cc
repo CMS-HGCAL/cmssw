@@ -51,6 +51,8 @@ private:
   HGCalUnpackerConfig unpackerConfig_;
   HGCalModuleConfig moduleConfig_; // current module
   std::unique_ptr<HGCalUnpacker> unpacker_; // remove the const here to initialize in begin run
+
+  const bool fixCalibChannel_;
 };
 
 HGCalRawToDigi::HGCalRawToDigi(const edm::ParameterSet& iConfig)
@@ -60,9 +62,9 @@ HGCalRawToDigi::HGCalRawToDigi(const edm::ParameterSet& iConfig)
       elecCMsToken_(produces<HGCalElecDigiCollection>("CM")),
       elecDigisSoAToken_(produces<hgcaldigi::HGCalDigiHostCollection>()),
       configToken_(esConsumes<HGCalCondSerializableConfig,HGCalCondSerializableConfigRcd>(
-                         iConfig.getParameter<edm::ESInputTag>("config_label"))),
+          iConfig.getParameter<edm::ESInputTag>("config_label"))),
       moduleInfoToken_(esConsumes<HGCalCondSerializableModuleInfo,HGCalCondSerializableModuleInfoRcd,edm::Transition::BeginRun>(
-                         iConfig.getParameter<edm::ESInputTag>("module_info_label"))),
+              iConfig.getParameter<edm::ESInputTag>("module_info_label"))),
       fedIds_(iConfig.getParameter<std::vector<unsigned int> >("fedIds")),
       flaggedECONDMax_(iConfig.getParameter<unsigned int>("flaggedECONDMax")),
       numERxsInECOND_(iConfig.getParameter<unsigned int>("numERxsInECOND")),
@@ -70,8 +72,9 @@ HGCalRawToDigi::HGCalRawToDigi(const edm::ParameterSet& iConfig)
                                           .cbHeaderMarker = iConfig.getParameter<unsigned int>("cbHeaderMarker"),
                                           .econdHeaderMarker = iConfig.getParameter<unsigned int>("econdHeaderMarker"),
                                           .payloadLengthMax = iConfig.getParameter<unsigned int>("payloadLengthMax"),
-                                          .applyFWworkaround = iConfig.getParameter<bool>("applyFWworkaround")}) {}
-                              
+                                          .applyFWworkaround = iConfig.getParameter<bool>("applyFWworkaround")}),
+      fixCalibChannel_(iConfig.getParameter<bool>("fixCalibChannel")) {}
+
 void HGCalRawToDigi::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup){
   auto moduleInfo = iSetup.getData(moduleInfoToken_);
   std::tuple<uint16_t,uint8_t,uint8_t,uint8_t> denseIdxMax = moduleInfo.getMaxValuesForDenseIndex();  
@@ -172,9 +175,11 @@ void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
       elec_digis.push_back(data);
       elecid.push_back(id.raw());
       tctp.push_back(data.tctp());
-      adcm1.push_back(data.adcm1(moduleConfig_.charMode));
-      adc.push_back(data.adc(moduleConfig_.charMode));
-      tot.push_back(data.tot(moduleConfig_.charMode));
+      // FIXME: in the current HGCROC the calib channels (=18) is always in characterization model; to be fixed in ROCv3b
+      auto charMode = moduleConfig_.charMode || (fixCalibChannel_ && id.halfrocChannel() == 18);
+      adcm1.push_back(data.adcm1(charMode));
+      adc.push_back(data.adc(charMode));
+      tot.push_back(data.tot(charMode));
       toa.push_back(data.toa());
       cm.push_back(commonModeSum.at(i));
     }
@@ -235,6 +240,7 @@ void HGCalRawToDigi::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<unsigned int>("slinkBOE", 0x55)->setComment("SLink BOE pattern");
   desc.add<unsigned int>("captureBlockECONDMax", 12)->setComment("maximum number of ECON-Ds in one capture block");
   desc.add<bool>("applyFWworkaround",false)->setComment("use to enable dealing with firmware features (e.g. repeated words)");
+  desc.add<bool>("fixCalibChannel", true)->setComment("FIXME: always treat calib channels in characterization mode; to be fixed in ROCv3b");
   desc.add<unsigned int>("econdERXMax", 12)->setComment("maximum number of eRxs in one ECON-D");
   desc.add<unsigned int>("erxChannelMax", 37)->setComment("maximum number of channels in one eRx");
   desc.add<unsigned int>("payloadLengthMax", 469)->setComment("maximum length of payload length");

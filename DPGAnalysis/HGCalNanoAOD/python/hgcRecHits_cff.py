@@ -54,6 +54,7 @@ hgCalSiModuleInfoESSource.filename = 'Geometry/HGCalMapping/data/WaferCellMapTra
 hgcDigiTable = cms.EDProducer("HGCRecHitDigiTableProducer",
     srcHits = hgctbRecHitsTable.src,
     srcDigis = cms.InputTag("hgcalDigis:DIGI"),
+    fixCalibChannel = cms.bool(True),  # FIXME
     cut = cms.string(""),
     name = hgctbRecHitsTable.name, # want to have the same name of the rechits
     doc  = cms.string("Digi in HGCAL Electromagnetic endcap"),
