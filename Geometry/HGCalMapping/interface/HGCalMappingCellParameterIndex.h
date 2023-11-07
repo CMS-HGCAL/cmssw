@@ -38,18 +38,16 @@ struct HGCalMappingCellParameterIndex {
   }
 
   uint16_t convertType(std::string typeString) {
-    int letterAscii = (int)typeString[0];
-    int type;
     if(typeString == "B11B12") {
-      type = std::stoi(std::to_string(letterAscii) + "11");
+      return 44;
     }
-    else if(typeString == "A5A6") {
-      type = std::stoi(std::to_string(letterAscii) + "5");
+    if(typeString == "A5A6") {
+      return 15;
     }
-    else {
-      type = std::stoi(std::to_string(letterAscii) + typeString.substr(1, typeString.size()-1));
-    }
-    return (uint16_t)type;
+    //Assuming all other types are stings with two characters, eg. "D8"
+    char firstChar = typeString[0];
+    char secondChar = typeString[1];
+    return (firstChar - 'A' + 3) * (secondChar - '0' + 3);
   }
 
 };
