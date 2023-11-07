@@ -1,0 +1,99 @@
+#include "FWCore/Framework/interface/MakerMacros.h"
+#include "FWCore/Framework/interface/SourceFactory.h"
+#include "FWCore/Framework/interface/ESHandle.h"
+#include "FWCore/Framework/interface/ESProducer.h"
+#include "FWCore/Framework/interface/ESProducts.h"
+#include "FWCore/Framework/interface/ESTransientHandle.h"
+#include "FWCore/Framework/interface/EventSetupRecordIntervalFinder.h"
+#include "FWCore/ParameterSet/interface/FileInPath.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/Utilities/interface/ESGetToken.h"
+#include "DataFormats/Math/interface/libminifloat.h"
+
+#include "HeterogeneousCore/AlpakaCore/interface/alpaka/ESGetToken.h"
+#include "HeterogeneousCore/AlpakaCore/interface/alpaka/ESProducer.h"
+#include "HeterogeneousCore/AlpakaCore/interface/alpaka/ModuleFactory.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/config.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/host.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
+
+#include "CondFormats/DataRecord/interface/HGCalCondSerializableModuleInfoRcd.h"
+
+#include "Geometry/HGCalMapping/interface/HGCalMappingParameterIndex.h"
+#include "Geometry/HGCalMapping/interface/HGCalMappingParameterHostCollection.h"
+#include "Geometry/HGCalMapping/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
+
+#include <string>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+
+namespace ALPAKA_ACCELERATOR_NAMESPACE {
+
+  namespace hgcal {
+
+    class HGCalMappingModuleESProducer : public ESProducer {
+    public:
+
+      HGCalMappingModuleESProducer(const edm::ParameterSet& iConfig)
+        : ESProducer(iConfig),
+          filename_(iConfig.getParameter<std::string>("filename")) {
+        // auto cc = setWhatProduced(this);
+      }
+
+      static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+        edm::ParameterSetDescription desc;
+        desc.add<std::string>("filename", {});
+        descriptions.addWithDefaultLabel(desc);
+      }
+
+      std::optional<hgcal::HGCalMappingModuleParamHostCollection> produce(const HGCalCondSerializableModuleInfoRcd& iRecord) {
+
+        // load dense indexing
+        HGCalMappingParameterIndex cpi;
+        const uint32_t size = cpi.getSize(); // channel-level size
+        hgcal::HGCalMappingModuleParamHostCollection moduleParams(size, cms::alpakatools::host());
+        moduleParams.view().config() = cpi; // set dense indexing in SoA
+
+        // load module mapping parameters
+        edm::FileInPath fip(filename_);
+        std::ifstream file(fip.fullPath());
+        std::string line;
+        size_t iline(0);
+        bool isSiPM,isHD;
+        int plane, u, v, zside;
+        uint16_t fedid,slink,wafType,captureblock,econdidx,captureblockidx;
+        while(std::getline(file, line))
+        {
+          iline++;
+          if(iline==1) continue;
+          std::istringstream stream(line);
+          stream >> plane >> u >> v >> isSiPM >> isHD >> wafType >> econdidx >> captureblock >> slink >> captureblockidx >> fedid >> zside;
+          uint32_t idx = cpi.denseIndex(slink, captureblock, econdidx);
+
+          moduleParams.view()[idx].zside()             = (zside>0);
+          moduleParams.view()[idx].isSiPM()            = isSiPM;
+          moduleParams.view()[idx].isHD()              = isHD;
+          moduleParams.view()[idx].plane()             = plane;
+          moduleParams.view()[idx].u()                 = u;
+          moduleParams.view()[idx].v()                 = v;
+          moduleParams.view()[idx].fedid()             = fedid;
+          moduleParams.view()[idx].slink()             = slink;
+          moduleParams.view()[idx].wafType()           = wafType;
+          moduleParams.view()[idx].captureblock()      = captureblock;
+          moduleParams.view()[idx].econdidx()          = econdidx;
+          moduleParams.view()[idx].captureblockidx()   = captureblockidx;
+        }
+
+        return moduleParams;
+      }  // end of produce()
+
+    private:
+      const std::string filename_;
+    };
+
+  }  // namespace hgcal
+
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
+
+DEFINE_FWK_EVENTSETUP_ALPAKA_MODULE(hgcal::HGCalMappingModuleESProducer);
