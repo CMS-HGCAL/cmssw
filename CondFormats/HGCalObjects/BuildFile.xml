@@ -1,8 +1,11 @@
-<use   name="FWCore/Utilities"/>
-<use   name="FWCore/MessageLogger"/>
-<use   name="HeterogeneousCore/CUDACore"/>
-<use   name="CUDADataFormats/HGCal"/>
-<use   name="Geometry/HGCalCommonData"/>
+<use name="CondFormats/Serialization"/>
+<use name="DataFormats/HGCalDigi"/>
+<use name="DataFormats/Math"/>
+<use name="FWCore/Framework"/>
+<use name="FWCore/Utilities"/>
+<use name="Geometry/HGCalCommonData"/>
+<use name="HeterogeneousCore/CUDACore"/>
+<use name="boost_serialization"/>
 <export>
-  <lib   name="1"/>
+  <lib name="1"/>
 </export>

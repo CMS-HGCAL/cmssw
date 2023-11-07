@@ -1,0 +1,36 @@
+<lcgdict>
+
+  <class name="HGCalCondSerializableConfig" class_version="0">
+    <field name="params_" mapping="blob"/>
+  </class>
+  <class name="std::vector<int>"/>
+  <class name="std::map<std::string, std::vector<int> >"/>
+  <class name="std::pair<std::string, std::vector<int> >"/>
+
+  <class name="HGCalCondSerializableSiCellChannelInfo" class_version="0">
+    <field name="params_" mapping="blob"/>
+  </class>
+  <class name="HGCalSiCellChannelInfo"/>
+  <class name="std::vector<HGCalSiCellChannelInfo>"/>
+
+  <class name="HGCalCondSerializableSiPMTileInfo" class_version="0">
+    <field name="params_" mapping="blob"/>
+  </class>
+  <class name="HGCalSiPMTileInfo"/>
+  <class name="std::vector<HGCalSiPMTileInfo>"/>
+
+  <class name="HGCalCondSerializableModuleInfo" class_version="0">
+    <field name="params_" mapping="blob"/>
+  </class>
+  <class name="HGCalModuleInfo"/>
+  <class name="std::vector<HGCalModuleInfo>"/>
+
+  <class name="HGCalCondSerializablePedestals" class_version="0">
+    <field name="params_" mapping="blob"/>
+  </class>
+  <class name="HGCalPedestals"/>
+  <class name="std::map<uint32_t, HGCalPedestals>"/>
+  <class name="std::pair<uint32_t, HGCalPedestals>"/>
+
+  
+</lcgdict>
