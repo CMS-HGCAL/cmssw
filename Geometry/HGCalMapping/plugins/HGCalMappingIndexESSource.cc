@@ -91,7 +91,7 @@ std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceMod
 
   // configure module indexer and return
   auto c = std::make_unique<HGCalMappingModuleIndexer>();
-  c->update(maxlocalfedid, maxcaptureblock, maxecondidx, maxerx);
+  c->update(maxlocalfedid+1, maxcaptureblock+1, maxecondidx+1, maxerx+1);
   return c;
 }
 
@@ -129,7 +129,7 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSi(co
 
   //instantiate the cell indexer with the appropriate ranges for the Si modules
   auto c = std::make_unique<HGCalMappingCellIndexer>();
-  c->update(maxtype,maxchip,maxhalf,maxseq);
+  c->update(maxtype+1,maxchip+1,maxhalf+1,maxseq+1);
   return c;
 }
 
@@ -164,7 +164,7 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(
     }
 
   //update with the appropriate ranges for the tileboards
-  c->update(maxtype,maxchip,maxhalf,maxseq);
+  c->update(maxtype+1,maxchip+1,maxhalf+1,maxseq+1);
   return c;
 }
 

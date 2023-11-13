@@ -32,12 +32,39 @@ private:
 
     // get timing calibration parameters
     if (cfgWatcher_.check(iSetup)) {
+
       auto modules = iSetup.getData(moduleIndexTkn_);
       auto si = iSetup.getData(siIndexTkn_);
       auto sipm = iSetup.getData(sipmIndexTkn_);
       edm::LogInfo("HGCalMappingIndexESSourceTester") << "Dense indexers retrieved for HGCAL";
-    }
 
+      //print module info
+      edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Module indexer]"
+                                                      << "\n\t max FED=" << modules.idxParams_.maxFEDsPerEndcap
+                                                      <<" max CB/FED=" << modules.idxParams_.sLinkCaptureBlockMax
+                                                      <<" max ECON/CB=" << modules.idxParams_.captureBlockECONDMax
+                                                      <<" max eRx/ECON=" << modules.idxParams_.econdERXMax
+                                                      <<" max ch/eRx=" << modules.idxParams_.erxChannelMax      
+                                                      << "\n\t Total size is=" << modules.getSize()
+                                                      << " size at ROC is=" << modules.getSize(true);
+
+      //print Si Cell info
+      edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Si cell indexer]"
+                                                      << "\n\t max types=" << si.idxParams_.moduleTypeMax
+                                                      << "\t max ROC / type=" << si.idxParams_.cellChipMax
+                                                      << "\t max half / ROC =" << si.idxParams_.halfROCMax
+                                                      << "\t max ch / half=" << si.idxParams_.channelSeqMax
+                                                      << "\n\t Total size is=" << si.getSize();
+
+      //print SiPM-on-tile Cell info
+      edm::LogInfo("HGCalMappingIndexESSourceTester") << "[SiPM-on-tile cell indexer]"
+                                                      << "\n\t max types=" << sipm.idxParams_.moduleTypeMax
+                                                      << "\t max ROC / type=" << sipm.idxParams_.cellChipMax
+                                                      << "\t max half / ROC =" << sipm.idxParams_.halfROCMax
+                                                      << "\t max ch / half=" << sipm.idxParams_.channelSeqMax
+                                                      << "\n\t Total size is=" << sipm.getSize();
+    }
+    
   }
 
   edm::ESWatcher<HGCalMappingModuleIndexerRcd> cfgWatcher_;

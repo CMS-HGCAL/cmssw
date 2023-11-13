@@ -1,6 +1,13 @@
 import FWCore.ParameterSet.Config as cms
 process = cms.Process("TEST")
 
+from FWCore.ParameterSet.VarParsing import VarParsing
+options = VarParsing('python')
+options.register('modules','Geometry/HGCalMapping/data/modulelocator.txt',mytype=VarParsing.varType.string,
+                 info="Path to module mapper. Absolute, or relative to CMSSW src directory,"
+                 " e.g. Geometry/HGCalMapping/data/modulelocator.txt")
+options.parseArguments()
+
 process.MessageLogger = cms.Service("MessageLogger",
     debugModules = cms.untracked.vstring("HGCalMappingIndexESSource*"),
     cerr = cms.untracked.PSet(
@@ -20,6 +27,8 @@ process.maxEvents = cms.untracked.PSet(
 )
 
 process.load('Geometry.HGCalMapping.hgCalMappingIndexESSource_cfi')
+process.hgCalMappingIndexESSource.modules = options.modules
+
 process.analyzer = cms.EDAnalyzer("HGCalMappingIndexESSourceTester")
 
 process.p = cms.Path(process.analyzer)

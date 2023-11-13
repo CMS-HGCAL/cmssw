@@ -12,8 +12,8 @@
 struct HGCalMappingCellIndexParameters {
   uint32_t moduleTypeMax{1};          ///< maximum number of module types
   uint32_t cellChipMax{6};            ///< maximum number of channel chips
-  uint32_t halfROCMax{6};             ///< maximum number of half ROC channels
-  uint32_t channelSeqMax{6};          ///< maximum number sequence numbers
+  uint32_t halfROCMax{2};             ///< maximum number of half ROC channels
+  uint32_t channelSeqMax{36};         ///< maximum number sequence numbers
   COND_SERIALIZABLE;
 };
 
@@ -36,7 +36,7 @@ class HGCalMappingCellIndexer {
     return rtn;
   }
 
-  uint32_t getSize(bool roclevel=false) const{
+  uint32_t getSize() const{
     uint32_t size = idxParams_.moduleTypeMax*idxParams_.cellChipMax*idxParams_.halfROCMax*idxParams_.channelSeqMax;
     return size;
   }
