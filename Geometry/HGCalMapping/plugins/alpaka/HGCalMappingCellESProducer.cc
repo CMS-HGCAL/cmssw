@@ -54,34 +54,45 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         hgcal::HGCalMappingCellParamHostCollection cellParams(size, cms::alpakatools::host());
         cellParams.view().config() = cpi; // set dense indexing in SoA
 
-        // load si cell mapping parameters
+        //open file and read the first line to identify which type it is
         edm::FileInPath fip(filename_);
         std::ifstream file(fip.fullPath());
         std::string line;
-        // size_t iline(0);
-        int i = 0;
-
         std::getline(file, line);
         std::istringstream stream(line);
         std::string firststr;
         stream >> firststr;
         bool isSiPM = false;
         if(firststr == "index") isSiPM = true;
-
+        ifile.clear();
+        ifile.seekg (0, ios::beg);
+ 
+        //use the appopriate parser
         if(isSiPM){
+          fillFromSiPMonTileFile(cellParams,file);
+        } else {
+          fillFromSiFile(cellParams,file);
+        }
 
-          int seq,plane,iu,iv,trigcell,triglink,modiu,t,type;
-          std::string typestr;
+        return cellParams;
+      }  // end of produce()
 
-          while(std::getline(file, line))
+      
+      //
+      void fillFromSiPMonTileFile(hgcal::HGCalMappingCellParamHostCollection &cellParams,std::ifstream &file) {
+        int seq,plane,iu,iv,trigcell,triglink,modiu,t,type;
+        std::string line;        
+        std::string typestr;
+        while(std::getline(file, line))
           {
-            // iline++;
-            // if(iline==1) continue;
+            iline++;
+            if(iline==1) continue;
+            
             std::istringstream stream(line);
-
+            
             stream >> seq >> plane >> iu >> iv >> typestr >> trigcell >> triglink >> modiu >> t;
             type = cpi.convertType(typestr);
-
+            
             cellParams.view()[i].seq() = seq;
             // cellParams.view()[i].plane() = plane;
             cellParams.view()[i].iu() = iu;
@@ -93,21 +104,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             cellParams.view()[i].type() = type;
             i++;
           }  
+      }
 
-        } else { 
+      //
+      void fillFromSiFile(hgcal::HGCalMappingCellParamHostCollection &cellParams,std::ifstream &file) {
 
-          bool isHD,iscalib;
-          uint16_t type, chip, half;
-          uint16_t seq,rocpin;
-          int sicell,triglink,trigcell,iu,iv,t;
-          float trace;
-
-          while(std::getline(file, line))
+        bool isHD,iscalib;
+        uint16_t type, chip, half;
+        uint16_t seq,rocpin;
+        int sicell,triglink,trigcell,iu,iv,t;
+        float trace;
+        uint32_t i=0;
+        while(std::getline(file, line))
           {
-            // iline++;
-            // if(iline==1) continue;
+            iline++;
+            if(iline==1) continue;
+            
             std::istringstream stream(line);
-
+            
             std::string denscol,rocpincol;
             stream >> denscol;
             isHD = denscol=="LD" ? false : true;
@@ -122,7 +136,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               rocpin=std::stoi(rocpincol);
             }
             stream >> sicell >> triglink >> trigcell >> iu >> iv >> trace >> t;
-
+            
             cellParams.view()[i].isHD() = isHD;
             cellParams.view()[i].iscalib() = iscalib;
             cellParams.view()[i].type() = type;
@@ -140,12 +154,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
             i++;
           }
-
-        }
-
-        return cellParams;
-      }  // end of produce()
-
+      }
+      
     private:
       const std::string filename_;
     };

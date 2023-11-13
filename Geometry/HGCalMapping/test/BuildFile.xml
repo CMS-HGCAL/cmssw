@@ -1,8 +1,7 @@
-<!-- indexer plugin -->
 <use name="CondFormats/DataRecord"/>
 <use name="CondFormats/HGCalObjects"/>
 <use name="FWCore/Framework"/>
 <use name="FWCore/ParameterSet"/>
-<library file="HGCalMappingIndexESSource.cc">
-  <flags EDM_PLUGIN="1"/>
+<library file="HGCalMappingIndexESSourceTester.cc" name="HGCalMappingIndexESSourceTester">
+<flags EDM_PLUGIN="1"/>
 </library>
