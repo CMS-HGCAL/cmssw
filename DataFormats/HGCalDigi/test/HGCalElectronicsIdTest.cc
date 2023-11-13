@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
 
   // init static values
   bool zside(false);
-  uint16_t fedid(0);
+  uint16_t localfedid(0);
   uint8_t captureblock(0), econdidx(0), econderx(0), halfrocch(0);
 
   // http://www.cplusplus.com/reference/random/linear_congruential_engine/
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
   for (; u < repetitions; u++) {
 
     zside = (bool) myrand()%2;
-    fedid = myrand() % 576;
+    localfedid = myrand() % 576;
     captureblock = myrand() % 10;
     econdidx = myrand() % 12;
     econderx = myrand() % 12;
@@ -46,10 +46,10 @@ int main(int argc, char** argv) {
     bool cmflag = ((halfrocch==37) || (halfrocch==38));
 
     
-    HGCalElectronicsId eid(zside,fedid, captureblock, econdidx, econderx, halfrocch);
+    HGCalElectronicsId eid(zside,localfedid, captureblock, econdidx, econderx, halfrocch);
     assert(zside == eid.zSide());
     assert(cmflag == eid.isCM());
-    assert(fedid == eid.fedId());
+    assert(localfedid == eid.localFEDId());
     assert(captureblock == eid.captureBlock());
     assert(econdidx == eid.econdIdx());
     assert(econderx == eid.econdeRx());

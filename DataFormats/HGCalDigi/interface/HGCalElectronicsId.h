@@ -11,7 +11,7 @@
    The format is the following:
    Reserved: b'[29,31]
    z side: b'[28]
-   FED ID: b'[18,27]
+   Local FED ID: b'[18,27]
    Capture Block ID: b'[14,17]
    ECON-D idx: b'[10,13]
    ECON-D eRx: b'[6,9]
@@ -22,7 +22,7 @@ class HGCalElectronicsId {
 public:
   enum HGCalElectronicsIdMask {
     kZsideMask = 0x1,
-    kFEDIDMask = 0x3ff,
+    kLocalFEDIDMask = 0x3ff,
     kCaptureBlockMask = 0xf,
     kECONDIdxMask = 0xf,
     kECONDeRxMask = 0xf,
@@ -30,7 +30,7 @@ public:
   };
   enum HGCalElectronicsIdShift {
     kZsideShift = 28,
-    kFEDIDShift = 18,
+    kLocalFEDIDShift = 18,
     kCaptureBlockShift = 14,
     kECONDIdxShift = 10,
     kECONDeRxShift = 6,
@@ -41,7 +41,7 @@ public:
      @short CTOR
   */
   HGCalElectronicsId() : value_(0) {}
-  HGCalElectronicsId(bool zside, uint16_t fedid, uint8_t captureblock, uint8_t econdidx, uint8_t econderx, uint8_t halfrocch);
+  HGCalElectronicsId(bool zside, uint16_t localfedid, uint8_t captureblock, uint8_t econdidx, uint8_t econderx, uint8_t halfrocch);
   HGCalElectronicsId(uint32_t value) : value_(value) {}
   HGCalElectronicsId(const HGCalElectronicsId& o) : value_(o.value_) {}
 
@@ -55,7 +55,7 @@ public:
   bool operator==(const HGCalElectronicsId& oth) const { return value_ == oth.value_; }
   uint32_t raw() const { return value_; }
   bool zSide() const;
-  uint16_t fedId() const;
+  uint16_t localFEDId() const;
   uint8_t captureBlock() const;
   uint8_t econdIdx() const;
   uint8_t econdeRx() const;
@@ -65,7 +65,7 @@ public:
   bool isCM() const;
   void print(std::ostream& out = std::cout) const {
     out << "Raw=0x" << std::hex << raw() << std::dec << std::endl
-        << "\tFED-ID: " << (uint32_t)fedId() << " Capture Block: " << (uint32_t)captureBlock()
+        << "\tLocal FED-ID: " << (uint32_t)localFEDId() << " Capture Block: " << (uint32_t)captureBlock()
         << " ECON-D idx: " << (uint32_t)econdIdx() << " eRx: " << (uint32_t)econdeRx()
         << " 1/2 ROC ch.: " << (uint32_t)halfrocChannel()
         << " isCM=" << isCM() << " zSide=" << zSide() << std::endl;

@@ -62,14 +62,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         size_t iline(0);
         bool isSiPM,isHD;
         int plane, u, v, zside;
-        uint16_t fedid,slink,wafType,captureblock,econdidx,captureblockidx;
+        uint16_t fedid,localfedid,wafType,captureblock,econdidx,captureblockidx;
         while(std::getline(file, line))
         {
           iline++;
           if(iline==1) continue;
           std::istringstream stream(line);
-          stream >> plane >> u >> v >> isSiPM >> isHD >> wafType >> econdidx >> captureblock >> slink >> captureblockidx >> fedid >> zside;
-          uint32_t idx = cpi.denseIndex(slink, captureblock, econdidx);
+          stream >> plane >> u >> v >> isSiPM >> isHD >> wafType >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
+          uint32_t idx = cpi.denseIndex(localfedid, captureblock, econdidx);
 
           moduleParams.view()[idx].zside()             = (zside>0);
           moduleParams.view()[idx].isSiPM()            = isSiPM;
@@ -78,7 +78,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           moduleParams.view()[idx].u()                 = u;
           moduleParams.view()[idx].v()                 = v;
           moduleParams.view()[idx].fedid()             = fedid;
-          moduleParams.view()[idx].slink()             = slink;
+          moduleParams.view()[idx].localfedid()        = localfedid;
           moduleParams.view()[idx].wafType()           = wafType;
           moduleParams.view()[idx].captureblock()      = captureblock;
           moduleParams.view()[idx].econdidx()          = econdidx;

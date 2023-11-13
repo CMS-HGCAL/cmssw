@@ -5,13 +5,13 @@ HGCalElectronicsId::HGCalElectronicsId(
   bool zside, uint16_t fedid, uint8_t captureblock, uint8_t econdidx, uint8_t econderx, uint8_t halfrocch) {
   value_ =
     ((zside & kZsideMask) << kZsideShift) |
-    ((fedid & kFEDIDMask) << kFEDIDShift) | ((captureblock & kCaptureBlockMask) << kCaptureBlockShift) |
+    ((fedid & kLocalFEDIDMask) << kLocalFEDIDShift) | ((captureblock & kCaptureBlockMask) << kCaptureBlockShift) |
            ((econdidx & kECONDIdxMask) << kECONDIdxShift) | ((econderx & kECONDeRxMask) << kECONDeRxShift) |
            ((halfrocch & kHalfROCChannelMask) << kHalfROCChannelShift);
 }
 
 //
-uint16_t HGCalElectronicsId::fedId() const { return (value_ >> kFEDIDShift) & kFEDIDMask; }
+uint16_t HGCalElectronicsId::localFEDId() const { return (value_ >> kLocalFEDIDShift) & kLocalFEDIDMask; }
 
 //
 bool HGCalElectronicsId::zSide() const { return (value_ >> kZsideShift) & kZsideMask; }
