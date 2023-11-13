@@ -1,6 +1,7 @@
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/SourceFactory.h"
 #include "FWCore/Framework/interface/ESHandle.h"
+#include "FWCore/Framework/interface/ESWatcher.h"
 #include "FWCore/Framework/interface/ESProducer.h"
 #include "FWCore/Framework/interface/ESProducts.h"
 #include "FWCore/Framework/interface/ESTransientHandle.h"
@@ -17,9 +18,9 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/host.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 
-#include "CondFormats/DataRecord/interface/HGCalCondSerializableModuleInfoRcd.h"
-
-#include "Geometry/HGCalMapping/interface/HGCalMappingCellParameterIndex.h"
+#include "CondFormats/DataRecord/interface/HGCalMappingSiCellIndexerRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalMappingSiPMCellIndexerRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
 #include "Geometry/HGCalMapping/interface/HGCalMappingParameterHostCollection.h"
 #include "Geometry/HGCalMapping/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
 
@@ -32,27 +33,34 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   namespace hgcal {
 
+    template<class R>
     class HGCalMappingCellESProducer : public ESProducer {
     public:
 
+      //
       HGCalMappingCellESProducer(const edm::ParameterSet& iConfig)
         : ESProducer(iConfig),
           filename_(iConfig.getParameter<std::string>("filename")) {
+        auto cc = setWhatProduced(this);
+        cellIndexTkn_ = cc.consumes(iConfig.getParameter<edm::ESInputTag>("cellindexer"));
       }
 
+      //
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
         edm::ParameterSetDescription desc;
         desc.add<std::string>("filename", {});
+        desc.add<edm::ESInputTag>("cellindexer",edm::ESInputTag(""))->setComment("Dense cell index tool");
         descriptions.addWithDefaultLabel(desc);
       }
 
-      std::optional<hgcal::HGCalMappingCellParamHostCollection> produce(const HGCalCondSerializableModuleInfoRcd& iRecord) {
+      //
+      std::optional<HGCalMappingCellParamHostCollection> produce(const R& iRecord) {
+        
+        //get cell indexer
+        HGCalMappingCellIndexer cpi = iRecord.get(cellIndexTkn_);
 
-        // load dense indexing
-        HGCalMappingCellParameterIndex cpi;
         const uint32_t size = cpi.getSize(); // channel-level size
-        hgcal::HGCalMappingCellParamHostCollection cellParams(size, cms::alpakatools::host());
-        cellParams.view().config() = cpi; // set dense indexing in SoA
+        HGCalMappingCellParamHostCollection cellParams(size, cms::alpakatools::host());
 
         //open file and read the first line to identify which type it is
         edm::FileInPath fip(filename_);
@@ -64,79 +72,43 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         stream >> firststr;
         bool isSiPM = false;
         if(firststr == "index") isSiPM = true;
-        ifile.clear();
-        ifile.seekg (0, ios::beg);
  
-        //use the appopriate parser
-        if(isSiPM){
-          fillFromSiPMonTileFile(cellParams,file);
-        } else {
-          fillFromSiFile(cellParams,file);
-        }
-
-        return cellParams;
-      }  // end of produce()
-
-      
-      //
-      void fillFromSiPMonTileFile(hgcal::HGCalMappingCellParamHostCollection &cellParams,std::ifstream &file) {
-        int seq,plane,iu,iv,trigcell,triglink,modiu,t,type;
-        std::string line;        
-        std::string typestr;
-        while(std::getline(file, line))
-          {
-            iline++;
-            if(iline==1) continue;
-            
-            std::istringstream stream(line);
-            
-            stream >> seq >> plane >> iu >> iv >> typestr >> trigcell >> triglink >> modiu >> t;
-            type = cpi.convertType(typestr);
-            
-            cellParams.view()[i].seq() = seq;
-            // cellParams.view()[i].plane() = plane;
-            cellParams.view()[i].iu() = iu;
-            cellParams.view()[i].iv() = iv;
-            cellParams.view()[i].trigcell() = trigcell;
-            cellParams.view()[i].triglink() = triglink;
-            cellParams.view()[i].modiu() = modiu;
-            cellParams.view()[i].t() = t;
-            cellParams.view()[i].type() = type;
-            i++;
-          }  
-      }
-
-      //
-      void fillFromSiFile(hgcal::HGCalMappingCellParamHostCollection &cellParams,std::ifstream &file) {
-
-        bool isHD,iscalib;
-        uint16_t type, chip, half;
-        uint16_t seq,rocpin;
-        int sicell,triglink,trigcell,iu,iv,t;
+        //parse file and fill the SoA with the cell info
+        bool isHD(false),iscalib(false);
+        uint16_t type, chip, half,plane;
+        uint16_t seq,rocpin(0);
+        int sicell,triglink,trigcell,iu,iv,t,modiu;
         float trace;
-        uint32_t i=0;
+        std::string typestr,denscol,rocpincol;
         while(std::getline(file, line))
           {
-            iline++;
-            if(iline==1) continue;
-            
             std::istringstream stream(line);
-            
-            std::string denscol,rocpincol;
-            stream >> denscol;
-            isHD = denscol=="LD" ? false : true;
-            stream >> type >> chip >> half >> seq;
-            stream >> rocpincol;
-            if(rocpincol.find("CALIB")!=std::string::npos) {
-              iscalib=true;
-              rocpin=uint16_t(rocpincol[rocpincol.size()-1]);
+
+            //SiPM version
+            if(isSiPM) {
+              stream >> seq >> plane >> iu >> iv >> typestr >> trigcell >> triglink >> modiu >> t;
+              type = cpi.convertType(typestr);
             }
+
+            //Si version
             else {
-              iscalib=false;
-              rocpin=std::stoi(rocpincol);
+              stream >> denscol;
+              isHD = denscol=="LD" ? false : true;
+              stream >> type >> chip >> half >> seq;
+              stream >> rocpincol;
+              if(rocpincol.find("CALIB")!=std::string::npos) {
+                iscalib=true;
+                rocpin=uint16_t(rocpincol[rocpincol.size()-1]);
+              }
+              else {
+                iscalib=false;
+                rocpin=std::stoi(rocpincol);
+              }
+              stream >> sicell >> triglink >> trigcell >> iu >> iv >> trace >> t;
             }
-            stream >> sicell >> triglink >> trigcell >> iu >> iv >> trace >> t;
-            
+
+            //get dense index and fill the values
+            int i = cpi.denseIndex(type,chip,half,seq);
             cellParams.view()[i].isHD() = isHD;
             cellParams.view()[i].iscalib() = iscalib;
             cellParams.view()[i].type() = type;
@@ -151,17 +123,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             cellParams.view()[i].iv() = iv;
             cellParams.view()[i].t() = t;
             cellParams.view()[i].trace() = trace;
-
-            i++;
           }
-      }
+
+        return cellParams;
+      }  // end of produce()
       
+
     private:
+      edm::ESGetToken<HGCalMappingCellIndexer,R> cellIndexTkn_;
       const std::string filename_;
     };
 
+    typedef HGCalMappingCellESProducer<HGCalMappingSiCellIndexerRcd> HGCalMappingSiCellESProducer;
+    typedef HGCalMappingCellESProducer<HGCalMappingSiPMCellIndexerRcd> HGCalMappingSiPMCellESProducer;
+      
   }  // namespace hgcal
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
-DEFINE_FWK_EVENTSETUP_ALPAKA_MODULE(hgcal::HGCalMappingCellESProducer);
+DEFINE_FWK_EVENTSETUP_ALPAKA_MODULE(hgcal::HGCalMappingSiCellESProducer);
+DEFINE_FWK_EVENTSETUP_ALPAKA_MODULE(hgcal::HGCalMappingSiPMCellESProducer);
