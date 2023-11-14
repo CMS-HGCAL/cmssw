@@ -19,9 +19,7 @@
 #include "CondFormats/DataRecord/interface/HGCalMappingModuleIndexerRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalMappingModuleRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalMappingSiCellIndexerRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalMappingSiCellRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalMappingSiPMCellIndexerRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalMappingSiPMCellRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHostCollection.h"
@@ -98,7 +96,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                     << "\t max ch / half=" << sipmIdx.idxParams_.channelSeqMax
                                                     << "\n\t Total size is=" << sipmIdx.getSize();
     
-    auto modules = iSetup.getData(moduleTkn_);
+    const auto modules = iSetup.getData(moduleTkn_);
     //for(int i=0; i<deviceCalibParamProvider.view().metadata().size(); i++) {
     //      LogDebug("HGCalCalibrationParameter")
     //          << "idx = "         << i << ", "
