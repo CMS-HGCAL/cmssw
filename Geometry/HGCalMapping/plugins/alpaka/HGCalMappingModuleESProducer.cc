@@ -17,8 +17,8 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "CondFormats/DataRecord/interface/HGCalMappingModuleIndexerRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
-#include "Geometry/HGCalMapping/interface/HGCalMappingParameterHostCollection.h"
-#include "Geometry/HGCalMapping/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHostCollection.h"
+#include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
 
 #include <string>
 #include <iostream>

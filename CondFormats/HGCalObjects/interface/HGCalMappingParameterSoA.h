@@ -1,5 +1,5 @@
-#ifndef Geometry_HGCalMapping_interface_HGCalMappingParameterSoA_h
-#define Geometry_HGCalMapping_interface_HGCalMappingParameterSoA_h
+#ifndef CondFormats_HGCalObjects_interface_HGCalMappingParameterSoA_h
+#define CondFormats_HGCalObjects_interface_HGCalMappingParameterSoA_h
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -53,4 +53,4 @@ namespace hgcal {
 
 }  // namespace hgcal
 
-#endif  // Geometry_HGCalMapping_interface_HGCalMappingParameterSoA_h
+#endif  // CondFormats_HGCalObjects_interface_HGCalMappingParameterSoA_h

@@ -21,8 +21,8 @@
 #include "CondFormats/DataRecord/interface/HGCalMappingSiCellIndexerRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalMappingSiPMCellIndexerRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
-#include "Geometry/HGCalMapping/interface/HGCalMappingParameterHostCollection.h"
-#include "Geometry/HGCalMapping/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHostCollection.h"
+#include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
 
 #include <string>
 #include <iostream>

@@ -1,4 +1,4 @@
-#include "Geometry/HGCalMapping/interface/HGCalMappingParameterHostCollection.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHostCollection.h"
 #include "FWCore/Utilities/interface/typelookup.h"
 
 TYPELOOKUP_DATA_REG(hgcal::HGCalMappingModuleParamHostCollection);

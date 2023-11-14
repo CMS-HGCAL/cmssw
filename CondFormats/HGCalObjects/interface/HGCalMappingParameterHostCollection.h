@@ -1,8 +1,8 @@
-#ifndef Geometry_HGCalMapping_interface_HGCalMappingParameterHostCollection_h
-#define Geometry_HGCalMapping_interface_HGCalMappingParameterHostCollection_h
+#ifndef CondFormats_HGCalObjects_interface_HGCalMappingParameterHostCollection_h
+#define CondFormats_HGCalObjects_interface_HGCalMappingParameterHostCollection_h
 
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
-#include "Geometry/HGCalMapping/interface/HGCalMappingParameterSoA.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterSoA.h"
 
 namespace hgcal {
 
@@ -17,4 +17,4 @@ namespace hgcal {
 
 }  // namespace hgcal
 
-#endif  // Geometry_HGCalMapping_interface_HGCalMappingParameterHostCollection_h
+#endif  // CondFormats_HGCalObjects_interface_HGCalMappingParameterHostCollection_h

@@ -46,6 +46,7 @@ process.hgCalMappingSiPMCellESProducer = cms.ESProducer('hgcal::HGCalMappingSiPM
                                                         filename=cms.string(options.sipmcells),
                                                         cellindexer=cms.ESInputTag('') )
 
-process.analyzer = cms.EDAnalyzer("HGCalMappingIndexESSourceTester")
+#tester
+process.tester = cms.EDProducer('HGCalMappingESSourceTester@alpaka')
 
-process.p = cms.Path(process.analyzer)
+process.p = cms.Path(process.tester)
