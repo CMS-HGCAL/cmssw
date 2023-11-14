@@ -1,6 +1,6 @@
 // -*- C++ -*-
 //
-// Package:     Subsystem/Package
+// Package:     CondFormats/DataRecord
 // Class  :     HGCalMappingSiCellIndexerRcd
 //
 // Implementation:

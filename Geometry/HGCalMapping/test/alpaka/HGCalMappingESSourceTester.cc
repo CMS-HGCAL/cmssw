@@ -16,14 +16,16 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/CopyToDevice.h"
 #include "DataFormats/PortableTestObjects/interface/alpaka/TestDeviceCollection.h"
 
-#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHostCollection.h"
-#include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
 #include "CondFormats/DataRecord/interface/HGCalMappingModuleIndexerRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalMappingModuleRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalMappingSiCellIndexerRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalMappingSiCellRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalMappingSiPMCellIndexerRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalMappingSiPMCellRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
-
+#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHostCollection.h"
+#include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -43,7 +45,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
     edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiCellIndexerRcd> siIndexTkn_;
     edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd> sipmIndexTkn_;
-    //device::ESGetToken<hgcal::HGCalMappingModuleParamHostCollection, HGCalMappingModuleRcd> moduleTkn_;
+    device::ESGetToken<hgcal::HGCalMappingModuleParamDeviceCollection, HGCalMappingModuleRcd> moduleTkn_;
 
     const device::EDPutToken<portabletest::TestDeviceCollection> testCollToken_;
   };
@@ -53,7 +55,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     : moduleIndexTkn_(esConsumes<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd>()),
       siIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiCellIndexerRcd>()),
       sipmIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd>()),
-      //moduleTkn_(esConsumes<hgcal::HGCalMappingModuleParamHostCollection, HGCalMappingModuleRcd>),
+      moduleTkn_(esConsumes(edm::ESInputTag(""))),
       testCollToken_{produces()} {
   }
 
@@ -71,34 +73,32 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     if (!cfgWatcher_.check(iSetup)) return;
 
     //get indexers
-    auto modules = iSetup.getData(moduleIndexTkn_);
-    auto si = iSetup.getData(siIndexTkn_);
-    auto sipm = iSetup.getData(sipmIndexTkn_);
+    auto modulesIdx = iSetup.getData(moduleIndexTkn_);
+    auto siIdx = iSetup.getData(siIndexTkn_);
+    auto sipmIdx = iSetup.getData(sipmIndexTkn_);
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "Dense indexers retrieved for HGCAL";
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Module indexer]"
-                                                    << "\n\t max FED=" << modules.idxParams_.maxFEDsPerEndcap
-                                                    <<" max CB/FED=" << modules.idxParams_.sLinkCaptureBlockMax
-                                                    <<" max ECON/CB=" << modules.idxParams_.captureBlockECONDMax
-                                                    <<" max eRx/ECON=" << modules.idxParams_.econdERXMax
-                                                    <<" max ch/eRx=" << modules.idxParams_.erxChannelMax      
-                                                    << "\n\t Total size is=" << modules.getSize()
-                                                    << " size at ROC is=" << modules.getSize(true);
+                                                    << "\n\t max FED=" << modulesIdx.idxParams_.maxFEDsPerEndcap
+                                                    <<" max CB/FED=" << modulesIdx.idxParams_.sLinkCaptureBlockMax
+                                                    <<" max ECON/CB=" << modulesIdx.idxParams_.captureBlockECONDMax
+                                                    <<" max eRx/ECON=" << modulesIdx.idxParams_.econdERXMax
+                                                    <<" max ch/eRx=" << modulesIdx.idxParams_.erxChannelMax      
+                                                    << "\n\t Total size is=" << modulesIdx.getSize()
+                                                    << " size at ROC is=" << modulesIdx.getSize(true);
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Si cell indexer]"
-                                                    << "\n\t max types=" << si.idxParams_.moduleTypeMax
-                                                    << "\t max ROC / type=" << si.idxParams_.cellChipMax
-                                                    << "\t max half / ROC =" << si.idxParams_.halfROCMax
-                                                    << "\t max ch / half=" << si.idxParams_.channelSeqMax
-                                                    << "\n\t Total size is=" << si.getSize();
+                                                    << "\n\t max types=" << siIdx.idxParams_.moduleTypeMax
+                                                    << "\t max ROC / type=" << siIdx.idxParams_.cellChipMax
+                                                    << "\t max half / ROC =" << siIdx.idxParams_.halfROCMax
+                                                    << "\t max ch / half=" << siIdx.idxParams_.channelSeqMax
+                                                    << "\n\t Total size is=" << siIdx.getSize();
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[SiPM-on-tile cell indexer]"
-                                                    << "\n\t max types=" << sipm.idxParams_.moduleTypeMax
-                                                    << "\t max ROC / type=" << sipm.idxParams_.cellChipMax
-                                                    << "\t max half / ROC =" << sipm.idxParams_.halfROCMax
-                                                    << "\t max ch / half=" << sipm.idxParams_.channelSeqMax
-                                                    << "\n\t Total size is=" << sipm.getSize();
+                                                    << "\n\t max types=" << sipmIdx.idxParams_.moduleTypeMax
+                                                    << "\t max ROC / type=" << sipmIdx.idxParams_.cellChipMax
+                                                    << "\t max half / ROC =" << sipmIdx.idxParams_.halfROCMax
+                                                    << "\t max ch / half=" << sipmIdx.idxParams_.channelSeqMax
+                                                    << "\n\t Total size is=" << sipmIdx.getSize();
     
-
-
-    //auto const& deviceCalibParamProvider = iSetup.getData(calibToken_);
+    auto modules = iSetup.getData(moduleTkn_);
     //for(int i=0; i<deviceCalibParamProvider.view().metadata().size(); i++) {
     //      LogDebug("HGCalCalibrationParameter")
     //          << "idx = "         << i << ", "

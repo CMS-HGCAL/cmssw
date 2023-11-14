@@ -1,11 +1,11 @@
-#ifndef HGCalMappingSiCellIndexerRcd_HGCalMappingSiCellIndexerRcd_h
-#define HGCalMappingSiCellIndexerRcd_HGCalMappingSiCellIndexerRcd_h
+#ifndef CondFormatsSiCellIndexerRcd_HGCalMappingSiCellIndexerRcd_h
+#define CondFormatsSiCellIndexerRcd_HGCalMappingSiCellIndexerRcd_h
 // -*- C++ -*-
 //
-// Package:     Subsystem/Package
+// Package:     CondFormats/DataRecords
 // Class  :     HGCalMappingSiCellIndexerRcd
 //
-/**\class HGCalMappingSiCellIndexerRcd HGCalMappingSiCellIndexerRcd.h Subsystem/Package/interface/HGCalMappingSiCellIndexerRcd.h
+/**\class HGCalMappingSiCellIndexerRcd HGCalMappingSiCellIndexerRcd.h CondFormats/DataRecords/interface/HGCalMappingSiCellIndexerRcd.h
 
  Description: [one line class summary]
 

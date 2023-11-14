@@ -1,11 +1,11 @@
-#ifndef HGCalMappingModuleIndexerRcd_HGCalMappingModuleIndexerRcd_h
-#define HGCalMappingModuleIndexerRcd_HGCalMappingModuleIndexerRcd_h
+#ifndef CondFormatsModuleIndexerRcd_HGCalMappingModuleIndexerRcd_h
+#define CondFormatsModuleIndexerRcd_HGCalMappingModuleIndexerRcd_h
 // -*- C++ -*-
 //
-// Package:     Subsystem/Package
+// Package:     CondFormats/DataRecords
 // Class  :     HGCalMappingModuleIndexerRcd
 //
-/**\class HGCalMappingModuleIndexerRcd HGCalMappingModuleIndexerRcd.h Subsystem/Package/interface/HGCalMappingModuleIndexerRcd.h
+/**\class HGCalMappingModuleIndexerRcd HGCalMappingModuleIndexerRcd.h CondFormats/DataRecords/interface/HGCalMappingModuleIndexerRcd.h
 
  Description: [one line class summary]
 
