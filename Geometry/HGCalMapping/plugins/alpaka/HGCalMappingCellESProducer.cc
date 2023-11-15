@@ -86,7 +86,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
             //SiPM version
             if(isSiPM) {
-              stream >> seq >> plane >> iu >> iv >> typestr >> trigcell >> triglink >> modiu >> t;
+              stream >> sicell >> chip >> half >> seq >> plane >> iu >> iv >> typestr >> trigcell >> triglink >> modiu >> t;
               type = cpi.convertType(typestr);
             }
 

@@ -149,7 +149,7 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(
   size_t iline(0);
   uint16_t maxtype(0),maxchip(0),maxhalf(0),maxseq(0);
   int plane,iu,iv,trigcell,triglink,modiu,t;
-  uint16_t type, seq;
+  uint16_t type, index, chip, half, seq;
   std::string typestr;
   
   while(std::getline(file, line))
@@ -158,12 +158,14 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(
       if(iline==1) continue;
       std::istringstream stream(line);
       
-      stream >> seq >> plane >> iu >> iv >> typestr >> trigcell >> triglink >> modiu >> t;
+      stream >> index >> chip >> half >> seq >> plane >> iu >> iv >> typestr >> trigcell >> triglink >> modiu >> t;
       type = c->convertType(typestr);
       
       maxtype=std::max(type,maxtype);
-      maxhalf=2;
+      maxchip=std::max(chip,maxchip);
+      maxhalf=std::max(half,maxhalf);
       maxseq=std::max(seq,maxseq);
+      std::cout << "seq: " << seq << std::endl;
     }
 
   //update with the appropriate ranges for the tileboards
