@@ -61,7 +61,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         // load module mapping parameters
         edm::FileInPath fip(filename_);
         std::ifstream file(fip.fullPath());
-        std::string line;
+        std::string line,SiPMtype;
         size_t iline(0);
         bool isSiPM,isHD;
         int plane, u, v, zside;
@@ -71,7 +71,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           iline++;
           if(iline==1) continue;
           std::istringstream stream(line);
-          stream >> plane >> u >> v >> isSiPM >> isHD >> wafType >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
+          stream >> plane >> u >> v >> isSiPM >> isHD;
+          if(isSiPM) {
+            stream >> SiPMtype;
+            wafType = cpi.convertType(SiPMtype);
+          }
+          else stream >> wafType;
+          stream >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
 
           uint32_t idx = cpi.denseIndex(localfedid, captureblock, econdidx);
           moduleParams.view()[idx].zside()             = (zside>0);

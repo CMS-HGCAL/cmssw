@@ -98,6 +98,19 @@ class HGCalMappingModuleIndexer {
     return size;
   }
 
+  uint16_t convertType(std::string typeString) {
+    if(typeString == "B11B12") {
+      return 44;
+    }
+    if(typeString == "A5A6") {
+      return 15;
+    }
+    //Assuming all other types are stings with two characters, eg. "D8"
+    char firstChar = typeString[0];
+    char secondChar = typeString[1];
+    return (firstChar - 'A' + 3) * (secondChar - '0' + 3);
+  }
+
   HGCalMappingModuleIndexParameters idxParams_;
   
   COND_SERIALIZABLE;

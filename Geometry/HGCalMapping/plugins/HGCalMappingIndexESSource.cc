@@ -68,7 +68,7 @@ std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceMod
   // load module mapping parameters and find ranges
   edm::FileInPath fip(module_filename_);
   std::ifstream file(fip.fullPath());
-  std::string line;
+  std::string line, SiPMtype;
   size_t iline(0);
   bool isSiPM,isHD;
   int plane, u, v, zside;
@@ -80,7 +80,10 @@ std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceMod
       if(iline==1) continue;
       
       std::istringstream stream(line);
-      stream >> plane >> u >> v >> isSiPM >> isHD >> wafType >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
+      stream >> plane >> u >> v >> isSiPM >> isHD; 
+      if(isSiPM) stream >> SiPMtype;
+      else stream >> wafType;
+      stream >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
       
       maxlocalfedid=std::max(localfedid,maxlocalfedid);
       maxcaptureblock=std::max(captureblock,maxcaptureblock);
