@@ -1,15 +1,15 @@
 // -*- C++ -*-
 //
 // Package:     CondFormats/DataRecord
-// Class  :     HGCalCondSerializablePedestalsRcd
+// Class  :     HGCalMappingModuleRcd
 //
 // Implementation:
 //     [Notes on implementation]
 //
 // Author:      Pedro Vieira De Castro Ferreira Da Silva
-// Created:     Thu, 01 Jun 2023 09:12:22 GMT
+// Created:     Mon, 13 Nov 2023 12:02:11 GMT
 
-#include "CondFormats/DataRecord/interface/HGCalCondSerializablePedestalsRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalMappingModuleRcd.h"
 #include "FWCore/Framework/interface/eventsetuprecord_registration_macro.h"
 
-EVENTSETUP_RECORD_REG(HGCalCondSerializablePedestalsRcd);
+EVENTSETUP_RECORD_REG(HGCalMappingModuleRcd);

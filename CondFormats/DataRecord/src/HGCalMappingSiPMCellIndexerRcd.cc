@@ -1,15 +1,15 @@
 // -*- C++ -*-
 //
 // Package:     CondFormats/DataRecord
-// Class  :     HGCalCondSerializableConfigRcd
+// Class  :     HGCalMappingSiPMCellIndexerRcd
 //
 // Implementation:
 //     [Notes on implementation]
 //
 // Author:      Pedro Vieira De Castro Ferreira Da Silva
-// Created:     Mon, 29 May 2023 09:13:07 GMT
+// Created:     Mon, 13 Nov 2023 12:01:56 GMT
 
-#include "CondFormats/DataRecord/interface/HGCalCondSerializableConfigRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalMappingSiPMCellIndexerRcd.h"
 #include "FWCore/Framework/interface/eventsetuprecord_registration_macro.h"
 
-EVENTSETUP_RECORD_REG(HGCalCondSerializableConfigRcd);
+EVENTSETUP_RECORD_REG(HGCalMappingSiPMCellIndexerRcd);

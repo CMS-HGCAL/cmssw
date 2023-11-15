@@ -1,11 +1,11 @@
-#ifndef Geometry_HGCalMapping_interface_alpaka_HGCalMappingParameterHostCollection_h
-#define Geometry_HGCalMapping_interface_alpaka_HGCalMappingParameterHostCollection_h
+#ifndef CondFormats_HGCalObjects_interface_alpaka_HGCalMappingParameterHostCollection_h
+#define CondFormats_HGCalObjects_interface_alpaka_HGCalMappingParameterHostCollection_h
 
 #include "DataFormats/Portable/interface/alpaka/PortableCollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
-#include "Geometry/HGCalMapping/interface/HGCalMappingParameterSoA.h"
-#include "Geometry/HGCalMapping/interface/HGCalMappingParameterHostCollection.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterSoA.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHostCollection.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -19,4 +19,4 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
-#endif  // Geometry_HGCalMapping_interface_alpaka_HGCalMappingParameterHostCollection_h
+#endif  // CondFormats_HGCalObjects_interface_alpaka_HGCalMappingParameterHostCollection_h

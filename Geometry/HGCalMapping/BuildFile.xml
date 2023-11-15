@@ -1,14 +1,7 @@
-<use name="DataFormats/ParticleFlowReco"/>
-<use name="DataFormats/Portable"/>
-<use name="DataFormats/SoATemplate"/>
 <use name="FWCore/MessageLogger"/>
 <use name="FWCore/ParameterSet"/>
 <use name="FWCore/Framework"/>
 <use name="FWCore/Utilities"/>
-<use name="DataFormats/HGCalDigi"/>
-<use name="DataFormats/ForwardDetId"/>
-<use name="HeterogeneousCore/AlpakaCore"/>
-<use name="HeterogeneousCore/AlpakaInterface"/>
 <use name="CondFormats/HGCalObjects"/>
 <flags ALPAKA_BACKENDS="1"/>
 <export>
