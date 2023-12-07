@@ -50,17 +50,40 @@ class HGCalMappingCellIndexer {
     idxParams_.channelSeqMax = seqMax;
   }
 
-  uint16_t convertType(std::string typeString) {
-    if(typeString == "B11B12") {
-      return 44;
+  uint16_t convertSiPMTypecode(std::string typeString) {
+
+    const std::map<std::string, uint16_t> typeMap_ = {
+      {"TM-A5A6", 1},
+      {"TM-A5", 1},
+      {"TM-A6", 1},
+      {"TM-B11B12", 2},
+      {"TM-B11", 2},
+      {"TM-B12", 2},
+      {"TM-C5", 3},
+      {"TM-D8", 4},
+      {"TM-E8", 5},
+      {"TM-G3", 6},
+      {"TM-G4", 7},
+      {"TM-G5", 8},
+      {"TM-G6", 9},
+      {"TM-G7", 10},
+      {"TM-G8", 11},
+      {"TM-J8", 12},
+      {"TM-J12", 13},
+      {"TM-K4", 14},
+      {"TM-K5", 15},
+      {"TM-K6", 16},
+      {"TM-K7", 17},
+      {"TM-K8", 18},
+      {"TM-K10", 19},
+      {"TM-K12", 20}
+    };
+
+    auto it = typeMap_.find(typeString);
+    if (it != typeMap_.end()) {
+      return it->second;
     }
-    if(typeString == "A5A6") {
-      return 15;
-    }
-    //Assuming all other types are stings with two characters, eg. "D8"
-    char firstChar = typeString[0];
-    char secondChar = typeString[1];
-    return (firstChar - 'A' + 3) * (secondChar - '0' + 3);
+    return typeMap_.size();
   }
 
   HGCalMappingCellIndexParameters idxParams_;
