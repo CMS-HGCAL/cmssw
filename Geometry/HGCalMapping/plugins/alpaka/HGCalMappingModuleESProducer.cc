@@ -61,23 +61,31 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         // load module mapping parameters
         edm::FileInPath fip(filename_);
         std::ifstream file(fip.fullPath());
-        std::string line,SiPMtype;
+        std::string line,typecode;
         size_t iline(0);
-        bool isSiPM,isHD;
-        int plane, u, v, zside;
-        uint16_t fedid,localfedid,wafType,captureblock,econdidx,captureblockidx;
+        bool isSiPM, isHD;
+        int plane, u, v, zside, thickness(0);
+        uint16_t fedid,localfedid,captureblock,econdidx,captureblockidx,type(0);
         while(std::getline(file, line))
         {
           iline++;
           if(iline==1) continue;
           std::istringstream stream(line);
-          stream >> plane >> u >> v >> isSiPM >> isHD;
-          if(isSiPM) {
-            stream >> SiPMtype;
-            wafType = cpi.convertType(SiPMtype);
+          stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
+          
+          isHD = false;
+          if(typecode[0] == 'T') {
+            isSiPM = true;
+            type = cpi.convertSiPMTypecode(typecode);
           }
-          else stream >> wafType;
-          stream >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
+          else {
+            isSiPM = false;
+            if(typecode[1] == 'H'){
+              isHD = true;
+            }
+            type = cpi.convertSiTypecode(typecode);
+            thickness = atoi(&typecode[4]);
+          }
 
           uint32_t idx = cpi.denseIndex(localfedid, captureblock, econdidx);
           moduleParams.view()[idx].zside()             = (zside>0);
@@ -86,9 +94,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           moduleParams.view()[idx].plane()             = plane;
           moduleParams.view()[idx].u()                 = u;
           moduleParams.view()[idx].v()                 = v;
+          moduleParams.view()[idx].thickness()         = thickness;
+          moduleParams.view()[idx].type()              = type;
           moduleParams.view()[idx].fedid()             = fedid;
           moduleParams.view()[idx].localfedid()        = localfedid;
-          moduleParams.view()[idx].wafType()           = wafType;
           moduleParams.view()[idx].captureblock()      = captureblock;
           moduleParams.view()[idx].econdidx()          = econdidx;
           moduleParams.view()[idx].captureblockidx()   = captureblockidx;

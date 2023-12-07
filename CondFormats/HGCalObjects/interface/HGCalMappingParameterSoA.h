@@ -22,9 +22,10 @@ namespace hgcal {
                       SOA_COLUMN(int, plane),
                       SOA_COLUMN(int, u),
                       SOA_COLUMN(int, v),
+                      SOA_COLUMN(int, thickness),
+                      SOA_COLUMN(uint16_t, type),
                       SOA_COLUMN(uint16_t, fedid),
                       SOA_COLUMN(uint16_t, localfedid),
-                      SOA_COLUMN(uint16_t, wafType),
                       SOA_COLUMN(uint16_t, captureblock),
                       SOA_COLUMN(uint16_t, econdidx),
                       SOA_COLUMN(uint16_t, captureblockidx)
@@ -40,14 +41,13 @@ namespace hgcal {
                       SOA_COLUMN(uint16_t, half),
                       SOA_COLUMN(uint16_t, seq),
                       SOA_COLUMN(uint16_t, rocpin),
-                      SOA_COLUMN(int, sicell),
+                      SOA_COLUMN(int, cellidx),
                       SOA_COLUMN(int, triglink),
                       SOA_COLUMN(int, trigcell),
                       SOA_COLUMN(int, iu),
                       SOA_COLUMN(int, iv),
                       SOA_COLUMN(int, t),
-                      SOA_COLUMN(float, trace),
-                      SOA_COLUMN(int, modiu) // SiPM module ring
+                      SOA_COLUMN(float, trace)
   )
   using HGCalMappingCellParamSoA = HGCalMappingCellParamSoALayout<>;
 
