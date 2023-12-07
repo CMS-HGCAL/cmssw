@@ -68,11 +68,10 @@ std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceMod
   // load module mapping parameters and find ranges
   edm::FileInPath fip(module_filename_);
   std::ifstream file(fip.fullPath());
-  std::string line, SiPMtype;
+  std::string line, typecode;
   size_t iline(0);
-  bool isSiPM,isHD;
-  int plane, u, v, zside;
-  uint16_t fedid,localfedid,wafType,captureblock,econdidx,captureblockidx;
+  int plane, u, v, zside, isHD;
+  uint16_t fedid,localfedid,captureblock,econdidx,captureblockidx;
   uint16_t maxlocalfedid(0),maxcaptureblock(0),maxecondidx(0),maxerx(0);
   while(std::getline(file, line))
     {
@@ -80,14 +79,14 @@ std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceMod
       if(iline==1) continue;
       
       std::istringstream stream(line);
-      stream >> plane >> u >> v >> isSiPM >> isHD; 
-      if(isSiPM) stream >> SiPMtype;
-      else stream >> wafType;
-      stream >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
-      
+      stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
+
       maxlocalfedid=std::max(localfedid,maxlocalfedid);
       maxcaptureblock=std::max(captureblock,maxcaptureblock);
       maxecondidx=std::max(econdidx,maxecondidx);
+
+      isHD = 0;
+      if(typecode.substr(0, 2) == "MH") isHD = 1;
       uint16_t nerx=6*(1+isHD);
       maxerx=std::max(nerx,maxerx);
     }
@@ -112,6 +111,7 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSi(co
   uint16_t seq;
   int sicell,triglink,trigcell,iu,iv,t;
   float trace;
+  
   while(std::getline(file, line))
     {
       iline++;
@@ -148,9 +148,9 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(
   std::string line;
   size_t iline(0);
   uint16_t maxtype(0),maxchip(0),maxhalf(0),maxseq(0);
-  int plane,iu,iv,trigcell,triglink,modiu,t;
+  int iu,iv,trigcell,triglink,t;
   uint16_t type, index, chip, half, seq;
-  std::string typestr;
+  std::string typecode;
   
   while(std::getline(file, line))
     {
@@ -158,18 +158,17 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(
       if(iline==1) continue;
       std::istringstream stream(line);
       
-      stream >> index >> chip >> half >> seq >> plane >> iu >> iv >> typestr >> trigcell >> triglink >> modiu >> t;
-      type = c->convertType(typestr);
+      stream >> index >> chip >> half >> seq >> iu >> iv >> typecode >> trigcell >> triglink >> t;
+      type = c->convertSiPMTypecode(typecode);
       
       maxtype=std::max(type,maxtype);
       maxchip=std::max(chip,maxchip);
       maxhalf=std::max(half,maxhalf);
       maxseq=std::max(seq,maxseq);
-      std::cout << "seq: " << seq << std::endl;
     }
 
   //update with the appropriate ranges for the tileboards
-  c->update(maxtype+1,maxchip+1,maxhalf+1,maxseq+1);
+  c->update(maxtype,maxchip+1,maxhalf+1,maxseq+1);
   return c;
 }
 

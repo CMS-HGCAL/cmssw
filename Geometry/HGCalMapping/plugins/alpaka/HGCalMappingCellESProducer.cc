@@ -75,19 +75,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
  
         //parse file and fill the SoA with the cell info
         bool isHD(false),iscalib(false);
-        uint16_t type, chip, half,plane;
-        uint16_t seq,rocpin(0);
-        int sicell,triglink,trigcell,iu,iv,t,modiu;
-        float trace;
+        uint16_t type, chip, half;
+        uint16_t seq,rocpin;
+        int cellidx,triglink,trigcell,iu,iv,t;
+        float trace(0);
         std::string typestr,denscol,rocpincol;
+
         while(std::getline(file, line))
           {
             std::istringstream stream(line);
 
             //SiPM version
             if(isSiPM) {
-              stream >> sicell >> chip >> half >> seq >> plane >> iu >> iv >> typestr >> trigcell >> triglink >> modiu >> t;
-              type = cpi.convertType(typestr);
+              stream >> cellidx >> chip >> half >> seq >> iu >> iv >> typestr >> trigcell >> triglink >> t;
+              type = cpi.convertSiPMTypecode(typestr);
+              rocpin=cellidx;
             }
 
             //Si version
@@ -104,25 +106,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                 iscalib=false;
                 rocpin=std::stoi(rocpincol);
               }
-              stream >> sicell >> triglink >> trigcell >> iu >> iv >> trace >> t;
+              stream >> cellidx >> triglink >> trigcell >> iu >> iv >> trace >> t;            
             }
 
             //get dense index and fill the values
-            int i = cpi.denseIndex(type,chip,half,seq);
-            cellParams.view()[i].isHD() = isHD;
-            cellParams.view()[i].iscalib() = iscalib;
-            cellParams.view()[i].type() = type;
-            cellParams.view()[i].chip() = chip;
-            cellParams.view()[i].half() = half;
-            cellParams.view()[i].seq() = seq;
-            cellParams.view()[i].rocpin() = rocpin;
-            cellParams.view()[i].sicell() = sicell;
-            cellParams.view()[i].triglink() = triglink;
-            cellParams.view()[i].trigcell() = trigcell;
-            cellParams.view()[i].iu() = iu;
-            cellParams.view()[i].iv() = iv;
-            cellParams.view()[i].t() = t;
-            cellParams.view()[i].trace() = trace;
+            int idx = cpi.denseIndex(type,chip,half,seq);
+            cellParams.view()[idx].isHD() = isHD;
+            cellParams.view()[idx].iscalib() = iscalib;
+            cellParams.view()[idx].type() = type;
+            cellParams.view()[idx].chip() = chip;
+            cellParams.view()[idx].half() = half;
+            cellParams.view()[idx].seq() = seq;
+            cellParams.view()[idx].rocpin() = rocpin;
+            cellParams.view()[idx].cellidx() = cellidx;
+            cellParams.view()[idx].triglink() = triglink;
+            cellParams.view()[idx].trigcell() = trigcell;
+            cellParams.view()[idx].iu() = iu;
+            cellParams.view()[idx].iv() = iv;
+            cellParams.view()[idx].t() = t;
+            cellParams.view()[idx].trace() = trace;
           }
 
         return cellParams;
