@@ -47,7 +47,8 @@ namespace hgcal {
                       SOA_COLUMN(int, iu),
                       SOA_COLUMN(int, iv),
                       SOA_COLUMN(int, t),
-                      SOA_COLUMN(float, trace)
+                      SOA_COLUMN(float, trace),
+                      SOA_COLUMN(int, thickness)
   )
   using HGCalMappingCellParamSoA = HGCalMappingCellParamSoALayout<>;
 

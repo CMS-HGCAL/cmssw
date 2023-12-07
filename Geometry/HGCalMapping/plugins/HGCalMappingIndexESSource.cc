@@ -148,7 +148,7 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(
   std::string line;
   size_t iline(0);
   uint16_t maxtype(0),maxchip(0),maxhalf(0),maxseq(0);
-  int iu,iv,trigcell,triglink,t;
+  int iu,iv,trigcell,triglink,t,thickness;
   uint16_t type, index, chip, half, seq;
   std::string typecode;
   
@@ -158,7 +158,7 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(
       if(iline==1) continue;
       std::istringstream stream(line);
       
-      stream >> index >> chip >> half >> seq >> iu >> iv >> typecode >> trigcell >> triglink >> t;
+      stream >> index >> chip >> half >> seq >> iu >> iv >> typecode >> thickness >> trigcell >> triglink >> t;
       type = c->convertSiPMTypecode(typecode);
       
       maxtype=std::max(type,maxtype);

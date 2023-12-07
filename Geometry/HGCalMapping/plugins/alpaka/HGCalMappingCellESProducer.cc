@@ -77,7 +77,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         bool isHD(false),iscalib(false);
         uint16_t type, chip, half;
         uint16_t seq,rocpin;
-        int cellidx,triglink,trigcell,iu,iv,t;
+        int cellidx,triglink,trigcell,iu,iv,t,thickness(0);
         float trace(0);
         std::string typestr,denscol,rocpincol;
 
@@ -87,7 +87,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
             //SiPM version
             if(isSiPM) {
-              stream >> cellidx >> chip >> half >> seq >> iu >> iv >> typestr >> trigcell >> triglink >> t;
+              stream >> cellidx >> chip >> half >> seq >> iu >> iv >> typestr >> thickness >> trigcell >> triglink >> t;
               type = cpi.convertSiPMTypecode(typestr);
               rocpin=cellidx;
             }
@@ -125,6 +125,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             cellParams.view()[idx].iv() = iv;
             cellParams.view()[idx].t() = t;
             cellParams.view()[idx].trace() = trace;
+            cellParams.view()[idx].thickness() = thickness;
           }
 
         return cellParams;

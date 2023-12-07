@@ -39,7 +39,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     uint16_t getEcondErx(uint16_t chip, uint16_t half);
     uint32_t getElectronicsId(bool zside, uint16_t fedid, uint16_t captureblock, uint16_t econdidx, int cellchip, int cellhalf, int cellseq);
     uint32_t getSiDetId(bool zside, int moduleplane, int moduleu, int modulev, int modulethickness, int celliu, int celliv);
-    uint32_t getSiPMDetId(bool zside, int moduleplane, int modulev, int celliu, int celliv);
+    uint32_t getSiPMDetId(bool zside, int moduleplane, int modulev, int celliu, int celliv, int cellthickness);
     std::map<uint32_t,uint32_t> mapSiGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                       const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                       bool geo2ele);
@@ -120,12 +120,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         << "idx = "         << i << ", "
         << "zside = "    << modules.view()[i].zside()   << ", "
         << "isSiPM = "    << modules.view()[i].isSiPM()   << ", "
+        << "isSiPM = "    << modules.view()[i].isHD()   << ", "
         << "plane = "  << modules.view()[i].plane() << ", "
         << "u = " << modules.view()[i].u() << ", "
         << "v = " << modules.view()[i].v() << ", "
+        << "v = " << modules.view()[i].thickness() << ", "
+        << "type = " << modules.view()[i].type() << ", "
         << "fedid = " << modules.view()[i].fedid() << ", "
         << "localfedid = " << modules.view()[i].localfedid() << ", "
-        << "type = " << modules.view()[i].type() << ", "
         << "captureblock = " << modules.view()[i].captureblock() << ", "
         << "econdidx = " << modules.view()[i].econdidx() << ", "
         << "captureblockidx = " << modules.view()[i].captureblockidx() << std::endl;
@@ -148,7 +150,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           << "iu = " << sicells.view()[i].iu() << ", "
           << "iv = " << sicells.view()[i].iv() << ", "
           << "t = " << sicells.view()[i].t() << ", "
-          << "trace = " << sicells.view()[i].trace() << std::endl;
+          << "trace = " << sicells.view()[i].trace() << ", "
+          << "thickness = " << sicells.view()[i].thickness() << std::endl;
      }
 
     auto const& sipmcells = iSetup.getData(sipmcellTkn_);
@@ -168,7 +171,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         << "iu = " << sipmcells.view()[i].iu() << ", "
         << "iv = " << sipmcells.view()[i].iv() << ", "
         << "t = " << sipmcells.view()[i].t() << ", "
-        << "trace = " << sipmcells.view()[i].trace() << std::endl;
+        << "trace = " << sipmcells.view()[i].trace() << ", "
+        << "thickness = " << sipmcells.view()[i].thickness() << std::endl;
     }
 
     std::map<uint32_t,uint32_t> sigeo2ele = HGCalMappingESSourceTester::mapSiGeoToElectronics(modules, sicells, true);
@@ -232,14 +236,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     return HGCSiliconDetId(det,zp,modulethickness,moduleplane,moduleu,modulev,celliu,celliv).rawId();
   }
 
-  uint32_t HGCalMappingESSourceTester::getSiPMDetId(bool zside, int moduleplane, int modulev, int celliu, int celliv) {
+  uint32_t HGCalMappingESSourceTester::getSiPMDetId(bool zside, int moduleplane, int modulev, int celliu, int celliv, int cellthickness) {
     int layer = moduleplane - 25;
-    int type = 1; // 4mm2
-    int sipm = 1; // c
-    if(moduleplane <= 37) type = 2; // 9mm2
-    else if(moduleplane >= 38 && moduleplane <= 39 && celliu <=17) type = 2;
-    else if(moduleplane >= 40 && celliu <= 9) type = 2;
-    else if(moduleplane >= 42 && celliu >=18) sipm = 2; // m
+    int type = (cellthickness == 2 ? 0 : cellthickness == 3 ? 1 : 2);
+    
+    int sipm = 1; // cast tiles
+    if(moduleplane >= 42 && celliu >= 18) sipm = 2; // molded tiles
 
     int ring = (zside ? celliu : (-1)*celliu);
     int iphi = modulev*8 + celliv + 1;
@@ -330,7 +332,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                                   modules.view()[i].plane(), 
                                                                   modules.view()[i].v(), 
                                                                   cells.view()[j].iu(), 
-                                                                  cells.view()[j].iv());
+                                                                  cells.view()[j].iv(),
+                                                                  cells.view()[j].thickness());
 
         if(geo2ele){
           auto it = idmap.find(geoid);
