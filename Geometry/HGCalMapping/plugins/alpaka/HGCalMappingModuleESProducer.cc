@@ -65,13 +65,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         size_t iline(0);
         bool isSiPM, isHD;
         int plane, u, v, zside, thickness(0);
-        uint16_t fedid,localfedid,captureblock,econdidx,captureblockidx,type(0);
+        uint16_t fedid,slinkidx,captureblock,econdidx,captureblockidx,type(0);
         while(std::getline(file, line))
         {
           iline++;
           if(iline==1) continue;
           std::istringstream stream(line);
-          stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
+          stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> captureblockidx >> slinkidx >> fedid >> zside;
           
           isHD = false;
           if(typecode[0] == 'T') {
@@ -87,7 +87,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             thickness = atoi(&typecode[4]);
           }
 
-          uint32_t idx = cpi.denseIndex(localfedid, captureblock, econdidx);
+          uint32_t idx = cpi.denseIndex(fedid, captureblock, econdidx);
           moduleParams.view()[idx].zside()             = (zside>0);
           moduleParams.view()[idx].isSiPM()            = isSiPM;
           moduleParams.view()[idx].isHD()              = isHD;
@@ -97,7 +97,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           moduleParams.view()[idx].thickness()         = thickness;
           moduleParams.view()[idx].type()              = type;
           moduleParams.view()[idx].fedid()             = fedid;
-          moduleParams.view()[idx].localfedid()        = localfedid;
+          moduleParams.view()[idx].slinkidx()          = slinkidx;
           moduleParams.view()[idx].captureblock()      = captureblock;
           moduleParams.view()[idx].econdidx()          = econdidx;
           moduleParams.view()[idx].captureblockidx()   = captureblockidx;
