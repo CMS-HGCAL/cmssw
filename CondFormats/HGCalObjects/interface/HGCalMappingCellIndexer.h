@@ -13,7 +13,7 @@ struct HGCalMappingCellIndexParameters {
   uint32_t moduleTypeMax{1};          ///< maximum number of module types
   uint32_t cellChipMax{6};            ///< maximum number of channel chips
   uint32_t halfROCMax{2};             ///< maximum number of half ROC channels
-  uint32_t channelSeqMax{36};         ///< maximum number sequence numbers
+  uint32_t channelSeqMax{37};         ///< maximum number of channels (inc calib)
   COND_SERIALIZABLE;
 };
 
@@ -29,16 +29,28 @@ class HGCalMappingCellIndexer {
   virtual ~HGCalMappingCellIndexer() {}
 
   uint32_t denseIndex(uint32_t type, uint32_t chip, uint32_t half, uint32_t seq) {
+
     uint32_t rtn = type;
-    rtn = rtn * idxParams_.moduleTypeMax + chip;
-    rtn = rtn * idxParams_.cellChipMax + half;
-    rtn = rtn * idxParams_.halfROCMax + seq;
+    rtn = rtn * idxParams_.cellChipMax + chip;
+    rtn = rtn * idxParams_.halfROCMax + half;
+    rtn = rtn * idxParams_.channelSeqMax + seq;
+
     return rtn;
   }
 
-  uint32_t getSize() const{
-    uint32_t size = idxParams_.moduleTypeMax*idxParams_.cellChipMax*idxParams_.halfROCMax*idxParams_.channelSeqMax;
-    return size;
+  HGCalElectronicsId elecIdFromIndex(uint32_t denseIdx) {
+    uint32_t seq = denseIdx % idxParams_.channelSeqMax;
+    denseIdx = denseIdx / idxParams_.channelSeqMax;
+    uint32_t halfroc = denseIdx % idxParams_.halfROCMax;
+    denseIdx = denseIdx / idxParams_.halfROCMax;
+    uint32_t chip = denseIdx % idxParams_.cellChipMax;
+    denseIdx = denseIdx / idxParams_.cellChipMax;
+    uint32_t erx = chip*2+halfroc;
+    return HGCalElectronicsId(0, 0, 0, 0, erx, seq);
+  }
+
+  uint32_t getSize() {
+    return denseIndex(idxParams_.moduleTypeMax-1,idxParams_.cellChipMax-1,idxParams_.halfROCMax-1,idxParams_.channelSeqMax-1)+1;
   }
 
   inline void update(const HGCalMappingCellIndexParameters &from) { idxParams_ = from; }

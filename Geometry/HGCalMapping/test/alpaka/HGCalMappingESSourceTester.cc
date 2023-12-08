@@ -21,11 +21,8 @@
 #include "CondFormats/DataRecord/interface/HGCalMappingSiPMCellIndexerRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
-#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHostCollection.h"
 #include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
-
-#include "DataFormats/ForwardDetId/interface/HGCSiliconDetId.h"
-#include "DataFormats/ForwardDetId/interface/HGCScintillatorDetId.h"
+#include "Geometry/HGCalMapping/interface/HGCalMappingTools.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -35,11 +32,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   public:
     explicit HGCalMappingESSourceTester(const edm::ParameterSet&);
     static void fillDescriptions(edm::ConfigurationDescriptions&);
-
-    uint16_t getEcondErx(uint16_t chip, uint16_t half);
-    uint32_t getElectronicsId(bool zside, uint16_t fedid, uint16_t captureblock, uint16_t econdidx, int cellchip, int cellhalf, int cellseq);
-    uint32_t getSiDetId(bool zside, int moduleplane, int moduleu, int modulev, int modulethickness, int celliu, int celliv);
-    uint32_t getSiPMDetId(bool zside, int moduleplane, int modulev, int celliu, int celliv, int cellthickness);
     std::map<uint32_t,uint32_t> mapSiGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                       const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                       bool geo2ele);
@@ -127,10 +119,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         << "v = " << modules.view()[i].thickness() << ", "
         << "type = " << modules.view()[i].type() << ", "
         << "fedid = " << modules.view()[i].fedid() << ", "
-        << "localfedid = " << modules.view()[i].localfedid() << ", "
+        << "localfedid = " << modules.view()[i].slinkidx() << ", "
         << "captureblock = " << modules.view()[i].captureblock() << ", "
-        << "econdidx = " << modules.view()[i].econdidx() << ", "
-        << "captureblockidx = " << modules.view()[i].captureblockidx() << std::endl;
+        << "captureblockidx = " << modules.view()[i].captureblockidx() << ", "
+        << "econdidx = " << modules.view()[i].econdidx() << ", " << std::endl;
      }
 
     auto const& sicells = iSetup.getData(sicellTkn_);
@@ -175,11 +167,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         << "thickness = " << sipmcells.view()[i].thickness() << std::endl;
     }
 
-    std::map<uint32_t,uint32_t> sigeo2ele = HGCalMappingESSourceTester::mapSiGeoToElectronics(modules, sicells, true);
-    std::map<uint32_t,uint32_t> siele2geo = HGCalMappingESSourceTester::mapSiGeoToElectronics(modules, sicells, false);
+    std::map<uint32_t,uint32_t> sigeo2ele = this->mapSiGeoToElectronics(modules, sicells, true);
+    std::map<uint32_t,uint32_t> siele2geo = this->mapSiGeoToElectronics(modules, sicells, false);
 
-    std::map<uint32_t,uint32_t> sipmgeo2ele = HGCalMappingESSourceTester::mapSiPMGeoToElectronics(modules, sipmcells, true);
-    std::map<uint32_t,uint32_t> sipmele2geo = HGCalMappingESSourceTester::mapSiPMGeoToElectronics(modules, sipmcells, false);
+    std::map<uint32_t,uint32_t> sipmgeo2ele = this->mapSiPMGeoToElectronics(modules, sipmcells, true);
+    std::map<uint32_t,uint32_t> sipmele2geo = this->mapSiPMGeoToElectronics(modules, sipmcells, false);
 
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "Module and cells maps retrieved for HGCAL";
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Silicon cell map]"
@@ -217,44 +209,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::ParameterSetDescription desc;
     descriptions.addWithDefaultLabel(desc);
   }
-
-  uint16_t HGCalMappingESSourceTester::getEcondErx(uint16_t chip, uint16_t half){
-    return chip*2+half;
-  }
-
-  uint32_t HGCalMappingESSourceTester::getElectronicsId(bool zside, uint16_t fedid, uint16_t captureblock, uint16_t econdidx, int cellchip, int cellhalf, int cellseq) {
-    uint16_t econderx = HGCalMappingESSourceTester::getEcondErx(cellchip, cellhalf);
-
-    return HGCalElectronicsId(zside,fedid,captureblock,econdidx,econderx,cellseq).raw();
-  }
-
-  uint32_t HGCalMappingESSourceTester::getSiDetId(bool zside, int moduleplane, int moduleu, int modulev, int modulethickness, int celliu, int celliv) {
-    
-    DetId::Detector det = moduleplane<=26 ? DetId::Detector::HGCalEE : DetId::Detector::HGCalHSi;
-    int zp(zside ?  1 : -1);
-
-    return HGCSiliconDetId(det,zp,modulethickness,moduleplane,moduleu,modulev,celliu,celliv).rawId();
-  }
-
-  uint32_t HGCalMappingESSourceTester::getSiPMDetId(bool zside, int moduleplane, int modulev, int celliu, int celliv, int cellthickness) {
-    int layer = moduleplane - 25;
-    int type = (cellthickness == 2 ? 0 : cellthickness == 3 ? 1 : 2);
-    
-    int sipm = 1; // cast tiles
-    if(moduleplane >= 42 && celliu >= 18) sipm = 2; // molded tiles
-
-    int ring = (zside ? celliu : (-1)*celliu);
-    int iphi = modulev*8 + celliv + 1;
-
-    return HGCScintillatorDetId(type, layer, ring, iphi, false, sipm).rawId();
-  }
-
+  
+  //
   std::map<uint32_t,uint32_t> HGCalMappingESSourceTester::mapSiGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                                                 const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                                                 bool geo2ele)
   {
     //loop over SiPM tileboards
     std::map<uint32_t,uint32_t> idmap;
+    uint32_t ndups(0);
     for(int i=0; i<modules.view().metadata().size(); i++) {
       
       if(modules.view()[i].isSiPM()) continue;
@@ -267,48 +230,52 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         if(cells.view()[j].isHD()!=modules.view()[i].isHD()) continue;
         if(cells.view()[j].type()!=modules.view()[i].type()) continue;
 
-        uint32_t elecid = HGCalMappingESSourceTester::getElectronicsId(modules.view()[i].zside(),
-                                                                      modules.view()[i].fedid(),
-                                                                      modules.view()[i].captureblock(),
-                                                                      modules.view()[i].econdidx(),
-                                                                      cells.view()[j].chip(),
-                                                                      cells.view()[j].half(),
-                                                                      cells.view()[j].seq());
-
-        uint32_t geoid = HGCalMappingESSourceTester::getSiDetId(modules.view()[i].zside(), 
-                                                                modules.view()[i].plane(), 
-                                                                modules.view()[i].u(),
-                                                                modules.view()[i].v(), 
-                                                                modules.view()[i].thickness(),
-                                                                cells.view()[j].iu(), 
-                                                                cells.view()[j].iv());
-
+        uint32_t elecid = hgcal::mappingtools::getElectronicsId(modules.view()[i].zside(),
+                                                                modules.view()[i].fedid(),
+                                                                modules.view()[i].captureblockidx(),
+                                                                modules.view()[i].econdidx(),
+                                                                cells.view()[j].chip(),
+                                                                cells.view()[j].half(),
+                                                                cells.view()[j].seq());
+        
+        uint32_t geoid = hgcal::mappingtools::getSiDetId(modules.view()[i].zside(), 
+                                                         modules.view()[i].plane(), 
+                                                         modules.view()[i].u(),
+                                                         modules.view()[i].v(), 
+                                                         modules.view()[i].thickness(),
+                                                         cells.view()[j].iu(), 
+                                                         cells.view()[j].iv());
+        
         if(geo2ele){
           auto it = idmap.find(geoid);
-          if(it != idmap.end()){
-            std::cout << "Geo ID already in map!" << std::endl;
-          }
+          ndups += (it != idmap.end());
         }
         if(!geo2ele){
           auto it = idmap.find(elecid);
-          if(it != idmap.end()){
-            std::cout << "Elec ID already in map!" << std::endl;
-          }
+          ndups += (it != idmap.end());
         }
+        
         //map
         idmap[geo2ele ? geoid : elecid] = geo2ele ? elecid : geoid;
       }
     }
 
+    if(ndups>0) {
+      edm::LogInfo("HGCalMappingIndexESSourceTester") << "mapSiGeoToElectronics found " << ndups << " duplicates with geo2ele=" << geo2ele;
+    }
+
+    
     return idmap;
   }
 
+  //
   std::map<uint32_t,uint32_t> HGCalMappingESSourceTester::mapSiPMGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                                                   const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                                                   bool geo2ele)
   {
     //loop over SiPM tileboards
     std::map<uint32_t,uint32_t> idmap;
+    uint32_t ndups(0);
     for(int i=0; i<modules.view().metadata().size(); i++) {
       
       if(!modules.view()[i].isSiPM()) continue;
@@ -320,38 +287,39 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         if(cells.view()[j].t()==-1) continue;
         if(cells.view()[j].type()!=modules.view()[i].type()) continue;
 
-        uint32_t elecid = HGCalMappingESSourceTester::getElectronicsId(modules.view()[i].zside(),
-                                                                      modules.view()[i].fedid(),
-                                                                      modules.view()[i].captureblock(),
-                                                                      modules.view()[i].econdidx(),
-                                                                      cells.view()[j].chip(),
-                                                                      cells.view()[j].half(),
-                                                                      cells.view()[j].seq());
-
-        uint32_t geoid = HGCalMappingESSourceTester::getSiPMDetId(modules.view()[i].zside(), 
-                                                                  modules.view()[i].plane(), 
-                                                                  modules.view()[i].v(), 
-                                                                  cells.view()[j].iu(), 
-                                                                  cells.view()[j].iv(),
-                                                                  cells.view()[j].thickness());
-
+        uint32_t elecid = hgcal::mappingtools::getElectronicsId(modules.view()[i].zside(),
+                                                                modules.view()[i].fedid(),
+                                                                modules.view()[i].captureblockidx(),
+                                                                modules.view()[i].econdidx(),
+                                                                cells.view()[j].chip(),
+                                                                cells.view()[j].half(),
+                                                                cells.view()[j].seq());
+        
+        uint32_t geoid = hgcal::mappingtools::getSiPMDetId(modules.view()[i].zside(), 
+                                                           modules.view()[i].plane(), 
+                                                           modules.view()[i].v(), 
+                                                           cells.view()[j].iu(), 
+                                                           cells.view()[j].iv(),
+                                                           cells.view()[j].thickness());
+        
         if(geo2ele){
           auto it = idmap.find(geoid);
-          if(it != idmap.end()){
-            std::cout << "Geo ID already in map!" << std::endl;
-          }
+          ndups += (it != idmap.end());
         }
         if(!geo2ele){
           auto it = idmap.find(elecid);
-          if(it != idmap.end()){
-            std::cout << "Elec ID already in map!" << std::endl;
-          }
+          ndups += (it != idmap.end());
         }
+        
         //map
         idmap[geo2ele ? geoid : elecid] = geo2ele ? elecid : geoid;
       }
     }
 
+    if(ndups>0) {
+      edm::LogInfo("HGCalMappingIndexESSourceTester") << "mapSiPMGeoToElectronics found " << ndups << " duplicates with geo2ele=" << geo2ele;
+    }
+    
     return idmap;
   }
 

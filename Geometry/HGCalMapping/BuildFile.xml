@@ -2,8 +2,8 @@
 <use name="FWCore/ParameterSet"/>
 <use name="FWCore/Framework"/>
 <use name="FWCore/Utilities"/>
-<use name="CondFormats/HGCalObjects"/>
-<flags ALPAKA_BACKENDS="1"/>
+<use name="DataFormats/HGCalDigi"/>
+<use name="DataFormats/ForwardDetId"/>
 <export>
-  <lib name="1"/>
+  <lib name="GeometryHGCalMappingTools"/>
 </export>

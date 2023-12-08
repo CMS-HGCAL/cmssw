@@ -25,7 +25,7 @@ namespace hgcal {
                       SOA_COLUMN(int, thickness),
                       SOA_COLUMN(uint16_t, type),
                       SOA_COLUMN(uint16_t, fedid),
-                      SOA_COLUMN(uint16_t, localfedid),
+                      SOA_COLUMN(uint16_t, slinkidx),
                       SOA_COLUMN(uint16_t, captureblock),
                       SOA_COLUMN(uint16_t, econdidx),
                       SOA_COLUMN(uint16_t, captureblockidx)

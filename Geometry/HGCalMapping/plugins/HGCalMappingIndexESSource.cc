@@ -71,18 +71,18 @@ std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceMod
   std::string line, typecode;
   size_t iline(0);
   int plane, u, v, zside, isHD;
-  uint16_t fedid,localfedid,captureblock,econdidx,captureblockidx;
-  uint16_t maxlocalfedid(0),maxcaptureblock(0),maxecondidx(0),maxerx(0);
+  uint16_t fedid,slinkidx,captureblock,econdidx,captureblockidx;
+  uint16_t maxfedid(0),maxcaptureblockidx(0),maxecondidx(0),maxerx(0);
   while(std::getline(file, line))
     {
       iline++;
       if(iline==1) continue;
       
       std::istringstream stream(line);
-      stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> localfedid >> captureblockidx >> fedid >> zside;
+      stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> captureblockidx >> slinkidx >> fedid >> zside;
 
-      maxlocalfedid=std::max(localfedid,maxlocalfedid);
-      maxcaptureblock=std::max(captureblock,maxcaptureblock);
+      maxfedid=std::max(fedid,maxfedid);
+      maxcaptureblockidx=std::max(captureblockidx,maxcaptureblockidx);
       maxecondidx=std::max(econdidx,maxecondidx);
 
       isHD = 0;
@@ -93,7 +93,8 @@ std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceMod
 
   // configure module indexer and return
   auto c = std::make_unique<HGCalMappingModuleIndexer>();
-  c->update(maxlocalfedid+1, maxcaptureblock+1, maxecondidx+1, maxerx+1);
+  c->update(maxfedid, maxcaptureblockidx+1, maxecondidx+1, maxerx);
+  std::cout << maxfedid << " " << maxcaptureblockidx << " " << maxecondidx << " " << maxerx << std::endl;
   return c;
 }
 
