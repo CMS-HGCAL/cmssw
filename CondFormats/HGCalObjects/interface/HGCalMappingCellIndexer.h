@@ -1,6 +1,7 @@
 #ifndef CondFormats_HGCalObjects_interface_HGCalMappingCellParameterIndex_h
 #define CondFormats_HGCalObjects_interface_HGCalMappingCellParameterIndex_h
 
+#include <iostream>
 #include <cstdint>
 #include <vector>
 #include <numeric>
@@ -24,13 +25,14 @@ class HGCalMappingCellIndexer {
    */
   void processNewCell(std::string typecode, uint16_t chip, uint16_t half) {
 
-    //assign index to this typecode   
+    //assign index to this typecode and resize the max e-Rx vector
     if(typeCodeIndexer_.count(typecode)==0) {
-      typeCodeIndexer_[typecode] = typeCodeIndexer_.size(); 
+      typeCodeIndexer_[typecode] = typeCodeIndexer_.size();
+      maxErx_.resize(typeCodeIndexer_.size(),0);
     }
-
+    
     size_t idx=typeCodeIndexer_[typecode];
-    uint16_t erx=chip*2+half;
+    uint16_t erx=chip*2+half+1; //use the number not the index here
     maxErx_[idx]=std::max(maxErx_[idx],erx);    
   }
 
@@ -41,15 +43,12 @@ class HGCalMappingCellIndexer {
 
     uint32_t n = typeCodeIndexer_.size();
     offsets_ = std::vector<uint32_t>(n,0);
-    di_.clear();
-    for(uint32_t i=0; i<n; i++)
-      di_.push_back( WaferCellDenseIndexer(2) );
-    
-    for(auto it : typeCodeIndexer_) {
-      size_t idx = it.second;
+    di_ = std::vector<WaferCellDenseIndexer>(n,WaferCellDenseIndexer(2));
+    for(uint32_t idx=0; idx<n; idx++) {
       uint16_t nerx = maxErx_[idx];
-      di_[idx].updateRanges( {{nerx,maxChPerErx}} );
-      offsets_[idx]=di_[idx].getMaxIndex();
+      di_[idx].updateRanges( {{nerx,maxChPerErx_}} );
+      if(idx<n-1)
+        offsets_[idx+1]=di_[idx].getMaxIndex();
     }
 
     //accumulate the offsets in the array
@@ -101,7 +100,7 @@ class HGCalMappingCellIndexer {
     return denseIndex(getEnumFromTypecode(typecode),erx,seq);
   }
   uint32_t denseIndex(size_t idx, uint32_t chip, uint32_t half, uint32_t seq) {
-    uint16_t erx=chip*maxHalfPerROC+half;
+    uint16_t erx=chip*maxHalfPerROC_+half;
     return denseIndex(idx,erx,seq);
   }
   uint32_t denseIndex(size_t idx, uint32_t erx, uint32_t seq) {
@@ -158,8 +157,8 @@ class HGCalMappingCellIndexer {
     return typeMap_.size();
   }
   
-  constexpr static char maxHalfPerROC = 2;
-  constexpr static uint16_t maxChPerErx = 37;
+  constexpr static char maxHalfPerROC_ = 2;
+  constexpr static uint16_t maxChPerErx_ = 37;
   
   std::map<std::string,size_t> typeCodeIndexer_;
   std::vector<uint16_t> maxErx_;

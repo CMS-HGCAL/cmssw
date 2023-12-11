@@ -28,18 +28,18 @@ public:
       sipm_filename_(iConfig.getParameter<std::string>("sipm"))
   {
 
-    setWhatProduced(this, &HGCalMappingIndexESSource::produceModules);
+    //setWhatProduced(this, &HGCalMappingIndexESSource::produceModules);
     setWhatProduced(this, &HGCalMappingIndexESSource::produceSi);
-    setWhatProduced(this, &HGCalMappingIndexESSource::produceSiPM);
+    // setWhatProduced(this, &HGCalMappingIndexESSource::produceSiPM);
 
-    findingRecord<HGCalMappingModuleIndexerRcd>();
+    //    findingRecord<HGCalMappingModuleIndexerRcd>();
     findingRecord<HGCalMappingSiCellIndexerRcd>();
-    findingRecord<HGCalMappingSiPMCellIndexerRcd>();
+    //findingRecord<HGCalMappingSiPMCellIndexerRcd>();
   }
 
-  std::unique_ptr<HGCalMappingModuleIndexer> produceModules(const HGCalMappingModuleIndexerRcd&);
+  //std::unique_ptr<HGCalMappingModuleIndexer> produceModules(const HGCalMappingModuleIndexerRcd&);
   std::unique_ptr<HGCalMappingCellIndexer> produceSi(const HGCalMappingSiCellIndexerRcd&);
-  std::unique_ptr<HGCalMappingCellIndexer> produceSiPM(const HGCalMappingSiPMCellIndexerRcd&);
+  // std::unique_ptr<HGCalMappingCellIndexer> produceSiPM(const HGCalMappingSiPMCellIndexerRcd&);
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
@@ -63,6 +63,7 @@ private:
 
 
 //
+/*
 std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceModules(const HGCalMappingModuleIndexerRcd &rcd) {  
 
   // load module mapping parameters and find ranges
@@ -97,47 +98,37 @@ std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceMod
   std::cout << maxfedid << " " << maxcaptureblockidx << " " << maxecondidx << " " << maxerx << std::endl;
   return c;
 }
-
+*/
 
 //
 std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSi(const HGCalMappingSiCellIndexerRcd &rcd) {
 
+  auto c = std::make_unique<HGCalMappingCellIndexer>();
+  
   // load Si cell specific module mapping parameters
   edm::FileInPath fip(si_filename_);
   std::ifstream file(fip.fullPath());
-
-  size_t iline(0);
-  std::string line,typecode,rocpincol;
-  uint16_t maxtype(0),maxchip(0),maxhalf(0),maxseq(0);
-  uint16_t type, chip, half;
-  uint16_t seq;
-  int sicell,triglink,trigcell,iu,iv,t;
-  float trace;
   
+  size_t iline(0);
+  std::string line,typecode;
+  uint16_t chip, half;
   while(std::getline(file, line))
     {
       iline++;
       if(iline==1) continue;
       std::istringstream stream(line);
-      
       stream >> typecode;
-      stream >> type >> chip >> half >> seq;
-      stream >> rocpincol;
-      stream >> sicell >> triglink >> trigcell >> iu >> iv >> trace >> t;
-      
-      maxtype=std::max(type,maxtype);
-      maxchip=std::max(chip,maxchip);
-      maxhalf=std::max(half,maxhalf);
-      maxseq=std::max(seq,maxseq);
+      stream >> chip >> half;
+      c->processNewCell(typecode,chip,half);      
     }
 
-  //instantiate the cell indexer with the appropriate ranges for the Si modules
-  auto c = std::make_unique<HGCalMappingCellIndexer>();
-  c->update(maxtype+1,maxchip+1,maxhalf+1,maxseq+1);
+  c->update();
+
   return c;
 }
 
 //
+/*
 std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(const HGCalMappingSiPMCellIndexerRcd &rcd) {
 
   //instantiate the cell indexer 
@@ -172,5 +163,6 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(
   c->update(maxtype,maxchip+1,maxhalf+1,maxseq+1);
   return c;
 }
+*/
 
 DEFINE_FWK_EVENTSETUP_SOURCE(HGCalMappingIndexESSource);

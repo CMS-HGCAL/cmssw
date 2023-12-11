@@ -63,6 +63,7 @@ class HGCalDenseIndexerBase {
   uint32_t maxIdx_;
   std::vector<uint32_t> vmax_;
 
+  COND_SERIALIZABLE;
 };
 
 

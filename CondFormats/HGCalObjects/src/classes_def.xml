@@ -1,5 +1,8 @@
 <lcgdict>
 
+  <class name="HGCalDenseIndexerBase" class_version="0">
+    <field name="vmax_" mapping="blob"/>
+  </class> 
   
   <class name="HGCalMappingCellIndexer" class_version="0">
     <field name="typeCodeIndexer_" mapping="blob"/>
