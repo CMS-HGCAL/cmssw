@@ -9,8 +9,8 @@ int main()
 
   //init an indexer for a MH (HD) module
   //which has 6 ROCs, each with 2 halfs, each with 37 channels
-  HGCalDenseIndexerBase<3>::IndexRanges_t rans {{6,2,37}};
-  HGCalDenseIndexerBase<3> di(rans);
+  std::vector<uint32_t> rans {{6,2,37}};
+  HGCalDenseIndexerBase di(rans);
 
   //a lambda to print arrays
   auto parray = [](auto v)
@@ -25,7 +25,7 @@ int main()
     for(uint32_t j=0; j<rans[1]; j++) {
       for(uint32_t k=0; k<rans[2]; k++) {
     
-        HGCalDenseIndexerBase<3>::IndexRanges_t vals {{i,j,k}};  
+        std::vector<uint32_t> vals {{i,j,k}};  
         uint32_t rtn = di.denseIndex(vals);
         allidx.insert(rtn);
         auto decoded_vals = di.unpackDenseIndex(rtn);

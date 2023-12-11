@@ -1,6 +1,7 @@
 #ifndef CondFormats_HGCalObjects_interface_HGCalDenseIndexerBase_h
 #define CondFormats_HGCalObjects_interface_HGCalDenseIndexerBase_h
 
+#include "CondFormats/Serialization/interface/Serializable.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include <array>
 #include <numeric>
@@ -10,33 +11,31 @@
    the maximum number of items expected in each category is encoded in the IndexRanges_t
    the class is templated for the number of categories to use
  */
-template<std::size_t N> 
 class HGCalDenseIndexerBase {
 
  public:
 
-  typedef std::array<uint32_t,N> IndexCodes_t;
-  typedef std::array<uint32_t,N> IndexRanges_t;
-  
-  HGCalDenseIndexerBase() : maxIdx_(0) { vmax_.fill(0); }
+  HGCalDenseIndexerBase() : HGCalDenseIndexerBase(0) {}
 
-  HGCalDenseIndexerBase(IndexRanges_t o) { updateRanges(o); }
+  HGCalDenseIndexerBase(int n) : n_(n), maxIdx_(0), vmax_(n,0) {}
 
-  void updateRanges(IndexRanges_t o) {
+  HGCalDenseIndexerBase(std::vector<uint32_t> o) : n_(o.size()) { updateRanges(o); }
+
+  void updateRanges(std::vector<uint32_t> o) {
     check(o.size());
     vmax_=o;
     maxIdx_ = std::accumulate(vmax_.begin(), vmax_.end(), 1, std::multiplies<uint32_t>());
   }
   
-  uint32_t denseIndex(IndexCodes_t v) {
+  uint32_t denseIndex(std::vector<uint32_t> v) {
     uint32_t rtn = v[0];
-    for(size_t i=1; i<N; i++)
+    for(size_t i=1; i<n_; i++)
       rtn = rtn * vmax_[i]+v[i];
     return rtn;
   }
 
-  IndexCodes_t unpackDenseIndex(uint32_t rtn) {
-    IndexCodes_t codes;
+  std::vector<uint32_t> unpackDenseIndex(uint32_t rtn) {
+    std::vector<uint32_t> codes(n_,0);
 
     const auto rend=vmax_.rend();
     for(auto rit = vmax_.rbegin(); rit != rend; ++rit) {
@@ -55,14 +54,15 @@ class HGCalDenseIndexerBase {
  private:
 
   void check(size_t osize) {
-    if(osize != N)
+    if(osize != n_)
       throw cms::Exception("ValueError")
-        << " unable to update indexer max values. Expected " << N << " received " << osize;
+        << " unable to update indexer max values. Expected " << n_ << " received " << osize;
   }
 
+  uint32_t n_;
   uint32_t maxIdx_;
-  IndexRanges_t vmax_;
-  
+  std::vector<uint32_t> vmax_;
+
 };
 
 

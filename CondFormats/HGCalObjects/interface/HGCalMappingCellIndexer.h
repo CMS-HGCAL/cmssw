@@ -15,7 +15,7 @@ class HGCalMappingCellIndexer {
 
  public:
 
-  typedef HGCalDenseIndexerBase<2> WaferCellDenseIndexer;
+  typedef HGCalDenseIndexerBase WaferCellDenseIndexer;
   
   HGCalMappingCellIndexer() {}
 
@@ -30,7 +30,8 @@ class HGCalMappingCellIndexer {
     }
 
     size_t idx=typeCodeIndexer_[typecode];
-    maxErx_[idx]=max(maxErx_[idx],chip*2+half);    
+    uint16_t erx=chip*2+half;
+    maxErx_[idx]=std::max(maxErx_[idx],erx);    
   }
 
   /**
@@ -40,16 +41,19 @@ class HGCalMappingCellIndexer {
 
     uint32_t n = typeCodeIndexer_.size();
     offsets_ = std::vector<uint32_t>(n,0);
-    di_.resize(n);
+    di_.clear();
+    for(uint32_t i=0; i<n; i++)
+      di_.push_back( WaferCellDenseIndexer(2) );
     
     for(auto it : typeCodeIndexer_) {
-      size_t idx = it->second;
+      size_t idx = it.second;
       uint16_t nerx = maxErx_[idx];
-      di_[idx].updateRanges( {nerx,37} );
+      di_[idx].updateRanges( {{nerx,maxChPerErx}} );
       offsets_[idx]=di_[idx].getMaxIndex();
     }
 
-    offsets_ = std::partial_sum(offsets_.begin(), offsets_.end(), offsets_.begin());
+    //accumulate the offsets in the array
+    std::partial_sum(offsets_.begin(), offsets_.end(), offsets_.begin());
   }
 
   /**
@@ -65,7 +69,7 @@ class HGCalMappingCellIndexer {
   /**
      @short checks if there is a typecode corresponding to an index
    */
-  std::string typecode getTypecodeFromEnum(size_t idx) {
+  std::string getTypecodeFromEnum(size_t idx) {
     for(auto it : typeCodeIndexer_)
       if(it.second == idx) return it.first;
     throw cms::Exception("ValueError") << " unable to find typecode corresponding to idx=" << idx;
@@ -81,7 +85,7 @@ class HGCalMappingCellIndexer {
   /**
      @short returns the dense indexer for a given internal index
   */
-  WaferCellDenseIndexer getDenseIndexFor(size_t idx) {
+  WaferCellDenseIndexer getDenseIndexerFor(size_t idx) {
     if( idx >= di_.size() )
       throw cms::Exception("ValueError") << " index requested for cell dense indexer (i=" << idx << ") is larger than allocated";
     return di_[idx];
@@ -91,31 +95,31 @@ class HGCalMappingCellIndexer {
      @short builders for the dense index
    */
   uint32_t denseIndex(std::string typecode, uint32_t chip, uint32_t half, uint32_t seq) {
-    return denseIndex(getEnumFromTypecode(typecode),chip,half,erx,seq);
+    return denseIndex(getEnumFromTypecode(typecode),chip,half,seq);
   }  
   uint32_t denseIndex(std::string typecode, uint32_t erx, uint32_t seq) {
     return denseIndex(getEnumFromTypecode(typecode),erx,seq);
   }
   uint32_t denseIndex(size_t idx, uint32_t chip, uint32_t half, uint32_t seq) {
-    uint16_t erx=chip*2+half;
+    uint16_t erx=chip*maxHalfPerROC+half;
     return denseIndex(idx,erx,seq);
   }
   uint32_t denseIndex(size_t idx, uint32_t erx, uint32_t seq) {
-    return di_.denseIndex({erx,seq}) + offsets_[idx];    
+    return di_[idx].denseIndex({{erx,seq}}) + offsets_[idx];    
   }
 
   /**
      @short decodes the dense index code
    */
-  HGCalElectronicsId elecIdFromIndex(uint32_t rtn, std::string typecode) {
+  uint32_t elecIdFromIndex(uint32_t rtn, std::string typecode) {
     return elecIdFromIndex(rtn, getEnumFromTypecode(typecode));
   }
-  HGCalElectronicsId elecIdFromIndex(uint32_t rtn, size_t idx) {
+  uint32_t elecIdFromIndex(uint32_t rtn, size_t idx) {
     if( idx >= di_.size() )
       throw cms::Exception("ValueError") << " index requested for cell dense indexer (i=" << idx << ") is larger than allocated";
     rtn -= offsets_[idx];
     auto rtn_codes = di_[idx].unpackDenseIndex(rtn);
-    return HGCalElectronicsId(0, 0, 0, 0, rn_codes[0], rtn_codes[1]);
+    return HGCalElectronicsId(0, 0, 0, 0, rtn_codes[0], rtn_codes[1]).raw();
   }
 
   uint16_t convertSiPMTypecode(std::string typeString) {
@@ -153,7 +157,10 @@ class HGCalMappingCellIndexer {
     }
     return typeMap_.size();
   }
-
+  
+  constexpr static char maxHalfPerROC = 2;
+  constexpr static uint16_t maxChPerErx = 37;
+  
   std::map<std::string,size_t> typeCodeIndexer_;
   std::vector<uint16_t> maxErx_;
   std::vector<uint32_t> offsets_;
