@@ -3,19 +3,10 @@
 
 #include <cstdint>
 #include <vector>
+#include <numeric>
 #include "DataFormats/HGCalDigi/interface/HGCalElectronicsId.h"
 #include "CondFormats/Serialization/interface/Serializable.h"
-
-/**
-   @short holds the parameters needed to compute the dense indexing for HGCAL readout cells
- */
-struct HGCalMappingCellIndexParameters {
-  uint32_t moduleTypeMax{1};          ///< maximum number of module types
-  uint32_t cellChipMax{6};            ///< maximum number of channel chips
-  uint32_t halfROCMax{2};             ///< maximum number of half ROC channels
-  uint32_t channelSeqMax{37};         ///< maximum number of channels (inc calib)
-  COND_SERIALIZABLE;
-};
+#include "CondFormats/HGCalObjects/interface/HGCalDenseIndexerBase.h"
 
 /**
    @short utility class to assign dense readout cell indexing
@@ -24,42 +15,107 @@ class HGCalMappingCellIndexer {
 
  public:
 
+  typedef HGCalDenseIndexerBase<2> WaferCellDenseIndexer;
+  
   HGCalMappingCellIndexer() {}
 
-  virtual ~HGCalMappingCellIndexer() {}
+  /**
+     adds to map of type codes (= module types) to handle and updatest the max. number of eRx 
+   */
+  void processNewCell(std::string typecode, uint16_t chip, uint16_t half) {
 
-  uint32_t denseIndex(uint32_t type, uint32_t chip, uint32_t half, uint32_t seq) {
+    //assign index to this typecode   
+    if(typeCodeIndexer_.count(typecode)==0) {
+      typeCodeIndexer_[typecode] = typeCodeIndexer_.size(); 
+    }
 
-    uint32_t rtn = type;
-    rtn = rtn * idxParams_.cellChipMax + chip;
-    rtn = rtn * idxParams_.halfROCMax + half;
-    rtn = rtn * idxParams_.channelSeqMax + seq;
-
-    return rtn;
+    size_t idx=typeCodeIndexer_[typecode];
+    maxErx_[idx]=max(maxErx_[idx],chip*2+half);    
   }
 
-  HGCalElectronicsId elecIdFromIndex(uint32_t denseIdx) {
-    uint32_t seq = denseIdx % idxParams_.channelSeqMax;
-    denseIdx = denseIdx / idxParams_.channelSeqMax;
-    uint32_t halfroc = denseIdx % idxParams_.halfROCMax;
-    denseIdx = denseIdx / idxParams_.halfROCMax;
-    uint32_t chip = denseIdx % idxParams_.cellChipMax;
-    denseIdx = denseIdx / idxParams_.cellChipMax;
-    uint32_t erx = chip*2+halfroc;
-    return HGCalElectronicsId(0, 0, 0, 0, erx, seq);
+  /**
+     @short process the current list of type codes handled and updates the dense indexers
+  */
+  void update() {
+
+    uint32_t n = typeCodeIndexer_.size();
+    offsets_ = std::vector<uint32_t>(n,0);
+    di_.resize(n);
+    
+    for(auto it : typeCodeIndexer_) {
+      size_t idx = it->second;
+      uint16_t nerx = maxErx_[idx];
+      di_[idx].updateRanges( {nerx,37} );
+      offsets_[idx]=di_[idx].getMaxIndex();
+    }
+
+    offsets_ = std::partial_sum(offsets_.begin(), offsets_.end(), offsets_.begin());
   }
 
-  uint32_t getSize() {
-    return denseIndex(idxParams_.moduleTypeMax-1,idxParams_.cellChipMax-1,idxParams_.halfROCMax-1,idxParams_.channelSeqMax-1)+1;
+  /**
+     @short gets index given typecode string
+   */
+  size_t getEnumFromTypecode(std::string typecode) {
+    auto it = typeCodeIndexer_.find(typecode);
+    if( it==typeCodeIndexer_.end())
+      throw cms::Exception("ValueError") << " unable to find typecode=" << typecode << " in cell indexer";
+    return it->second;
   }
 
-  inline void update(const HGCalMappingCellIndexParameters &from) { idxParams_ = from; }
-  
-  void update(uint32_t typeMax, uint32_t chipMax, uint32_t halfMax, uint32_t seqMax){
-    idxParams_.moduleTypeMax = typeMax;
-    idxParams_.cellChipMax = chipMax;
-    idxParams_.halfROCMax = halfMax;
-    idxParams_.channelSeqMax = seqMax;
+  /**
+     @short checks if there is a typecode corresponding to an index
+   */
+  std::string typecode getTypecodeFromEnum(size_t idx) {
+    for(auto it : typeCodeIndexer_)
+      if(it.second == idx) return it.first;
+    throw cms::Exception("ValueError") << " unable to find typecode corresponding to idx=" << idx;
+  }
+
+  /**
+     @short returns the dense indexer for a typecode
+   */
+  WaferCellDenseIndexer getDenseIndexFor(std::string typecode) {
+    return getDenseIndexerFor( getEnumFromTypecode(typecode) );
+  }
+
+  /**
+     @short returns the dense indexer for a given internal index
+  */
+  WaferCellDenseIndexer getDenseIndexFor(size_t idx) {
+    if( idx >= di_.size() )
+      throw cms::Exception("ValueError") << " index requested for cell dense indexer (i=" << idx << ") is larger than allocated";
+    return di_[idx];
+  }
+
+  /**
+     @short builders for the dense index
+   */
+  uint32_t denseIndex(std::string typecode, uint32_t chip, uint32_t half, uint32_t seq) {
+    return denseIndex(getEnumFromTypecode(typecode),chip,half,erx,seq);
+  }  
+  uint32_t denseIndex(std::string typecode, uint32_t erx, uint32_t seq) {
+    return denseIndex(getEnumFromTypecode(typecode),erx,seq);
+  }
+  uint32_t denseIndex(size_t idx, uint32_t chip, uint32_t half, uint32_t seq) {
+    uint16_t erx=chip*2+half;
+    return denseIndex(idx,erx,seq);
+  }
+  uint32_t denseIndex(size_t idx, uint32_t erx, uint32_t seq) {
+    return di_.denseIndex({erx,seq}) + offsets_[idx];    
+  }
+
+  /**
+     @short decodes the dense index code
+   */
+  HGCalElectronicsId elecIdFromIndex(uint32_t rtn, std::string typecode) {
+    return elecIdFromIndex(rtn, getEnumFromTypecode(typecode));
+  }
+  HGCalElectronicsId elecIdFromIndex(uint32_t rtn, size_t idx) {
+    if( idx >= di_.size() )
+      throw cms::Exception("ValueError") << " index requested for cell dense indexer (i=" << idx << ") is larger than allocated";
+    rtn -= offsets_[idx];
+    auto rtn_codes = di_[idx].unpackDenseIndex(rtn);
+    return HGCalElectronicsId(0, 0, 0, 0, rn_codes[0], rtn_codes[1]);
   }
 
   uint16_t convertSiPMTypecode(std::string typeString) {
@@ -98,7 +154,12 @@ class HGCalMappingCellIndexer {
     return typeMap_.size();
   }
 
-  HGCalMappingCellIndexParameters idxParams_;
+  std::map<std::string,size_t> typeCodeIndexer_;
+  std::vector<uint16_t> maxErx_;
+  std::vector<uint32_t> offsets_;
+  std::vector<WaferCellDenseIndexer> di_;
+  
+  virtual ~HGCalMappingCellIndexer() {}
   
   COND_SERIALIZABLE;
 };

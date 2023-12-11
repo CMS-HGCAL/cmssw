@@ -105,8 +105,9 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSi(co
   // load Si cell specific module mapping parameters
   edm::FileInPath fip(si_filename_);
   std::ifstream file(fip.fullPath());
-  std::string line;
+
   size_t iline(0);
+  std::string line,typecode,rocpincol;
   uint16_t maxtype(0),maxchip(0),maxhalf(0),maxseq(0);
   uint16_t type, chip, half;
   uint16_t seq;
@@ -119,8 +120,7 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSi(co
       if(iline==1) continue;
       std::istringstream stream(line);
       
-      std::string denscol,rocpincol;
-      stream >> denscol;
+      stream >> typecode;
       stream >> type >> chip >> half >> seq;
       stream >> rocpincol;
       stream >> sicell >> triglink >> trigcell >> iu >> iv >> trace >> t;
