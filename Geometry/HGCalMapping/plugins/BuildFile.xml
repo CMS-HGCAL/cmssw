@@ -11,6 +11,7 @@
 </library>
 
 <!-- alpaka-based portable plugins -->
+<!--
 <library file="alpaka/*.cc" name="GeometryHGCalMappingPluginsPortable">
   <use name="alpaka"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
@@ -18,3 +19,4 @@
   <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
 </library>
+-->

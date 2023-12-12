@@ -32,37 +32,39 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   public:
     explicit HGCalMappingESSourceTester(const edm::ParameterSet&);
     static void fillDescriptions(edm::ConfigurationDescriptions&);
+    /*
     std::map<uint32_t,uint32_t> mapSiGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                       const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                       bool geo2ele);
     std::map<uint32_t,uint32_t> mapSiPMGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                         const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                         bool geo2ele);
-    
+    */
   private:
 
     void produce(device::Event&, device::EventSetup const&) override;
     void beginRun(edm::Run const&, edm::EventSetup const&) override;
 
     edm::ESWatcher<HGCalMappingModuleIndexerRcd> cfgWatcher_;
-    edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
+    //edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
     edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiCellIndexerRcd> siIndexTkn_;
+    /*
     edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd> sipmIndexTkn_;
     device::ESGetToken<hgcal::HGCalMappingModuleParamDeviceCollection, HGCalMappingModuleIndexerRcd> moduleTkn_;
     device::ESGetToken<hgcal::HGCalMappingCellParamDeviceCollection, HGCalMappingSiCellIndexerRcd> sicellTkn_;
     device::ESGetToken<hgcal::HGCalMappingCellParamDeviceCollection, HGCalMappingSiPMCellIndexerRcd> sipmcellTkn_;
-
+    */
     const device::EDPutToken<portabletest::TestDeviceCollection> testCollToken_;
   };
 
   //
   HGCalMappingESSourceTester::HGCalMappingESSourceTester(const edm::ParameterSet& iConfig)
-    : moduleIndexTkn_(esConsumes<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd>()),
+    : //moduleIndexTkn_(esConsumes<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd>()),
       siIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiCellIndexerRcd>()),
-      sipmIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd>()),
-      moduleTkn_(esConsumes(edm::ESInputTag(""))),
-      sicellTkn_(esConsumes(edm::ESInputTag(""))),
-      sipmcellTkn_(esConsumes(edm::ESInputTag(""))),
+      //sipmIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd>()),
+      //moduleTkn_(esConsumes(edm::ESInputTag(""))),
+      //sicellTkn_(esConsumes(edm::ESInputTag(""))),
+      //sipmcellTkn_(esConsumes(edm::ESInputTag(""))),
       testCollToken_{produces()} {      
   }
 
@@ -80,10 +82,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     if (!cfgWatcher_.check(iSetup)) return;
 
     //get indexers
-    auto modulesIdx = iSetup.getData(moduleIndexTkn_);
+    //auto modulesIdx = iSetup.getData(moduleIndexTkn_);
     auto siIdx = iSetup.getData(siIndexTkn_);
-    auto sipmIdx = iSetup.getData(sipmIndexTkn_);
+    //auto sipmIdx = iSetup.getData(sipmIndexTkn_);
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "Dense indexers retrieved for HGCAL";
+    /*
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Module indexer]"
                                                     << "\n\t max FED=" << modulesIdx.idxParams_.maxFEDsPerEndcap
                                                     <<" max CB/FED=" << modulesIdx.idxParams_.sLinkCaptureBlockMax
@@ -92,12 +95,46 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                     <<" max ch/eRx=" << modulesIdx.idxParams_.erxChannelMax      
                                                     << "\n\t Total size is=" << modulesIdx.getSize()
                                                     << " size at ROC is=" << modulesIdx.getSize(true);
-    edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Si cell indexer]"
-                                                    << "\n\t max types=" << siIdx.idxParams_.moduleTypeMax
-                                                    << "\t max ROC / type=" << siIdx.idxParams_.cellChipMax
-                                                    << "\t max half / ROC =" << siIdx.idxParams_.halfROCMax
-                                                    << "\t max ch / half=" << siIdx.idxParams_.channelSeqMax
-                                                    << "\n\t Total size is=" << siIdx.getSize();
+    */
+
+    //printout the contents
+    size_t nsi=siIdx.typeCodeIndexer_.size();
+    edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Si cell indexer] has " << nsi << " module types" << std::endl;
+    edm::LogInfo("HGCalMappingIndexESSourceTester").log( [&](auto& log) {
+
+      uint32_t totOffset(0);
+      for(size_t idx=0; idx<siIdx.di_.size(); idx++) {
+
+        //check typecode exists
+        auto typecode = siIdx.getTypecodeFromEnum(idx);
+        assert( siIdx.typeCodeIndexer_.count(typecode)==1);        
+
+        //check that the current offset is consistent with the increment from cells from the previous module        
+        if(idx>0) {
+          uint32_t nch_prev = siIdx.maxErx_[idx-1]*siIdx.maxChPerErx_;
+          uint32_t delta_offset = siIdx.offsets_[idx]-siIdx.offsets_[idx-1];
+          assert(delta_offset==nch_prev);
+        }
+
+        //assert offset is consistent with the accumulation        
+        auto off = siIdx.offsets_[idx];
+        assert(off==totOffset);
+
+        totOffset += siIdx.maxErx_[idx]*siIdx.maxChPerErx_;
+        
+        //print
+        log << "\t [" << typecode << "] has "
+            << " index(internal)=" << idx
+            << " #eRx = " << siIdx.maxErx_[idx]
+            << " #cells = " << siIdx.di_[idx].getMaxIndex()
+            << " offset @ " << siIdx.offsets_[idx] << "\n";
+      }
+      
+      log << "SoA size for Si cell mapping will be " << totOffset << "\n";
+    });
+    
+    
+    /*
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[SiPM-on-tile cell indexer]"
                                                     << "\n\t max types=" << sipmIdx.idxParams_.moduleTypeMax
                                                     << "\t max ROC / type=" << sipmIdx.idxParams_.cellChipMax
@@ -105,7 +142,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                     << "\t max ch / half=" << sipmIdx.idxParams_.channelSeqMax
                                                     << "\n\t Total size is=" << sipmIdx.getSize();
     
-
+    */
+    /*
     auto const& modules = iSetup.getData(moduleTkn_);
     for(int i=0; i<modules.view().metadata().size(); i++) {
         LogDebug("HGCalMappingModuleParameter")
@@ -202,6 +240,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       assert(sipmgeo2ele[it.second]==it.first);
     }
 
+    */
   }
 
   //
@@ -211,6 +250,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   }
   
   //
+  /*
   std::map<uint32_t,uint32_t> HGCalMappingESSourceTester::mapSiGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                                                 const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                                                 bool geo2ele)
@@ -267,8 +307,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     
     return idmap;
   }
+  */
 
   //
+  /*
   std::map<uint32_t,uint32_t> HGCalMappingESSourceTester::mapSiPMGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                                                   const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                                                   bool geo2ele)
@@ -322,6 +364,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     
     return idmap;
   }
+  */
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
