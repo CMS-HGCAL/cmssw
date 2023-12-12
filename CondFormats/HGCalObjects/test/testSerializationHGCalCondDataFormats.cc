@@ -4,7 +4,8 @@
 
 int main()
 {
-  //dense indexers  
+  //dense indexers
+  testSerialization<HGCalMappingCellIndexParameters>();
   testSerialization<HGCalMappingCellIndexer>();
   testSerialization<HGCalMappingModuleIndexParameters>();
   testSerialization<HGCalMappingModuleIndexer>();

@@ -1,16 +1,9 @@
 <lcgdict>
 
-  <class name="HGCalDenseIndexerBase" class_version="0">
-    <field name="vmax_" mapping="blob"/>
-  </class> 
-  
+  <class name="HGCalMappingCellIndexParameters"/>
   <class name="HGCalMappingCellIndexer" class_version="0">
-    <field name="typeCodeIndexer_" mapping="blob"/>
-    <field name="maxErx_" mapping="blob"/>
-    <field name="offsets_" mapping="blob"/>
-    <field name="di_" mapping="blob"/>
-  </class> 
- 
+    <field name="idxParams_" mapping="blob"/>
+  </class>
 
   <class name="HGCalMappingModuleIndexParameters"/>
   <class name="HGCalMappingModuleIndexer" class_version="0">

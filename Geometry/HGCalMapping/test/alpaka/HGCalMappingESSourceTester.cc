@@ -32,21 +32,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   public:
     explicit HGCalMappingESSourceTester(const edm::ParameterSet&);
     static void fillDescriptions(edm::ConfigurationDescriptions&);
-    /*
     std::map<uint32_t,uint32_t> mapSiGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                       const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                       bool geo2ele);
     std::map<uint32_t,uint32_t> mapSiPMGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                         const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                         bool geo2ele);
-    */
+    
   private:
 
     void produce(device::Event&, device::EventSetup const&) override;
     void beginRun(edm::Run const&, edm::EventSetup const&) override;
 
     edm::ESWatcher<HGCalMappingModuleIndexerRcd> cfgWatcher_;
-    //edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
+    edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
     edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiCellIndexerRcd> siIndexTkn_;
     //edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd> sipmIndexTkn_;
     //device::ESGetToken<hgcal::HGCalMappingModuleParamDeviceCollection, HGCalMappingModuleIndexerRcd> moduleTkn_;
@@ -57,7 +56,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   //
   HGCalMappingESSourceTester::HGCalMappingESSourceTester(const edm::ParameterSet& iConfig)
-    : //moduleIndexTkn_(esConsumes<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd>()),
+    : moduleIndexTkn_(esConsumes<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd>()),
       siIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiCellIndexerRcd>()),
       //sipmIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd>()),
       //moduleTkn_(esConsumes(edm::ESInputTag(""))),
@@ -80,11 +79,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     if (!cfgWatcher_.check(iSetup)) return;
 
     //get indexers
-    //auto modulesIdx = iSetup.getData(moduleIndexTkn_);
+    auto modulesIdx = iSetup.getData(moduleIndexTkn_);
     auto siIdx = iSetup.getData(siIndexTkn_);
-    //auto sipmIdx = iSetup.getData(sipmIndexTkn_);
+    auto sipmIdx = iSetup.getData(sipmIndexTkn_);
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "Dense indexers retrieved for HGCAL";
-    /*
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Module indexer]"
                                                     << "\n\t max FED=" << modulesIdx.idxParams_.maxFEDsPerEndcap
                                                     <<" max CB/FED=" << modulesIdx.idxParams_.sLinkCaptureBlockMax
@@ -165,8 +163,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                     << "\t max ch / half=" << sipmIdx.idxParams_.channelSeqMax
                                                     << "\n\t Total size is=" << sipmIdx.getSize();
     
-    */
-    /*
+
     auto const& modules = iSetup.getData(moduleTkn_);
     for(int i=0; i<modules.view().metadata().size(); i++) {
         LogDebug("HGCalMappingModuleParameter")
@@ -243,7 +240,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       assert(sipmgeo2ele[it.second]==it.first);
     }
 
-    */
   }
 
   //
@@ -253,7 +249,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   }
   
   //
-  /*
   std::map<uint32_t,uint32_t> HGCalMappingESSourceTester::mapSiGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                                                 const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                                                 bool geo2ele)
@@ -310,10 +305,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     
     return idmap;
   }
-  */
 
   //
-  /*
   std::map<uint32_t,uint32_t> HGCalMappingESSourceTester::mapSiPMGeoToElectronics(const hgcal::HGCalMappingModuleParamDeviceCollection &modules,
                                                                                   const hgcal::HGCalMappingCellParamDeviceCollection &cells,
                                                                                   bool geo2ele)
@@ -367,7 +360,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     
     return idmap;
   }
-  */
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
 
