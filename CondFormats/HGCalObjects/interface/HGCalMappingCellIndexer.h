@@ -121,6 +121,26 @@ class HGCalMappingCellIndexer {
     return HGCalElectronicsId(0, 0, 0, 0, rtn_codes[0], rtn_codes[1]).raw();
   }
 
+  /**
+     @short returns the max. dense index expected
+   */
+  uint32_t maxDenseIndex() {
+    size_t i = maxErx_.size();
+    if(i==0) return 0;
+    return offsets_.back()+maxErx_.back()*maxChPerErx_;
+  }
+  
+  /**
+     @short decodes the density and wafer type from the Si typecode string
+   */
+  std::pair<bool,uint16_t> convertSiTypeCode(std::string typecode) {
+    bool isHD = {typecode.find("MH")!=std::string::npos ? true : false};
+    const std::map<char, uint16_t> typeMap = {{'F',0},{'T',1},{'B',2},{'L',3},{'R',4},{'5',5}};
+    uint16_t wafType = typeMap.find(typecode[3])->second;
+    return std::pair<bool,uint16_t>(isHD,wafType);
+  }
+
+  
   uint16_t convertSiPMTypecode(std::string typeString) {
 
     const std::map<std::string, uint16_t> typeMap_ = {

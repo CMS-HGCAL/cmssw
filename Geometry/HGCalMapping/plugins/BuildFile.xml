@@ -11,12 +11,10 @@
 </library>
 
 <!-- alpaka-based portable plugins -->
-<!--
-<library file="alpaka/*.cc" name="GeometryHGCalMappingPluginsPortable">
+<library file="alpaka/HGCalMappingCell*.cc" name="GeometryHGCalMappingPluginsPortable">
   <use name="alpaka"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
   <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
 </library>
--->

@@ -48,12 +48,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::ESWatcher<HGCalMappingModuleIndexerRcd> cfgWatcher_;
     //edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
     edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiCellIndexerRcd> siIndexTkn_;
-    /*
-    edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd> sipmIndexTkn_;
-    device::ESGetToken<hgcal::HGCalMappingModuleParamDeviceCollection, HGCalMappingModuleIndexerRcd> moduleTkn_;
+    //edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd> sipmIndexTkn_;
+    //device::ESGetToken<hgcal::HGCalMappingModuleParamDeviceCollection, HGCalMappingModuleIndexerRcd> moduleTkn_;
     device::ESGetToken<hgcal::HGCalMappingCellParamDeviceCollection, HGCalMappingSiCellIndexerRcd> sicellTkn_;
-    device::ESGetToken<hgcal::HGCalMappingCellParamDeviceCollection, HGCalMappingSiPMCellIndexerRcd> sipmcellTkn_;
-    */
+    //device::ESGetToken<hgcal::HGCalMappingCellParamDeviceCollection, HGCalMappingSiPMCellIndexerRcd> sipmcellTkn_;    
     const device::EDPutToken<portabletest::TestDeviceCollection> testCollToken_;
   };
 
@@ -63,7 +61,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       siIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiCellIndexerRcd>()),
       //sipmIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd>()),
       //moduleTkn_(esConsumes(edm::ESInputTag(""))),
-      //sicellTkn_(esConsumes(edm::ESInputTag(""))),
+      sicellTkn_(esConsumes(edm::ESInputTag(""))),
       //sipmcellTkn_(esConsumes(edm::ESInputTag(""))),
       testCollToken_{produces()} {      
   }
@@ -129,10 +127,35 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             << " #cells = " << siIdx.di_[idx].getMaxIndex()
             << " offset @ " << siIdx.offsets_[idx] << "\n";
       }
-      
+            
+      assert(totOffset == siIdx.maxDenseIndex() );
       log << "SoA size for Si cell mapping will be " << totOffset << "\n";
     });
-    
+
+    //si cell SoA
+    auto const& sicells = iSetup.getData(sicellTkn_);
+    uint32_t nsicells=sicells.view().metadata().size();
+    assert(nsicells==siIdx.maxDenseIndex()); //check for consistent size
+    for(uint32_t i=0; i<nsicells; i++) {
+      LogDebug("HGCalMappingSiCellParameter")
+          << "idx = "         << i << ", "
+          << "isHD = "   << sicells.view()[i].isHD()  << ", "
+          << "iscalib = "  << sicells.view()[i].iscalib() << ", "
+          << "type = " << sicells.view()[i].type() << ", "
+          << "chip = " << sicells.view()[i].chip() << ", "
+          << "half = " << sicells.view()[i].half() << ", "
+          << "seq = " << sicells.view()[i].seq() << ", "
+          << "rocpin = " << sicells.view()[i].rocpin() << ", "
+          << "cellidx = " << sicells.view()[i].cellidx() << ", "
+          << "triglink = " << sicells.view()[i].triglink() << ", "
+          << "trigcell = " << sicells.view()[i].trigcell() << ", "
+          << "iu = " << sicells.view()[i].iu() << ", "
+          << "iv = " << sicells.view()[i].iv() << ", "
+          << "t = " << sicells.view()[i].t() << ", "
+          << "trace = " << sicells.view()[i].trace() << ", "
+          << "thickness = " << sicells.view()[i].thickness() << std::endl;
+     }
+
     
     /*
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[SiPM-on-tile cell indexer]"
@@ -163,26 +186,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         << "econdidx = " << modules.view()[i].econdidx() << ", " << std::endl;
      }
 
-    auto const& sicells = iSetup.getData(sicellTkn_);
-    for(int i=0; i<sicells.view().metadata().size(); i++) {
-      LogDebug("HGCalMappingSiCellParameter")
-          << "idx = "         << i << ", "
-          << "isHD = "   << sicells.view()[i].isHD()  << ", "
-          << "iscalib = "  << sicells.view()[i].iscalib() << ", "
-          << "type = " << sicells.view()[i].type() << ", "
-          << "chip = " << sicells.view()[i].chip() << ", "
-          << "half = " << sicells.view()[i].half() << ", "
-          << "seq = " << sicells.view()[i].seq() << ", "
-          << "rocpin = " << sicells.view()[i].rocpin() << ", "
-          << "cellidx = " << sicells.view()[i].cellidx() << ", "
-          << "triglink = " << sicells.view()[i].triglink() << ", "
-          << "trigcell = " << sicells.view()[i].trigcell() << ", "
-          << "iu = " << sicells.view()[i].iu() << ", "
-          << "iv = " << sicells.view()[i].iv() << ", "
-          << "t = " << sicells.view()[i].t() << ", "
-          << "trace = " << sicells.view()[i].trace() << ", "
-          << "thickness = " << sicells.view()[i].thickness() << std::endl;
-     }
 
     auto const& sipmcells = iSetup.getData(sipmcellTkn_);
     for(int i=0; i<sipmcells.view().metadata().size(); i++) {
