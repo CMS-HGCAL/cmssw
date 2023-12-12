@@ -59,7 +59,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         //get cell indexer
         HGCalMappingCellIndexer cpi = iRecord.get(cellIndexTkn_);
 
-        const uint32_t size = cpi.getSize(); // channel-level size
+        const uint32_t size = cpi.maxDenseIndex(); // channel-level size
         HGCalMappingCellParamHostCollection cellParams(size, cms::alpakatools::host());
 
         //open file and read the first line to identify which type it is
@@ -74,12 +74,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         if(firststr == "index") isSiPM = true;
  
         //parse file and fill the SoA with the cell info
+        std::string typecode,rocpincol;
         bool isHD(false),iscalib(false);
         uint16_t type, chip, half;
         uint16_t seq,rocpin;
         int cellidx,triglink,trigcell,iu,iv,t,thickness(0);
         float trace(0);
-        std::string typestr,denscol,rocpincol;
 
         while(std::getline(file, line))
           {
@@ -87,17 +87,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
             //SiPM version
             if(isSiPM) {
-              stream >> cellidx >> chip >> half >> seq >> iu >> iv >> typestr >> thickness >> trigcell >> triglink >> t;
-              type = cpi.convertSiPMTypecode(typestr);
+              stream >> cellidx >> chip >> half >> seq >> iu >> iv >> typecode >> thickness >> trigcell >> triglink >> t;
+              type = cpi.convertSiPMTypecode(typecode);
               rocpin=cellidx;
             }
-
+            
             //Si version
             else {
-              stream >> denscol;
-              isHD = denscol=="LD" ? false : true;
-              stream >> type >> chip >> half >> seq;
-              stream >> rocpincol;
+              stream >> typecode >> chip >> half >> seq >> rocpincol >> cellidx >> triglink >> trigcell >> iu >> iv >> trace >> t;
+              
+              auto siType = cpi.convertSiTypeCode(typecode);
+              isHD = siType.first;
+              type = siType.second;
+              
               if(rocpincol.find("CALIB")!=std::string::npos) {
                 iscalib=true;
                 rocpin=uint16_t(rocpincol[rocpincol.size()-1]);
@@ -106,11 +108,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                 iscalib=false;
                 rocpin=std::stoi(rocpincol);
               }
-              stream >> cellidx >> triglink >> trigcell >> iu >> iv >> trace >> t;            
+
             }
 
             //get dense index and fill the values
-            int idx = cpi.denseIndex(type,chip,half,seq);
+            int idx = cpi.denseIndex(typecode,chip,half,seq);
             cellParams.view()[idx].isHD() = isHD;
             cellParams.view()[idx].iscalib() = iscalib;
             cellParams.view()[idx].type() = type;

@@ -43,20 +43,20 @@ process.hgcalMappingModuleIndexerESRecord = cms.ESSource('EmptyESSource',
                                                     iovIsRunNotTime=cms.bool(True),
                                                     firstValid=cms.vuint32(1)
                                                     )
-process.hgcalMappingModuleESRecord = cms.ESSource('EmptyESSource',
-                                                    recordName=cms.string('HGCalMappingModuleRcd'),
-                                                    iovIsRunNotTime=cms.bool(True),
-                                                    firstValid=cms.vuint32(1)
-                                                    )
-process.hgCalMappingModuleESProducer = cms.ESProducer('hgcal::HGCalMappingModuleESProducer@alpaka',
-                                                      filename=cms.string(options.modules),
-                                                      moduleindexer=cms.ESInputTag('') )
+#process.hgcalMappingModuleESRecord = cms.ESSource('EmptyESSource',
+#                                                    recordName=cms.string('HGCalMappingModuleRcd'),
+#                                                    iovIsRunNotTime=cms.bool(True),
+#                                                    firstValid=cms.vuint32(1)
+#                                                    )
+#process.hgCalMappingModuleESProducer = cms.ESProducer('hgcal::HGCalMappingModuleESProducer@alpaka',
+#                                                      filename=cms.string(options.modules),
+#                                                      moduleindexer=cms.ESInputTag('') )
 process.hgCalMappingSiCellESProducer = cms.ESProducer('hgcal::HGCalMappingSiCellESProducer@alpaka',
                                                       filename=cms.string(options.sicells),
                                                       cellindexer=cms.ESInputTag('') )
-process.hgCalMappingSiPMCellESProducer = cms.ESProducer('hgcal::HGCalMappingSiPMCellESProducer@alpaka',
-                                                        filename=cms.string(options.sipmcells),
-                                                        cellindexer=cms.ESInputTag('') )
+#process.hgCalMappingSiPMCellESProducer = cms.ESProducer('hgcal::HGCalMappingSiPMCellESProducer@alpaka',
+#                                                        filename=cms.string(options.sipmcells),
+#                                                        cellindexer=cms.ESInputTag('') )
 
 #tester
 process.tester = cms.EDProducer('HGCalMappingESSourceTester@alpaka')
