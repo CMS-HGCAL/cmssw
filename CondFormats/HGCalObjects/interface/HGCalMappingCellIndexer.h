@@ -16,7 +16,7 @@ class HGCalMappingCellIndexer {
 
  public:
 
-  typedef HGCalDenseIndexerBase WaferCellDenseIndexer;
+  // typedef HGCalDenseIndexerBase WaferDenseIndexerBase;
   
   HGCalMappingCellIndexer() {}
 
@@ -43,7 +43,7 @@ class HGCalMappingCellIndexer {
 
     uint32_t n = typeCodeIndexer_.size();
     offsets_ = std::vector<uint32_t>(n,0);
-    di_ = std::vector<WaferCellDenseIndexer>(n,WaferCellDenseIndexer(2));
+    di_ = std::vector<HGCalDenseIndexerBase>(n,HGCalDenseIndexerBase(2));
     for(uint32_t idx=0; idx<n; idx++) {
       uint16_t nerx = maxErx_[idx];
       di_[idx].updateRanges( {{nerx,maxChPerErx_}} );
@@ -77,14 +77,14 @@ class HGCalMappingCellIndexer {
   /**
      @short returns the dense indexer for a typecode
    */
-  WaferCellDenseIndexer getDenseIndexFor(std::string typecode) {
+  HGCalDenseIndexerBase getDenseIndexFor(std::string typecode) {
     return getDenseIndexerFor( getEnumFromTypecode(typecode) );
   }
 
   /**
      @short returns the dense indexer for a given internal index
   */
-  WaferCellDenseIndexer getDenseIndexerFor(size_t idx) {
+  HGCalDenseIndexerBase getDenseIndexerFor(size_t idx) {
     if( idx >= di_.size() )
       throw cms::Exception("ValueError") << " index requested for cell dense indexer (i=" << idx << ") is larger than allocated";
     return di_[idx];
@@ -177,7 +177,7 @@ class HGCalMappingCellIndexer {
   std::map<std::string,size_t> typeCodeIndexer_;
   std::vector<uint16_t> maxErx_;
   std::vector<uint32_t> offsets_;
-  std::vector<WaferCellDenseIndexer> di_;
+  std::vector<HGCalDenseIndexerBase> di_;
   
   virtual ~HGCalMappingCellIndexer() {}
   

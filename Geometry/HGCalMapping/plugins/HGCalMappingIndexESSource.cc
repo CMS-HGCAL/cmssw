@@ -30,16 +30,16 @@ public:
 
     //setWhatProduced(this, &HGCalMappingIndexESSource::produceModules);
     setWhatProduced(this, &HGCalMappingIndexESSource::produceSi);
-    // setWhatProduced(this, &HGCalMappingIndexESSource::produceSiPM);
+    setWhatProduced(this, &HGCalMappingIndexESSource::produceSiPM);
 
     //    findingRecord<HGCalMappingModuleIndexerRcd>();
     findingRecord<HGCalMappingSiCellIndexerRcd>();
-    //findingRecord<HGCalMappingSiPMCellIndexerRcd>();
+    findingRecord<HGCalMappingSiPMCellIndexerRcd>();
   }
 
   //std::unique_ptr<HGCalMappingModuleIndexer> produceModules(const HGCalMappingModuleIndexerRcd&);
   std::unique_ptr<HGCalMappingCellIndexer> produceSi(const HGCalMappingSiCellIndexerRcd&);
-  // std::unique_ptr<HGCalMappingCellIndexer> produceSiPM(const HGCalMappingSiPMCellIndexerRcd&);
+  std::unique_ptr<HGCalMappingCellIndexer> produceSiPM(const HGCalMappingSiPMCellIndexerRcd&);
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
@@ -119,7 +119,7 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSi(co
       std::istringstream stream(line);
       stream >> typecode;
       stream >> chip >> half;
-      c->processNewCell(typecode,chip,half);      
+      c->processNewCell(typecode,chip,half);
     }
 
   c->update();
@@ -128,7 +128,6 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSi(co
 }
 
 //
-/*
 std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(const HGCalMappingSiPMCellIndexerRcd &rcd) {
 
   //instantiate the cell indexer 
@@ -137,32 +136,24 @@ std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(
   // load module mapping parameters
   edm::FileInPath fip(sipm_filename_);
   std::ifstream file(fip.fullPath());
-  std::string line;
+
   size_t iline(0);
-  uint16_t maxtype(0),maxchip(0),maxhalf(0),maxseq(0);
-  int iu,iv,trigcell,triglink,t,thickness;
-  uint16_t type, index, chip, half, seq;
-  std::string typecode;
-  
+  std::string line, typecode;
+  int iring,iphi;
+  uint16_t index, chip, half, seq;
+
   while(std::getline(file, line))
     {
       iline++;
       if(iline==1) continue;
       std::istringstream stream(line);
       
-      stream >> index >> chip >> half >> seq >> iu >> iv >> typecode >> thickness >> trigcell >> triglink >> t;
-      type = c->convertSiPMTypecode(typecode);
-      
-      maxtype=std::max(type,maxtype);
-      maxchip=std::max(chip,maxchip);
-      maxhalf=std::max(half,maxhalf);
-      maxseq=std::max(seq,maxseq);
+      stream >> index >> chip >> half >> seq >> iring >> iphi >> typecode;      
+      c->processNewCell(typecode,chip,half);
     }
 
-  //update with the appropriate ranges for the tileboards
-  c->update(maxtype,maxchip+1,maxhalf+1,maxseq+1);
+  c->update();
   return c;
 }
-*/
 
 DEFINE_FWK_EVENTSETUP_SOURCE(HGCalMappingIndexESSource);

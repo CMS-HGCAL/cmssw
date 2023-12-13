@@ -54,9 +54,9 @@ process.hgcalMappingModuleIndexerESRecord = cms.ESSource('EmptyESSource',
 process.hgCalMappingSiCellESProducer = cms.ESProducer('hgcal::HGCalMappingSiCellESProducer@alpaka',
                                                       filename=cms.string(options.sicells),
                                                       cellindexer=cms.ESInputTag('') )
-#process.hgCalMappingSiPMCellESProducer = cms.ESProducer('hgcal::HGCalMappingSiPMCellESProducer@alpaka',
-#                                                        filename=cms.string(options.sipmcells),
-#                                                        cellindexer=cms.ESInputTag('') )
+process.hgCalMappingSiPMCellESProducer = cms.ESProducer('hgcal::HGCalMappingSiPMCellESProducer@alpaka',
+                                                       filename=cms.string(options.sipmcells),
+                                                       cellindexer=cms.ESInputTag('') )
 
 #tester
 process.tester = cms.EDProducer('HGCalMappingESSourceTester@alpaka')
