@@ -131,7 +131,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               cellParams.view()[idx].thickness() = thickness;
             }
         }
-        
+
         return cellParams;
       }  // end of produce()
       

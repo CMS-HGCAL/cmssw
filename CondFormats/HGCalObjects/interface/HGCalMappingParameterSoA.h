@@ -45,11 +45,10 @@ namespace hgcal {
                       SOA_COLUMN(int, cellidx),
                       SOA_COLUMN(int, triglink),
                       SOA_COLUMN(int, trigcell),
-                      SOA_COLUMN(int, iu),
-                      SOA_COLUMN(int, iv),
+                      SOA_COLUMN(int, i1), // iu/iring
+                      SOA_COLUMN(int, i2), // iv/iphi
                       SOA_COLUMN(int, t),
-                      SOA_COLUMN(float, trace),
-                      SOA_COLUMN(int, thickness)
+                      SOA_COLUMN(float, trace)
   )
   using HGCalMappingCellParamSoA = HGCalMappingCellParamSoALayout<>;
 
