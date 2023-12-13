@@ -3,157 +3,115 @@
 
 #include <cstdint>
 #include <vector>
+#include <algorithm>
 
 #include "DataFormats/HGCalDigi/interface/HGCalElectronicsId.h"
 #include "CondFormats/Serialization/interface/Serializable.h"
+#include "CondFormats/HGCalObjects/interface/HGCalDenseIndexerBase.h"
 
-/**
-   @short holds the parameters needed to compute the dense indexing for HGCAL modules
-*/
-struct HGCalMappingModuleIndexParameters {
-  uint32_t maxFEDsPerEndcap{512};     ///< maximum number of FEDs on one side
-  uint32_t sLinkCaptureBlockMax{10};  ///< maximum number of capture blocks in one S-Link
-  uint32_t captureBlockECONDMax{12};  ///< maximum number of ECON-Ds in one capture block
-  uint32_t econdERXMax{12};           ///< maximum number of eRxs in one ECON-D
-  uint32_t erxChannelMax{37};         ///< maximum number of channels in one eRx
-
+struct FEDReadoutSequence_t {
+  std::vector<int> readoutTypes_;
+  std::vector<int> readoutOffsets_;
   COND_SERIALIZABLE;
 };
 
 
 /**
    @short utility class to assign dense readout module indexing
+   the class holds the information on the expected readout sequence (module types) per FED and their offset in the SoAs of data
  */
 class HGCalMappingModuleIndexer {
 
- public:
-
-  HGCalMappingModuleIndexer() {}
-
+public:
+    
+  HGCalMappingModuleIndexer() { }
+  
   virtual ~HGCalMappingModuleIndexer() {}
-
-  uint32_t denseIndex(uint32_t sLink, uint32_t captureBlock) {
-    uint32_t rtn = sLink;
-    rtn = rtn * idxParams_.sLinkCaptureBlockMax + captureBlock;
-    return rtn;
-  }
-
-  uint32_t denseIndex(uint32_t sLink, uint32_t captureBlock, uint32_t eCOND) {
-    uint32_t rtn = sLink;
-    rtn = rtn * idxParams_.sLinkCaptureBlockMax + captureBlock;
-    rtn = rtn * idxParams_.captureBlockECONDMax + eCOND;
-    return rtn;
-  }
-
-  uint32_t denseIndex(uint32_t sLink, uint32_t captureBlock, uint32_t eCOND, uint32_t eRx) {
-    uint32_t rtn = sLink;
-    rtn = rtn * idxParams_.sLinkCaptureBlockMax + captureBlock;
-    rtn = rtn * idxParams_.captureBlockECONDMax + eCOND;
-    rtn = rtn * idxParams_.econdERXMax + eRx;
-    return rtn;
-  }
-
-  uint32_t denseIndex(
-    uint32_t sLink, uint32_t captureBlock, uint32_t eCOND, uint32_t eRx, uint32_t channel) {
-    uint32_t rtn = sLink;
-    rtn = rtn * idxParams_.sLinkCaptureBlockMax + captureBlock;
-    rtn = rtn * idxParams_.captureBlockECONDMax + eCOND;
-    rtn = rtn * idxParams_.econdERXMax + eRx;
-    rtn = rtn * idxParams_.erxChannelMax + channel;
-    return rtn;
-  }
-
-  uint32_t denseIndex(HGCalElectronicsId elecID) {
-    return denseIndex(
-      elecID.localFEDId(), elecID.captureBlock(), elecID.econdIdx(), elecID.econdeRx(), elecID.halfrocChannel());
-  }
-
-  HGCalElectronicsId inverseDenseIndex(uint32_t denseIdx) {
-    uint8_t halfrocch = denseIdx % idxParams_.erxChannelMax;
-    denseIdx = denseIdx / idxParams_.erxChannelMax;
-    uint8_t econderx = denseIdx % idxParams_.econdERXMax;
-    denseIdx = denseIdx / idxParams_.econdERXMax;
-    uint8_t econdidx = denseIdx % idxParams_.captureBlockECONDMax;
-    denseIdx = denseIdx / idxParams_.captureBlockECONDMax;
-    uint8_t captureblock = denseIdx % idxParams_.sLinkCaptureBlockMax;
-    uint16_t sLink = denseIdx / idxParams_.sLinkCaptureBlockMax;
-    bool zside = sLink > idxParams_.maxFEDsPerEndcap;
-    return HGCalElectronicsId(zside, sLink, captureblock, econdidx, econderx, halfrocch);
-  }
-
-  inline void update(const HGCalMappingModuleIndexParameters &from) { idxParams_ = from; }
   
-  void update(uint32_t maxslink, uint32_t maxcaptureblock, uint32_t maxecondidx, uint32_t maxerx, const int commonMode=2) {
-    idxParams_.maxFEDsPerEndcap = maxslink;   
-    idxParams_.sLinkCaptureBlockMax = maxcaptureblock;
-    idxParams_.captureBlockECONDMax = maxecondidx;
-    idxParams_.econdERXMax = maxerx;         
-    idxParams_.erxChannelMax = 37 + commonMode; // +2 for the two common modes
+
+  /**
+     @short for a new module it adds it's type to the readaout sequence vector
+     if the fed id is not yet existing in the mapping it's added
+     a dense indexer is used to create the necessary indices for the new module
+     unused indices will be set with -1
+   */
+  void processNewModule(uint32_t fedid, uint16_t captureblockIdx, uint16_t econdIdx,uint32_t typecodeIdx, uint32_t nwords) {
+
+    //add fed if needed
+    fedReadoutSequences_.resize(fedid);
+    FEDReadoutSequence_t &frs = fedReadoutSequences_[fedid];
+
+    //assign position, resize if needed and fill the type code
+    HGCalDenseIndexerBase mi( {maxCBperFED_,maxECONDperCB_} );
+    uint32_t idx = mi.denseIndex({{captureblockIdx,econdIdx}});
+    frs.readoutTypes_.resize(idx+1,-1);    
+    frs.readoutTypes_[idx] = typecodeIdx;
+
+    //increment global counter per type
+    globalTypesCounter_.resize(typecodeIdx+1,0);    
+    globalTypesCounter_[typecodeIdx]++;
+    globalTypesNWords_.resize(typecodeIdx+1,0);
+    globalTypesNWords_[typecodeIdx]=nwords;
+    globalTypesOffsets_.resize(typecodeIdx+1,0);
   }
 
-  constexpr uint32_t getSize(bool roclevel=false) const{
-    uint32_t size = idxParams_.maxFEDsPerEndcap*idxParams_.sLinkCaptureBlockMax*idxParams_.captureBlockECONDMax*idxParams_.econdERXMax;
-    if(!roclevel) // channel-level: include channel size
-      size *= idxParams_.erxChannelMax;
-    return size;
-  }
 
-  uint16_t convertSiTypecode(std::string typeString) {
+  /**
+     @short
+   */
+  void finalize() {
 
-    const std::map<char, uint16_t> typeMap_ = {
-      {'F', 0},
-      {'T', 1},
-      {'B', 2},
-      {'L', 3},
-      {'R', 4},
-      {'5', 5}
-    };
-
-    auto it = typeMap_.find(typeString[3]);
-    if (it != typeMap_.end()) {
-      return it->second;
+    //compute the global offset to assign per board type
+    for(size_t i=1; i<globalTypesCounter_.size(); i++) {
+      globalTypesOffsets_[i] = globalTypesCounter_[i-1]*globalTypesNWords_[i-1];
     }
-    return typeMap_.size();
-  }
+    std::partial_sum(globalTypesOffsets_.begin(), globalTypesOffsets_.end(), globalTypesOffsets_.begin());
 
-  uint16_t convertSiPMTypecode(std::string typeString) {
+    //max index which will be needed to allocate memory for
+    maxIdx_ = std::inner_product(globalTypesCounter_.begin(), globalTypesCounter_.end(), globalTypesNWords_.begin(), 0);
 
-    const std::map<std::string, uint16_t> typeMap_ = {
-      {"TM-A5A6", 1},
-      {"TM-A5", 1},
-      {"TM-A6", 1},
-      {"TM-B11B12", 2},
-      {"TM-B11", 2},
-      {"TM-B12", 2},
-      {"TM-C5", 3},
-      {"TM-D8", 4},
-      {"TM-E8", 5},
-      {"TM-G3", 6},
-      {"TM-G4", 7},
-      {"TM-G5", 8},
-      {"TM-G6", 9},
-      {"TM-G7", 10},
-      {"TM-G8", 11},
-      {"TM-J8", 12},
-      {"TM-J12", 13},
-      {"TM-K4", 14},
-      {"TM-K5", 15},
-      {"TM-K6", 16},
-      {"TM-K7", 17},
-      {"TM-K8", 18},
-      {"TM-K10", 19},
-      {"TM-K12", 20}
-    };
+    //now go through the FEDs and ascribe the offsets per module in the readout sequence
+    std::vector<uint32_t > typeCounters(globalTypesCounter_.size(),0);
+    nfeds_=fedReadoutSequences_.size();
+    for(auto fedit : fedReadoutSequences_) {
 
-    auto it = typeMap_.find(typeString);
-    if (it != typeMap_.end()) {
-      return it->second;
+      //build the final, compact readout sequence
+      std::remove_if ( fedit.readoutTypes_.begin(),
+                       fedit.readoutTypes_.end(),
+                       [&](int val) -> bool { return val==-1; } );
+      
+      //assign offsets
+      size_t nmods=fedit.readoutTypes_.size();
+      fedit.readoutOffsets_.resize(nmods,0);
+      for(size_t i=0; i<nmods; i++) {
+        
+        uint32_t type_val = fedit.readoutTypes_[i];
+        uint32_t base_offset=globalTypesOffsets_[type_val];
+        uint32_t intern_offset=globalTypesNWords_[type_val]*typeCounters[type_val];
+        fedit.readoutOffsets_[i] = intern_offset+base_offset;
+        
+        typeCounters[type_val]++;
+      }
     }
-    return typeMap_.size();
+    
   }
 
-  HGCalMappingModuleIndexParameters idxParams_;
-  
+  /**
+     @short returns the index for the n-th module in the readout sequence of a FED
+   */
+  uint32_t getIndexForModule(uint32_t fedid, uint32_t nmod) {
+    if(fedid>nfeds_ || fedReadoutSequences_[fedid].readoutOffsets_.size()<nmod)
+      throw cms::Exception("ValueError") << "FED ID=" << fedid << " or #module requested (=" << nmod << ") is unknown to current mapping";    
+    return fedReadoutSequences_[fedid].readoutOffsets_[nmod];
+  };
+
+  std::vector<FEDReadoutSequence_t> fedReadoutSequences_;
+  std::vector<uint32_t> globalTypesCounter_,globalTypesNWords_,globalTypesOffsets_;
+  uint32_t nfeds_,maxIdx_;
+
+  constexpr static uint32_t maxCBperFED_ = 10;
+  constexpr static uint32_t maxECONDperCB_ = 12;
+
   COND_SERIALIZABLE;
 };
 

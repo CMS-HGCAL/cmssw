@@ -7,8 +7,7 @@
 #include "FWCore/ParameterSet/interface/FileInPath.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "CondFormats/DataRecord/interface/HGCalMappingModuleIndexerRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalMappingSiCellIndexerRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalMappingSiPMCellIndexerRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalMappingCellIndexerRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
 
@@ -27,19 +26,19 @@ public:
       si_filename_(iConfig.getParameter<std::string>("si")),
       sipm_filename_(iConfig.getParameter<std::string>("sipm"))
   {
+    setWhatProduced(this, &HGCalMappingIndexESSource::produceCellMapIndexer);
+    setWhatProduced(this, &HGCalMappingIndexESSource::produceModuleMapIndexer);
 
-    //setWhatProduced(this, &HGCalMappingIndexESSource::produceModules);
-    setWhatProduced(this, &HGCalMappingIndexESSource::produceSi);
-    // setWhatProduced(this, &HGCalMappingIndexESSource::produceSiPM);
+    findingRecord<HGCalMappingModuleIndexerRcd>();
+    findingRecord<HGCalMappingCellIndexerRcd>();
 
-    //    findingRecord<HGCalMappingModuleIndexerRcd>();
-    findingRecord<HGCalMappingSiCellIndexerRcd>();
-    //findingRecord<HGCalMappingSiPMCellIndexerRcd>();
+    buildCellMapperIndexer();
+    // buildModuleMapperIndexer();
   }
 
-  //std::unique_ptr<HGCalMappingModuleIndexer> produceModules(const HGCalMappingModuleIndexerRcd&);
-  std::unique_ptr<HGCalMappingCellIndexer> produceSi(const HGCalMappingSiCellIndexerRcd&);
-  // std::unique_ptr<HGCalMappingCellIndexer> produceSiPM(const HGCalMappingSiPMCellIndexerRcd&);
+  std::unique_ptr<HGCalMappingModuleIndexer> produceModuleMapIndexer(const HGCalMappingModuleIndexerRcd&) { return  std::make_unique<HGCalMappingModuleIndexer>(modIndexer_); }
+  std::unique_ptr<HGCalMappingCellIndexer> produceCellMapIndexer(const HGCalMappingCellIndexerRcd&) { return  std::make_unique<HGCalMappingCellIndexer>(cellIndexer_); }
+
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
@@ -56,24 +55,71 @@ private:
                       edm::ValidityInterval& oValidity) override {
     oValidity = edm::ValidityInterval(edm::IOVSyncValue::beginOfTime(), edm::IOVSyncValue::endOfTime());
   }
+
+  void buildCellMapperIndexer();
+  void buildModuleMapperIndexer();
   
   const std::string module_filename_, si_filename_, sipm_filename_;
+  HGCalMappingModuleIndexer modIndexer_;
+  HGCalMappingCellIndexer cellIndexer_;
 
 };
 
+//
+void HGCalMappingIndexESSource::buildCellMapperIndexer() {
+  
+  // load Si cell specific module mapping parameters
+  edm::FileInPath fip(si_filename_);
+  std::ifstream file(fip.fullPath());
+  
+  size_t iline(0);
+  std::string line,typecode;
+  uint16_t chip, half, seq;
+  while(std::getline(file, line))
+    {
+      iline++;
+      if(iline==1) continue;
+      std::istringstream stream(line);
+      stream >> typecode;
+      stream >> chip >> half;
+      cellIndexer_.processNewCell(typecode,chip,half);      
+    }
+
+
+  // load SiPM cell specific module mapping parameters
+  fip = edm::FileInPath(sipm_filename_);
+  file = std::ifstream(fip.fullPath());
+  int iu,iv;
+  uint16_t index;
+  while(std::getline(file, line))
+    {
+      iline++;
+      if(iline==1) continue;
+      std::istringstream stream(line);
+      
+      stream >> index >> chip >> half >> seq >> iu >> iv >> typecode;
+      cellIndexer_.processNewCell(typecode,chip,half);
+    }
+  
+  // all {hex,tile}board types are loaded finalize the mapping
+  cellIndexer_.update();
+}
+
 
 //
-/*
-std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceModules(const HGCalMappingModuleIndexerRcd &rcd) {  
+void HGCalMappingIndexESSource::buildModuleMapperIndexer() {
 
+
+  auto defaultTypeCodeIdx = cellIndexer_.getEnumFromTypecode("MH-F");
+  auto defaultTypeNWords = cellIndexer_.getNWordsExpectedFor("MH-F");
+  
   // load module mapping parameters and find ranges
   edm::FileInPath fip(module_filename_);
   std::ifstream file(fip.fullPath());
   std::string line, typecode;
   size_t iline(0);
-  int plane, u, v, zside, isHD;
+  int plane, u, v, zside;
   uint16_t fedid,slinkidx,captureblock,econdidx,captureblockidx;
-  uint16_t maxfedid(0),maxcaptureblockidx(0),maxecondidx(0),maxerx(0);
   while(std::getline(file, line))
     {
       iline++;
@@ -82,87 +128,24 @@ std::unique_ptr<HGCalMappingModuleIndexer> HGCalMappingIndexESSource::produceMod
       std::istringstream stream(line);
       stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> captureblockidx >> slinkidx >> fedid >> zside;
 
-      maxfedid=std::max(fedid,maxfedid);
-      maxcaptureblockidx=std::max(captureblockidx,maxcaptureblockidx);
-      maxecondidx=std::max(econdidx,maxecondidx);
-
-      isHD = 0;
-      if(typecode.substr(0, 2) == "MH") isHD = 1;
-      uint16_t nerx=6*(1+isHD);
-      maxerx=std::max(nerx,maxerx);
-    }
-
-  // configure module indexer and return
-  auto c = std::make_unique<HGCalMappingModuleIndexer>();
-  c->update(maxfedid, maxcaptureblockidx+1, maxecondidx+1, maxerx);
-  std::cout << maxfedid << " " << maxcaptureblockidx << " " << maxecondidx << " " << maxerx << std::endl;
-  return c;
-}
-*/
-
-//
-std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSi(const HGCalMappingSiCellIndexerRcd &rcd) {
-
-  auto c = std::make_unique<HGCalMappingCellIndexer>();
-  
-  // load Si cell specific module mapping parameters
-  edm::FileInPath fip(si_filename_);
-  std::ifstream file(fip.fullPath());
-  
-  size_t iline(0);
-  std::string line,typecode;
-  uint16_t chip, half;
-  while(std::getline(file, line))
-    {
-      iline++;
-      if(iline==1) continue;
-      std::istringstream stream(line);
-      stream >> typecode;
-      stream >> chip >> half;
-      c->processNewCell(typecode,chip,half);      
-    }
-
-  c->update();
-
-  return c;
-}
-
-//
-/*
-std::unique_ptr<HGCalMappingCellIndexer> HGCalMappingIndexESSource::produceSiPM(const HGCalMappingSiPMCellIndexerRcd &rcd) {
-
-  //instantiate the cell indexer 
-  auto c = std::make_unique<HGCalMappingCellIndexer>();
-  
-  // load module mapping parameters
-  edm::FileInPath fip(sipm_filename_);
-  std::ifstream file(fip.fullPath());
-  std::string line;
-  size_t iline(0);
-  uint16_t maxtype(0),maxchip(0),maxhalf(0),maxseq(0);
-  int iu,iv,trigcell,triglink,t,thickness;
-  uint16_t type, index, chip, half, seq;
-  std::string typecode;
-  
-  while(std::getline(file, line))
-    {
-      iline++;
-      if(iline==1) continue;
-      std::istringstream stream(line);
+      auto typecodeidx = defaultTypeCodeIdx;
+      auto nwords = defaultTypeNWords;
+      try{
+        typecodeidx = cellIndexer_.getEnumFromTypecode(typecode);
+        nwords = cellIndexer_.getNWordsExpectedFor(typecode);
+      }catch(cms::Exception &e) {
+        edm::LogWarning("HGCalMappingIndexESSource") << "Exception caught decoding index for typecode=" << typecode << "\n"
+                                                     << "@ plane=" << plane << " u=" << u << " v=" << v;
+        edm::LogWarning("HGCalMappingIndexESSource") << e.what();
+        edm::LogWarning("HGCalMappingIndexESSource") << "Will assign default (MH-F) which may be inefficient";        
+      }
       
-      stream >> index >> chip >> half >> seq >> iu >> iv >> typecode >> thickness >> trigcell >> triglink >> t;
-      type = c->convertSiPMTypecode(typecode);
-      
-      maxtype=std::max(type,maxtype);
-      maxchip=std::max(chip,maxchip);
-      maxhalf=std::max(half,maxhalf);
-      maxseq=std::max(seq,maxseq);
+      modIndexer_.processNewModule(fedid,captureblockidx,econdidx,typecodeidx,nwords);
     }
 
-  //update with the appropriate ranges for the tileboards
-  c->update(maxtype,maxchip+1,maxhalf+1,maxseq+1);
-  return c;
+  //configure module indexer and return
+  //
+  //c->update(maxfedid, maxcaptureblockidx+1, maxecondidx+1, maxerx);
 }
-*/
 
 DEFINE_FWK_EVENTSETUP_SOURCE(HGCalMappingIndexESSource);

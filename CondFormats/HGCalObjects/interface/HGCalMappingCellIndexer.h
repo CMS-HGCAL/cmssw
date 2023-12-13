@@ -129,6 +129,17 @@ class HGCalMappingCellIndexer {
     if(i==0) return 0;
     return offsets_.back()+maxErx_.back()*maxChPerErx_;
   }
+
+  /**
+     @short gets the number of words for a given typecode string
+   */
+   size_t getNWordsExpectedFor(std::string typecode) {
+     auto it = getEnumFromTypecode(typecode);
+     return getNWordsExpectedFor(it);
+   }
+  size_t  getNWordsExpectedFor(size_t typecodeidx) {
+     return maxErx_[typecodeidx];
+   }
   
   /**
      @short decodes the density and wafer type from the Si typecode string
@@ -178,7 +189,7 @@ class HGCalMappingCellIndexer {
   }
   
   constexpr static char maxHalfPerROC_ = 2;
-  constexpr static uint16_t maxChPerErx_ = 37;
+  constexpr static uint16_t maxChPerErx_ = 39; //36 channels + 1 calib + 2 CM
   
   std::map<std::string,size_t> typeCodeIndexer_;
   std::vector<uint16_t> maxErx_;

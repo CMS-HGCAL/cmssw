@@ -53,11 +53,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         //get module indexer
         auto cpi = iRecord.get(moduleIndexTkn_);
-           
-        // load dense indexing
-        const uint32_t size = cpi.getSize(); // channel-level size
-        HGCalMappingModuleParamHostCollection moduleParams(size, cms::alpakatools::host());
 
+        
+        // load dense indexing
+        const uint32_t size = 0;
+        //const uint32_t size = cpi.getSize(); // channel-level size
+        HGCalMappingModuleParamHostCollection moduleParams(size, cms::alpakatools::host());
+        /*
         // load module mapping parameters
         edm::FileInPath fip(filename_);
         std::ifstream file(fip.fullPath());
@@ -102,6 +104,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           moduleParams.view()[idx].econdidx()          = econdidx;
           moduleParams.view()[idx].captureblockidx()   = captureblockidx;
         }
+        */
 
         return moduleParams;
       }  // end of produce()

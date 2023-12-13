@@ -36,6 +36,7 @@ namespace hgcal {
   GENERATE_SOA_LAYOUT(HGCalMappingCellParamSoALayout,
                       SOA_COLUMN(bool, isHD),
                       SOA_COLUMN(bool, iscalib),
+                      SOA_COLUMN(bool, isSiPM),
                       SOA_COLUMN(uint16_t, type),
                       SOA_COLUMN(uint16_t, chip),
                       SOA_COLUMN(uint16_t, half),

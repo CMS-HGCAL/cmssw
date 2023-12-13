@@ -17,8 +17,7 @@
 #include "DataFormats/PortableTestObjects/interface/alpaka/TestDeviceCollection.h"
 
 #include "CondFormats/DataRecord/interface/HGCalMappingModuleIndexerRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalMappingSiCellIndexerRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalMappingSiPMCellIndexerRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalMappingCellIndexerRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
 #include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
@@ -47,22 +46,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     edm::ESWatcher<HGCalMappingModuleIndexerRcd> cfgWatcher_;
     //edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
-    edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiCellIndexerRcd> siIndexTkn_;
-    //edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd> sipmIndexTkn_;
+    edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingCellIndexerRcd> cellIndexTkn_;
     //device::ESGetToken<hgcal::HGCalMappingModuleParamDeviceCollection, HGCalMappingModuleIndexerRcd> moduleTkn_;
-    device::ESGetToken<hgcal::HGCalMappingCellParamDeviceCollection, HGCalMappingSiCellIndexerRcd> sicellTkn_;
-    //device::ESGetToken<hgcal::HGCalMappingCellParamDeviceCollection, HGCalMappingSiPMCellIndexerRcd> sipmcellTkn_;    
+    device::ESGetToken<hgcal::HGCalMappingCellParamDeviceCollection, HGCalMappingCellIndexerRcd> cellTkn_;
     const device::EDPutToken<portabletest::TestDeviceCollection> testCollToken_;
   };
 
   //
   HGCalMappingESSourceTester::HGCalMappingESSourceTester(const edm::ParameterSet& iConfig)
     : //moduleIndexTkn_(esConsumes<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd>()),
-      siIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiCellIndexerRcd>()),
-      //sipmIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingSiPMCellIndexerRcd>()),
+      cellIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingCellIndexerRcd>()),      
       //moduleTkn_(esConsumes(edm::ESInputTag(""))),
-      sicellTkn_(esConsumes(edm::ESInputTag(""))),
-      //sipmcellTkn_(esConsumes(edm::ESInputTag(""))),
+      cellTkn_(esConsumes(edm::ESInputTag(""))),      
       testCollToken_{produces()} {      
   }
 
@@ -81,7 +76,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     //get indexers
     //auto modulesIdx = iSetup.getData(moduleIndexTkn_);
-    auto siIdx = iSetup.getData(siIndexTkn_);
+    auto cellIdx = iSetup.getData(cellIndexTkn_);
     //auto sipmIdx = iSetup.getData(sipmIndexTkn_);
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "Dense indexers retrieved for HGCAL";
     /*
@@ -96,67 +91,69 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     */
 
     //printout the contents
-    size_t nsi=siIdx.typeCodeIndexer_.size();
-    edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Si cell indexer] has " << nsi << " module types" << std::endl;
+    size_t nmodules=cellIdx.typeCodeIndexer_.size();
+    edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Module cell indexer] has " << nmodules << " module types" << std::endl;
     edm::LogInfo("HGCalMappingIndexESSourceTester").log( [&](auto& log) {
 
       uint32_t totOffset(0);
-      for(size_t idx=0; idx<siIdx.di_.size(); idx++) {
+      for(size_t idx=0; idx<cellIdx.di_.size(); idx++) {
 
         //check typecode exists
-        auto typecode = siIdx.getTypecodeFromEnum(idx);
-        assert( siIdx.typeCodeIndexer_.count(typecode)==1);        
+        auto typecode = cellIdx.getTypecodeFromEnum(idx);
+        assert( cellIdx.typeCodeIndexer_.count(typecode)==1);        
 
         //check that the current offset is consistent with the increment from cells from the previous module        
         if(idx>0) {
-          uint32_t nch_prev = siIdx.maxErx_[idx-1]*siIdx.maxChPerErx_;
-          uint32_t delta_offset = siIdx.offsets_[idx]-siIdx.offsets_[idx-1];
+          uint32_t nch_prev = cellIdx.maxErx_[idx-1]*cellIdx.maxChPerErx_;
+          uint32_t delta_offset = cellIdx.offsets_[idx]-cellIdx.offsets_[idx-1];
           assert(delta_offset==nch_prev);
         }
 
         //assert offset is consistent with the accumulation        
-        auto off = siIdx.offsets_[idx];
+        auto off = cellIdx.offsets_[idx];
         assert(off==totOffset);
 
-        totOffset += siIdx.maxErx_[idx]*siIdx.maxChPerErx_;
+        totOffset += cellIdx.maxErx_[idx]*cellIdx.maxChPerErx_;
         
         //print
         log << "\t [" << typecode << "] has "
             << " index(internal)=" << idx
-            << " #eRx = " << siIdx.maxErx_[idx]
-            << " #cells = " << siIdx.di_[idx].getMaxIndex()
-            << " offset @ " << siIdx.offsets_[idx] << "\n";
+            << " #eRx = " << cellIdx.maxErx_[idx]
+            << " #cells = " << cellIdx.di_[idx].getMaxIndex()
+            << " offset @ " << cellIdx.offsets_[idx] << "\n";
       }
             
-      assert(totOffset == siIdx.maxDenseIndex() );
-      log << "SoA size for Si cell mapping will be " << totOffset << "\n";
+      assert(totOffset == cellIdx.maxDenseIndex() );
+      log << "SoA size for module cell mapping will be " << totOffset << "\n";
     });
 
-    //si cell SoA
-    auto const& sicells = iSetup.getData(sicellTkn_);
-    uint32_t nsicells=sicells.view().metadata().size();
-    assert(nsicells==siIdx.maxDenseIndex()); //check for consistent size
-    for(uint32_t i=0; i<nsicells; i++) {
-      LogDebug("HGCalMappingSiCellParameter")
-          << "idx = "         << i << ", "
-          << "isHD = "   << sicells.view()[i].isHD()  << ", "
-          << "iscalib = "  << sicells.view()[i].iscalib() << ", "
-          << "type = " << sicells.view()[i].type() << ", "
-          << "chip = " << sicells.view()[i].chip() << ", "
-          << "half = " << sicells.view()[i].half() << ", "
-          << "seq = " << sicells.view()[i].seq() << ", "
-          << "rocpin = " << sicells.view()[i].rocpin() << ", "
-          << "cellidx = " << sicells.view()[i].cellidx() << ", "
-          << "triglink = " << sicells.view()[i].triglink() << ", "
-          << "trigcell = " << sicells.view()[i].trigcell() << ", "
-          << "iu = " << sicells.view()[i].iu() << ", "
-          << "iv = " << sicells.view()[i].iv() << ", "
-          << "t = " << sicells.view()[i].t() << ", "
-          << "trace = " << sicells.view()[i].trace() << ", "
-          << "thickness = " << sicells.view()[i].thickness() << std::endl;
-     }
+    //Module cells SoA contents
+    auto const& cells = iSetup.getData(cellTkn_);
+    uint32_t ncells=cells.view().metadata().size();
+    assert(ncells==cellIdx.maxDenseIndex()); //check for consistent size
+    LogDebug("HGCalMappingIndexESSourceTester").log( [&](auto& log) {
+      log << "Module cell mapping contents \n";
+      for(uint32_t i=0; i<ncells; i++) {
+        log << "\tidx = "         << i << ", "
+            << "isHD = "   << cells.view()[i].isHD()  << ", "
+            << "iscalib = "  << cells.view()[i].iscalib() << ", "
+            << "isSiPM = "  << cells.view()[i].isSiPM() << ", "
+            << "type = " << cells.view()[i].type() << ", "
+            << "chip = " << cells.view()[i].chip() << ", "
+            << "half = " << cells.view()[i].half() << ", "
+            << "seq = " << cells.view()[i].seq() << ", "
+            << "rocpin = " << cells.view()[i].rocpin() << ", "
+            << "cellidx = " << cells.view()[i].cellidx() << ", "
+            << "triglink = " << cells.view()[i].triglink() << ", "
+            << "trigcell = " << cells.view()[i].trigcell() << ", "
+            << "iu = " << cells.view()[i].iu() << ", "
+            << "iv = " << cells.view()[i].iv() << ", "
+            << "t = " << cells.view()[i].t() << ", "
+            << "trace = " << cells.view()[i].trace() << ", "
+            << "thickness = " << cells.view()[i].thickness() << "\n";
+      }
+    });
 
-    
     /*
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[SiPM-on-tile cell indexer]"
                                                     << "\n\t max types=" << sipmIdx.idxParams_.moduleTypeMax

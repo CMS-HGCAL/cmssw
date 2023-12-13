@@ -10,11 +10,17 @@
     <field name="offsets_" mapping="blob"/>
     <field name="di_" mapping="blob"/>
   </class> 
- 
 
-  <class name="HGCalMappingModuleIndexParameters"/>
+  <class name="FEDReadoutSequence_t" class_version="0">
+    <field name="readoutTypes_" mapping="blob"/>
+    <field name="readoutOffsets_" mapping="blob"/>
+  </class> 
+  
   <class name="HGCalMappingModuleIndexer" class_version="0">
-    <field name="idxParams_" mapping="blob"/>
+    <field name="fedReadoutSequences_" mapping="blob"/>
+    <field name="globalTypesCounter_" mapping="blob"/>
+    <field name="globalTypesNWords_" mapping="blob"/>
+    <field name="globalTypesOffsets_" mapping="blob"/>
   </class>
 
 </lcgdict>
