@@ -155,19 +155,13 @@ class HGCalMappingCellIndexer {
       {"TM-E8", 5},
       {"TM-G3", 6},
       {"TM-G4", 7},
-      {"TM-G5", 8},
-      {"TM-G6", 9},
-      {"TM-G7", 10},
-      {"TM-G8", 11},
-      {"TM-J8", 12},
-      {"TM-J12", 13},
-      {"TM-K4", 14},
-      {"TM-K5", 15},
-      {"TM-K6", 16},
-      {"TM-K7", 17},
-      {"TM-K8", 18},
-      {"TM-K10", 19},
-      {"TM-K12", 20}
+      {"TM-G6", 8},
+      {"TM-G8", 9},
+      {"TM-J8", 10},
+      {"TM-K4", 11},
+      {"TM-K6", 12},
+      {"TM-K7", 13},
+      {"TM-K8", 14},
     };
 
     auto it = typeMap_.find(typeString);
