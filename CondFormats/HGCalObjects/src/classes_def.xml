@@ -13,7 +13,9 @@
 
   <class name="FEDReadoutSequence_t" class_version="0">
     <field name="readoutTypes_" mapping="blob"/>
-    <field name="readoutOffsets_" mapping="blob"/>
+    <field name="modOffsets_" mapping="blob"/>
+    <field name="erxOffsets_" mapping="blob"/>
+    <field name="chDataOffsets_" mapping="blob"/>
   </class> 
   
   <class name="HGCalMappingModuleIndexer" class_version="0">

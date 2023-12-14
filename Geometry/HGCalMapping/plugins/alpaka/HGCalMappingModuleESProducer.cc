@@ -56,59 +56,65 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         
         // load dense indexing
-        const uint32_t size = 0;
-        //const uint32_t size = cpi.getSize(); // channel-level size
+        const uint32_t size = cpi.maxModulesIdx_;
         HGCalMappingModuleParamHostCollection moduleParams(size, cms::alpakatools::host());
-        /*
+
         // load module mapping parameters
         edm::FileInPath fip(filename_);
         std::ifstream file(fip.fullPath());
-        std::string line,typecode;
+        std::string line, typecode;
         size_t iline(0);
-        bool isSiPM, isHD;
-        int plane, u, v, zside, thickness(0);
-        uint16_t fedid,slinkidx,captureblock,econdidx,captureblockidx,type(0);
+        int plane, u, v, zside;
+        uint16_t fedid,slinkidx,captureblock,econdidx,captureblockidx;
         while(std::getline(file, line))
-        {
-          iline++;
-          if(iline==1) continue;
-          std::istringstream stream(line);
-          stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> captureblockidx >> slinkidx >> fedid >> zside;
-          
-          isHD = false;
-          if(typecode[0] == 'T') {
-            isSiPM = true;
-            type = cpi.convertSiPMTypecode(typecode);
-          }
-          else {
-            isSiPM = false;
-            if(typecode[1] == 'H'){
+          {
+            iline++;
+            if(iline==1) continue;
+            
+            std::istringstream stream(line);
+            stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> captureblockidx >> slinkidx >> fedid >> zside;
+
+            /*
+              if(typecode.find("M")==0 && typecode.size()>4) typecode = typecode.substr(0,4);
+        
+              
+              isHD = false;
+              if(typecode[0] == 'T') {
+              isSiPM = true;
+              type = cpi.convertSiPMTypecode(typecode);
+              }
+              else {
+              isSiPM = false;
+              if(typecode[1] == 'H'){
               isHD = true;
-            }
-            type = cpi.convertSiTypecode(typecode);
-            thickness = atoi(&typecode[4]);
+              }
+              type = cpi.convertSiTypecode(typecode);
+              thickness = atoi(&typecode[4]);
+              }
+              
+              uint32_t idx = cpi.denseIndex(fedid, captureblock, econdidx);
+              moduleParams.view()[idx].zside()             = (zside>0);
+              moduleParams.view()[idx].isSiPM()            = isSiPM;
+              moduleParams.view()[idx].isHD()              = isHD;
+              moduleParams.view()[idx].plane()             = plane;
+              moduleParams.view()[idx].u()                 = u;
+              moduleParams.view()[idx].v()                 = v;
+              moduleParams.view()[idx].thickness()         = thickness;
+              moduleParams.view()[idx].type()              = type;
+              moduleParams.view()[idx].fedid()             = fedid;
+              moduleParams.view()[idx].slinkidx()          = slinkidx;
+              moduleParams.view()[idx].captureblock()      = captureblock;
+              moduleParams.view()[idx].econdidx()          = econdidx;
+              moduleParams.view()[idx].captureblockidx()   = captureblockidx;
+            */
           }
-
-          uint32_t idx = cpi.denseIndex(fedid, captureblock, econdidx);
-          moduleParams.view()[idx].zside()             = (zside>0);
-          moduleParams.view()[idx].isSiPM()            = isSiPM;
-          moduleParams.view()[idx].isHD()              = isHD;
-          moduleParams.view()[idx].plane()             = plane;
-          moduleParams.view()[idx].u()                 = u;
-          moduleParams.view()[idx].v()                 = v;
-          moduleParams.view()[idx].thickness()         = thickness;
-          moduleParams.view()[idx].type()              = type;
-          moduleParams.view()[idx].fedid()             = fedid;
-          moduleParams.view()[idx].slinkidx()          = slinkidx;
-          moduleParams.view()[idx].captureblock()      = captureblock;
-          moduleParams.view()[idx].econdidx()          = econdidx;
-          moduleParams.view()[idx].captureblockidx()   = captureblockidx;
-        }
-        */
-
+        
+        
         return moduleParams;
       }  // end of produce()
 
+ 
+      
     private:
       edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
       const std::string filename_;

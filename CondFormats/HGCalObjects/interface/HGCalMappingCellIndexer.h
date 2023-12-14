@@ -59,10 +59,12 @@ class HGCalMappingCellIndexer {
      @short gets index given typecode string
    */
   size_t getEnumFromTypecode(std::string typecode) {
+    
     auto it = typeCodeIndexer_.find(typecode);
     if( it==typeCodeIndexer_.end())
       throw cms::Exception("ValueError") << " unable to find typecode=" << typecode << " in cell indexer";
     return it->second;
+
   }
 
   /**
@@ -131,15 +133,26 @@ class HGCalMappingCellIndexer {
   }
 
   /**
-     @short gets the number of words for a given typecode string
-   */
-   size_t getNWordsExpectedFor(std::string typecode) {
-     auto it = getEnumFromTypecode(typecode);
+     @short gets the number of words for a given typecode
+  */
+  size_t getNWordsExpectedFor(std::string typecode) {
+    auto it = getEnumFromTypecode(typecode);
      return getNWordsExpectedFor(it);
-   }
+  }
   size_t  getNWordsExpectedFor(size_t typecodeidx) {
-     return maxErx_[typecodeidx];
-   }
+    return maxErx_[typecodeidx]*maxChPerErx_;
+  }
+  
+  /**
+     @short gets the number of e-Rx for a given typecode
+  */
+  size_t getNErxExpectedFor(std::string typecode) {
+    auto it = getEnumFromTypecode(typecode);
+    return getNErxExpectedFor(it);
+  }
+  size_t  getNErxExpectedFor(size_t typecodeidx) {
+    return maxErx_[typecodeidx];
+  }
   
   /**
      @short decodes the density and wafer type from the Si typecode string

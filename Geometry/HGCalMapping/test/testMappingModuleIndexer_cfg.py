@@ -3,7 +3,7 @@ process = cms.Process("TEST")
 
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing('python')
-options.register('modules','Geometry/HGCalMapping/data/modulelocator.txt',mytype=VarParsing.varType.string,
+options.register('modules','Geometry/HGCalMapping/data/modulelocator_test.txt',mytype=VarParsing.varType.string,
                  info="Path to module mapper. Absolute, or relative to CMSSW src directory")
 options.register('sicells','Geometry/HGCalMapping/data/WaferCellMapTraces.txt',mytype=VarParsing.varType.string,
                  info="Path to Si cell mapper. Absolute, or relative to CMSSW src directory")
@@ -38,19 +38,17 @@ process.hgCalMappingIndexESSource.sipm = options.sipmcells
 process.load('Configuration.StandardSequences.Accelerators_cff')
 process.load('HeterogeneousCore.AlpakaCore.ProcessAcceleratorAlpaka_cfi')
 process.load('HeterogeneousCore.CUDACore.ProcessAcceleratorCUDA_cfi')
-process.hgcalMappingModuleIndexerESRecord = cms.ESSource('EmptyESSource',
-                                                    recordName=cms.string('HGCalMappingModuleIndexerRcd'),
-                                                    iovIsRunNotTime=cms.bool(True),
-                                                    firstValid=cms.vuint32(1)
-                                                    )
+#process.hgcalMappingModuleIndexerESRecord = cms.ESSource('EmptyESSource',
+#                                                          recordName=cms.string('HGCalMappingModuleIndexerRcd'),
+#                                                          iovIsRunNotTime=cms.bool(True),
+#                                                          firstValid=cms.vuint32(1) )
 #process.hgcalMappingModuleESRecord = cms.ESSource('EmptyESSource',
-#                                                    recordName=cms.string('HGCalMappingModuleRcd'),
-#                                                    iovIsRunNotTime=cms.bool(True),
-#                                                    firstValid=cms.vuint32(1)
-#                                                    )
-#process.hgCalMappingModuleESProducer = cms.ESProducer('hgcal::HGCalMappingModuleESProducer@alpaka',
-#                                                      filename=cms.string(options.modules),
-#                                                      moduleindexer=cms.ESInputTag('') )
+#                                                   recordName=cms.string('HGCalMappingModuleRcd'),
+#                                                   iovIsRunNotTime=cms.bool(True),
+#                                                   firstValid=cms.vuint32(1) )
+process.hgCalMappingModuleESProducer = cms.ESProducer('hgcal::HGCalMappingModuleESProducer@alpaka',
+                                                      filename=cms.string(options.modules),
+                                                      moduleindexer=cms.ESInputTag('') )
 process.hgCalMappingCellESProducer = cms.ESProducer('hgcal::HGCalMappingCellESProducer@alpaka',
                                                       filelist=cms.vstring(options.sicells,options.sipmcells),
                                                       cellindexer=cms.ESInputTag('') )

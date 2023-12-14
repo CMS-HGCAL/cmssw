@@ -33,7 +33,7 @@ public:
     findingRecord<HGCalMappingCellIndexerRcd>();
 
     buildCellMapperIndexer();
-    // buildModuleMapperIndexer();
+    buildModuleMapperIndexer();
   }
 
   std::unique_ptr<HGCalMappingModuleIndexer> produceModuleMapIndexer(const HGCalMappingModuleIndexerRcd&) { return  std::make_unique<HGCalMappingModuleIndexer>(modIndexer_); }
@@ -109,9 +109,14 @@ void HGCalMappingIndexESSource::buildCellMapperIndexer() {
 //
 void HGCalMappingIndexESSource::buildModuleMapperIndexer() {
 
-
+  //default values to assign in case module type has not yet been mapped
+  //a high density module (max possible) will be assigned so that the mapping doesn't block
   auto defaultTypeCodeIdx = cellIndexer_.getEnumFromTypecode("MH-F");
-  auto defaultTypeNWords = cellIndexer_.getNWordsExpectedFor("MH-F");
+  auto typecodeidx = defaultTypeCodeIdx;
+  auto defaultNerx = cellIndexer_.getNErxExpectedFor(defaultTypeCodeIdx);
+  auto nerx = defaultNerx;
+  auto defaultTypeNWords = cellIndexer_.getNWordsExpectedFor(defaultTypeCodeIdx);
+  auto nwords = defaultTypeNWords;
   
   // load module mapping parameters and find ranges
   edm::FileInPath fip(module_filename_);
@@ -128,24 +133,26 @@ void HGCalMappingIndexESSource::buildModuleMapperIndexer() {
       std::istringstream stream(line);
       stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> captureblockidx >> slinkidx >> fedid >> zside;
 
-      auto typecodeidx = defaultTypeCodeIdx;
-      auto nwords = defaultTypeNWords;
+      if(typecode.find("M")==0 && typecode.size()>4) typecode = typecode.substr(0,4);
+          
       try{
         typecodeidx = cellIndexer_.getEnumFromTypecode(typecode);
         nwords = cellIndexer_.getNWordsExpectedFor(typecode);
+        nerx = cellIndexer_.getNErxExpectedFor(typecode);
       }catch(cms::Exception &e) {
-        edm::LogWarning("HGCalMappingIndexESSource") << "Exception caught decoding index for typecode=" << typecode << "\n"
-                                                     << "@ plane=" << plane << " u=" << u << " v=" << v;
-        edm::LogWarning("HGCalMappingIndexESSource") << e.what();
-        edm::LogWarning("HGCalMappingIndexESSource") << "Will assign default (MH-F) which may be inefficient";        
+        edm::LogWarning("HGCalMappingIndexESSource") << "Exception caught decoding index for typecode=" << typecode
+                                                     << " @ plane=" << plane << " u=" << u << " v=" << v << "\n"
+                                                     << e.what() << "\n"
+                                                     << "===> will assign default (MH-F) which may be inefficient";
+        typecodeidx = defaultTypeCodeIdx;
+        nwords = defaultTypeNWords;
+        nerx = defaultNerx;
       }
-      
-      modIndexer_.processNewModule(fedid,captureblockidx,econdidx,typecodeidx,nwords);
+
+      modIndexer_.processNewModule(fedid,captureblockidx,econdidx,typecodeidx,nerx,nwords);
     }
 
-  //configure module indexer and return
-  //
-  //c->update(maxfedid, maxcaptureblockidx+1, maxecondidx+1, maxerx);
+  modIndexer_.finalize();
 }
 
 DEFINE_FWK_EVENTSETUP_SOURCE(HGCalMappingIndexESSource);

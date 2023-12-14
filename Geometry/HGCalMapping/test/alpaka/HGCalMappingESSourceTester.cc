@@ -45,19 +45,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void beginRun(edm::Run const&, edm::EventSetup const&) override;
 
     edm::ESWatcher<HGCalMappingModuleIndexerRcd> cfgWatcher_;
-    //edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
     edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingCellIndexerRcd> cellIndexTkn_;
-    //device::ESGetToken<hgcal::HGCalMappingModuleParamDeviceCollection, HGCalMappingModuleIndexerRcd> moduleTkn_;
     device::ESGetToken<hgcal::HGCalMappingCellParamDeviceCollection, HGCalMappingCellIndexerRcd> cellTkn_;
+    edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
+    //device::ESGetToken<hgcal::HGCalMappingModuleParamDeviceCollection, HGCalMappingModuleIndexerRcd> moduleTkn_;
     const device::EDPutToken<portabletest::TestDeviceCollection> testCollToken_;
   };
 
   //
   HGCalMappingESSourceTester::HGCalMappingESSourceTester(const edm::ParameterSet& iConfig)
-    : //moduleIndexTkn_(esConsumes<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd>()),
-      cellIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingCellIndexerRcd>()),      
-      //moduleTkn_(esConsumes(edm::ESInputTag(""))),
+    : cellIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingCellIndexerRcd>()),      
       cellTkn_(esConsumes(edm::ESInputTag(""))),      
+      moduleIndexTkn_(esConsumes<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd>()),
+      //moduleTkn_(esConsumes(edm::ESInputTag(""))),
       testCollToken_{produces()} {      
   }
 
@@ -74,23 +74,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // if the cfg didn't change there's nothing else to do
     if (!cfgWatcher_.check(iSetup)) return;
 
-    //get indexers
-    //auto modulesIdx = iSetup.getData(moduleIndexTkn_);
+    //get cell indexers and SoA
     auto cellIdx = iSetup.getData(cellIndexTkn_);
-    //auto sipmIdx = iSetup.getData(sipmIndexTkn_);
-    edm::LogInfo("HGCalMappingIndexESSourceTester") << "Dense indexers retrieved for HGCAL";
-    /*
-    edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Module indexer]"
-                                                    << "\n\t max FED=" << modulesIdx.idxParams_.maxFEDsPerEndcap
-                                                    <<" max CB/FED=" << modulesIdx.idxParams_.sLinkCaptureBlockMax
-                                                    <<" max ECON/CB=" << modulesIdx.idxParams_.captureBlockECONDMax
-                                                    <<" max eRx/ECON=" << modulesIdx.idxParams_.econdERXMax
-                                                    <<" max ch/eRx=" << modulesIdx.idxParams_.erxChannelMax      
-                                                    << "\n\t Total size is=" << modulesIdx.getSize()
-                                                    << " size at ROC is=" << modulesIdx.getSize(true);
-    */
+    auto const& cells = iSetup.getData(cellTkn_);
+    edm::LogInfo("HGCalMappingIndexESSourceTester") << "Cell dense indexers and associated SoA retrieved for HGCAL";
 
-    //printout the contents
+    //printout and test the indexer contents
     size_t nmodules=cellIdx.typeCodeIndexer_.size();
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Module cell indexer] has " << nmodules << " module types" << std::endl;
     edm::LogInfo("HGCalMappingIndexESSourceTester").log( [&](auto& log) {
@@ -127,8 +116,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       log << "SoA size for module cell mapping will be " << totOffset << "\n";
     });
 
-    //Module cells SoA contents
-    auto const& cells = iSetup.getData(cellTkn_);
+    //printout and test module cells SoA contents
     uint32_t ncells=cells.view().metadata().size();
     assert(ncells==cellIdx.maxDenseIndex()); //check for consistent size
     LogDebug("HGCalMappingIndexESSourceTester").log( [&](auto& log) {
@@ -154,6 +142,39 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
     });
 
+
+    //module mapping
+    auto modulesIdx = iSetup.getData(moduleIndexTkn_);
+    edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Module indexer]"
+                                                    << "FEDs=" << modulesIdx.nfeds_
+                                                    <<" Types in sequences=" << modulesIdx.globalTypesCounter_.size()
+                                                    <<" max idx=" << modulesIdx.maxModulesIdx_;
+    edm::LogInfo("HGCalMappingIndexESSourceTester").log( [&](auto& log) {
+
+      std::unordered_set<uint32_t> unique_modOffsets, unique_erxOffsets, unique_chDataOffsets;
+      uint32_t totalmods(0);
+      for(const auto &frs : modulesIdx.fedReadoutSequences_) {
+
+        std::copy(frs.modOffsets_.begin(),frs.modOffsets_.end(),std::inserter(unique_modOffsets,unique_modOffsets.end()));
+        std::copy(frs.erxOffsets_.begin(),frs.erxOffsets_.end(),std::inserter(unique_erxOffsets,unique_erxOffsets.end()));
+        std::copy(frs.chDataOffsets_.begin(),frs.chDataOffsets_.end(),std::inserter(unique_chDataOffsets,unique_chDataOffsets.end()));
+                
+        size_t nmods=frs.readoutTypes_.size();
+        totalmods+=nmods;
+        log << "[FED " << frs.id << "] packs data from " << nmods << " ECON-Ds - readout types -> (offsets) : ";
+        for(size_t i=0; i<nmods; i++) {
+          log <<  frs.readoutTypes_[i] << "->("  << frs.modOffsets_[i] << ";" << frs.erxOffsets_[i] << ";" << frs.chDataOffsets_[i] << ")\t";
+        }
+        log << "\n";
+      }
+
+      //check that there are unique offsets per modules in the full system
+      assert(unique_modOffsets.size() == totalmods);
+      assert(unique_erxOffsets.size() == totalmods);
+      assert(unique_chDataOffsets.size() == totalmods);            
+    });
+
+        
     /*
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "[SiPM-on-tile cell indexer]"
                                                     << "\n\t max types=" << sipmIdx.idxParams_.moduleTypeMax
