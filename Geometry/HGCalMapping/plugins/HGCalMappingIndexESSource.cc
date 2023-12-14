@@ -38,8 +38,7 @@ public:
 
   std::unique_ptr<HGCalMappingModuleIndexer> produceModuleMapIndexer(const HGCalMappingModuleIndexerRcd&) { return  std::make_unique<HGCalMappingModuleIndexer>(modIndexer_); }
   std::unique_ptr<HGCalMappingCellIndexer> produceCellMapIndexer(const HGCalMappingCellIndexerRcd&) { return  std::make_unique<HGCalMappingCellIndexer>(cellIndexer_); }
-
-
+  
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
     desc.add<std::string>("modules", "Geometry/HGCalMapping/data/modulelocator.txt");

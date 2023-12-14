@@ -12,7 +12,7 @@ namespace hgcal {
     uint16_t getEcondErx(uint16_t chip, uint16_t half);
     uint32_t getElectronicsId(bool zside, uint16_t fedid, uint16_t captureblock, uint16_t econdidx, int cellchip, int cellhalf, int cellseq);
     uint32_t getSiDetId(bool zside, int moduleplane, int moduleu, int modulev, int modulethickness, int celliu, int celliv);
-    uint32_t getSiPMDetId(bool zside, int moduleplane, int modulev, int celliu, int celliv, int cellthickness);
+    uint32_t getSiPMDetId(bool zside, int moduleplane, int modulev, int celliu, int celliv);
   }
 }
 

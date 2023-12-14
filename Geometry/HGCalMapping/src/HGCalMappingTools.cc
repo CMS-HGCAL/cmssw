@@ -22,9 +22,9 @@ namespace hgcal {
       return HGCSiliconDetId(det,zp,modulethickness,moduleplane,moduleu,modulev,celliu,celliv).rawId();
     }
 
-    uint32_t getSiPMDetId(bool zside, int moduleplane, int modulev, int celliu, int celliv, int cellthickness) {
+    uint32_t getSiPMDetId(bool zside, int moduleplane, int modulev, int celliu, int celliv) {
       int layer = moduleplane - 25;
-      int type = (cellthickness == 2 ? 0 : cellthickness == 3 ? 1 : 2);
+      int type = 0; // depends on SiPM size to be updated with new geometry
     
       int sipm = 1; // cast tiles
       if(moduleplane >= 42 && celliu >= 18) sipm = 2; // molded tiles

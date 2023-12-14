@@ -184,6 +184,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                     << "\n\t Total size is=" << sipmIdx.getSize();
     
     */
+
     /*
     auto const& modules = iSetup.getData(moduleTkn_);
     for(int i=0; i<modules.view().metadata().size(); i++) {
@@ -203,28 +204,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         << "captureblockidx = " << modules.view()[i].captureblockidx() << ", "
         << "econdidx = " << modules.view()[i].econdidx() << ", " << std::endl;
      }
-
-
-    auto const& sipmcells = iSetup.getData(sipmcellTkn_);
-    for(int i=0; i<sipmcells.view().metadata().size(); i++) {
-      LogDebug("HGCalMappingSiPMCellParameter")
-        << "idx = "  << i << ", "
-        << "isHD = "   << sipmcells.view()[i].isHD()  << ", "
-        << "iscalib = "  << sipmcells.view()[i].iscalib() << ", "
-        << "type = " << sipmcells.view()[i].type() << ", "
-        << "chip = " << sipmcells.view()[i].chip() << ", "
-        << "half = " << sipmcells.view()[i].half() << ", "
-        << "seq = " << sipmcells.view()[i].seq() << ", "
-        << "rocpin = " << sipmcells.view()[i].rocpin() << ", "
-        << "cellidx = " << sipmcells.view()[i].cellidx() << ", "
-        << "triglink = " << sipmcells.view()[i].triglink() << ", "
-        << "trigcell = " << sipmcells.view()[i].trigcell() << ", "
-        << "iu = " << sipmcells.view()[i].iu() << ", "
-        << "iv = " << sipmcells.view()[i].iv() << ", "
-        << "t = " << sipmcells.view()[i].t() << ", "
-        << "trace = " << sipmcells.view()[i].trace() << ", "
-        << "thickness = " << sipmcells.view()[i].thickness() << std::endl;
-    }
 
     std::map<uint32_t,uint32_t> sigeo2ele = this->mapSiGeoToElectronics(modules, sicells, true);
     std::map<uint32_t,uint32_t> siele2geo = this->mapSiGeoToElectronics(modules, sicells, false);
@@ -362,8 +341,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                            modules.view()[i].plane(), 
                                                            modules.view()[i].v(), 
                                                            cells.view()[j].iu(), 
-                                                           cells.view()[j].iv(),
-                                                           cells.view()[j].thickness());
+                                                           cells.view()[j].iv());
         
         if(geo2ele){
           auto it = idmap.find(geoid);
