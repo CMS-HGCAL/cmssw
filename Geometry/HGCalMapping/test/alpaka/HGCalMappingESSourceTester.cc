@@ -48,7 +48,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::ESGetToken<HGCalMappingCellIndexer,HGCalMappingCellIndexerRcd> cellIndexTkn_;
     device::ESGetToken<hgcal::HGCalMappingCellParamDeviceCollection, HGCalMappingCellIndexerRcd> cellTkn_;
     edm::ESGetToken<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
-    //device::ESGetToken<hgcal::HGCalMappingModuleParamDeviceCollection, HGCalMappingModuleIndexerRcd> moduleTkn_;
+    device::ESGetToken<hgcal::HGCalMappingModuleParamDeviceCollection, HGCalMappingModuleIndexerRcd> moduleTkn_;
     const device::EDPutToken<portabletest::TestDeviceCollection> testCollToken_;
   };
 
@@ -57,7 +57,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     : cellIndexTkn_(esConsumes<HGCalMappingCellIndexer,HGCalMappingCellIndexerRcd>()),      
       cellTkn_(esConsumes(edm::ESInputTag(""))),      
       moduleIndexTkn_(esConsumes<HGCalMappingModuleIndexer,HGCalMappingModuleIndexerRcd>()),
-      //moduleTkn_(esConsumes(edm::ESInputTag(""))),
+      moduleTkn_(esConsumes(edm::ESInputTag(""))),
       testCollToken_{produces()} {      
   }
 
@@ -78,10 +78,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto cellIdx = iSetup.getData(cellIndexTkn_);
     auto const& cells = iSetup.getData(cellTkn_);
     edm::LogInfo("HGCalMappingIndexESSourceTester") << "Cell dense indexers and associated SoA retrieved for HGCAL";
-
-    //printout and test the indexer contents
-    size_t nmodules=cellIdx.typeCodeIndexer_.size();
-    edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Module cell indexer] has " << nmodules << " module types" << std::endl;
+    int nmodtypes=cellIdx.typeCodeIndexer_.size();
+    edm::LogInfo("HGCalMappingIndexESSourceTester") << "[Module cell indexer] has " << nmodtypes << " module types" << std::endl;
+    
+    //printout and test the indexer contents for cells
     edm::LogInfo("HGCalMappingIndexESSourceTester").log( [&](auto& log) {
 
       uint32_t totOffset(0);
@@ -173,36 +173,34 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       assert(unique_chDataOffsets.size() == totalmods);            
     });
 
-        
-    /*
-    edm::LogInfo("HGCalMappingIndexESSourceTester") << "[SiPM-on-tile cell indexer]"
-                                                    << "\n\t max types=" << sipmIdx.idxParams_.moduleTypeMax
-                                                    << "\t max ROC / type=" << sipmIdx.idxParams_.cellChipMax
-                                                    << "\t max half / ROC =" << sipmIdx.idxParams_.halfROCMax
-                                                    << "\t max ch / half=" << sipmIdx.idxParams_.channelSeqMax
-                                                    << "\n\t Total size is=" << sipmIdx.getSize();
-    
-    */
 
-    /*
+    //get the module mapper SoA
     auto const& modules = iSetup.getData(moduleTkn_);
-    for(int i=0; i<modules.view().metadata().size(); i++) {
-        LogDebug("HGCalMappingModuleParameter")
-        << "idx = "         << i << ", "
-        << "zside = "    << modules.view()[i].zside()   << ", "
-        << "isSiPM = "    << modules.view()[i].isSiPM()   << ", "
-        << "isSiPM = "    << modules.view()[i].isHD()   << ", "
-        << "plane = "  << modules.view()[i].plane() << ", "
-        << "u = " << modules.view()[i].u() << ", "
-        << "v = " << modules.view()[i].v() << ", "
-        << "v = " << modules.view()[i].thickness() << ", "
-        << "type = " << modules.view()[i].type() << ", "
-        << "fedid = " << modules.view()[i].fedid() << ", "
-        << "localfedid = " << modules.view()[i].slinkidx() << ", "
-        << "captureblock = " << modules.view()[i].captureblock() << ", "
-        << "captureblockidx = " << modules.view()[i].captureblockidx() << ", "
-        << "econdidx = " << modules.view()[i].econdidx() << ", " << std::endl;
-     }
+    int nmodules =  modulesIdx.maxModulesIdx_;
+    assert(nmodules==modules.view().metadata().size());  //check for consistent size
+    edm::LogInfo("HGCalMappingIndexESSourceTester").log( [&](auto& log) {
+      log << "Module mapping contents \n";
+      for(int i=0; i<nmodules; i++) {
+        log << "idx = "         << i << ", "
+            << "zside = "    << modules.view()[i].zside()   << ", "
+            << "isSiPM = "    << modules.view()[i].isSiPM()   << ", "
+            << "isSiPM = "    << modules.view()[i].isHD()   << ", "
+            << "plane = "  << modules.view()[i].plane() << ", "
+            << "u = " << modules.view()[i].u() << ", "
+            << "v = " << modules.view()[i].v() << ", "
+            << "v = " << modules.view()[i].thickness() << ", "
+            << "type = " << modules.view()[i].type() << ", "
+            << "fedid = " << modules.view()[i].fedid() << ", "
+            << "localfedid = " << modules.view()[i].slinkidx() << ", "
+            << "captureblock = " << modules.view()[i].captureblock() << ", "
+            << "captureblockidx = " << modules.view()[i].captureblockidx() << ", "
+            << "econdidx = " << modules.view()[i].econdidx() << "\n";
+      }
+    });
+
+    
+    /*
+      FIXME this point forward
 
     std::map<uint32_t,uint32_t> sigeo2ele = this->mapSiGeoToElectronics(modules, sicells, true);
     std::map<uint32_t,uint32_t> siele2geo = this->mapSiGeoToElectronics(modules, sicells, false);

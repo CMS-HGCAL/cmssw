@@ -74,22 +74,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             std::istringstream stream(line);
             stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> captureblockidx >> slinkidx >> fedid >> zside;
 
+            uint32_t idx = modidx.getIndexForModule(fedid,captureblockidx,econdidx);
             /*
-            uint32_t typecodeIdx = cellIndexer_.getEnumFromTypecode("MH-F");
-            if(typecode.find("M")==0 && typecode.size()>4) typecode = typecode.substr(0,4);
-            try {
-              typecodeIdx = cellIndexer_.getEnumFromTypecode(typecode);
-            }catch(cms::Exception &e) {
-              edm::LogWarning("HGCalMappingIndexESSource") << "Exception caught decoding index for typecode=" << typecode
-                                                           << " @ plane=" << plane << " u=" << u << " v=" << v << "\n"
-                                                           << e.what() << "\n"
-                                                           << "===> will assign default (MH-F) which may be inefficient";
-            }
-            
-
-            
-        
-              
               isHD = false;
               if(typecode[0] == 'T') {
               isSiPM = true;
@@ -103,26 +89,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               type = modidx.convertSiTypecode(typecode);
               thickness = atoi(&typecode[4]);
               }
-              
-              uint32_t idx = modidx.denseIndex(fedid, captureblock, econdidx);
-              moduleParams.view()[idx].zside()             = (zside>0);
-              moduleParams.view()[idx].isSiPM()            = isSiPM;
-              moduleParams.view()[idx].isHD()              = isHD;
-              moduleParams.view()[idx].plane()             = plane;
-              moduleParams.view()[idx].u()                 = u;
-              moduleParams.view()[idx].v()                 = v;
-              moduleParams.view()[idx].thickness()         = thickness;
-              moduleParams.view()[idx].type()              = type;
-              moduleParams.view()[idx].fedid()             = fedid;
-              moduleParams.view()[idx].slinkidx()          = slinkidx;
-              moduleParams.view()[idx].captureblock()      = captureblock;
-              moduleParams.view()[idx].econdidx()          = econdidx;
-              moduleParams.view()[idx].captureblockidx()   = captureblockidx;
             */
+            
+            moduleParams.view()[idx].zside()             = (zside>0);
+            moduleParams.view()[idx].isSiPM()            = false; //FIXME : isSiPM;
+            moduleParams.view()[idx].isHD()              = false; //FIXME : isHD;
+            moduleParams.view()[idx].plane()             = plane;
+            moduleParams.view()[idx].u()                 = u;
+            moduleParams.view()[idx].v()                 = v;
+            moduleParams.view()[idx].thickness()         = 0;  //FIXME :  thickness;
+            moduleParams.view()[idx].type()              = 0;  //FIXME :type;
+            moduleParams.view()[idx].fedid()             = fedid;
+            moduleParams.view()[idx].slinkidx()          = slinkidx;
+            moduleParams.view()[idx].captureblock()      = captureblock;
+            moduleParams.view()[idx].econdidx()          = econdidx;
+            moduleParams.view()[idx].captureblockidx()   = captureblockidx;
           }
         
-        
         return moduleParams;
+
       }  // end of produce()
 
  
