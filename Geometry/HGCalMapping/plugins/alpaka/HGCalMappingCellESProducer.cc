@@ -78,23 +78,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           bool isHD(false),iscalib(false);
           uint16_t type, chip, half;
           uint16_t seq,rocpin;
-          int cellidx,triglink,trigcell,iu,iv,t,thickness(0);
+          int cellidx,triglink,trigcell,i1,i2,t;
           float trace(0);
           
           while(std::getline(file, line))
             {
               std::istringstream stream(line);
-              
+
               //SiPM version
               if(isSiPM) {
-                stream >> cellidx >> chip >> half >> seq >> iu >> iv >> typecode >> thickness >> trigcell >> triglink >> t;
+                stream >> cellidx >> chip >> half >> seq >> i1 >> i2 >> typecode >> trigcell >> triglink >> t;
                 type = cpi.convertSiPMTypecode(typecode);
                 rocpin=cellidx;
               }
               
               //Si version
               else {
-                stream >> typecode >> chip >> half >> seq >> rocpincol >> cellidx >> triglink >> trigcell >> iu >> iv >> trace >> t;
+                stream >> typecode >> chip >> half >> seq >> rocpincol >> cellidx >> triglink >> trigcell >> i1 >> i2 >> trace >> t;
                 
                 auto siType = cpi.convertSiTypeCode(typecode);
                 isHD = siType.first;
@@ -124,11 +124,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               cellParams.view()[idx].cellidx() = cellidx;
               cellParams.view()[idx].triglink() = triglink;
               cellParams.view()[idx].trigcell() = trigcell;
-              cellParams.view()[idx].iu() = iu;
-              cellParams.view()[idx].iv() = iv;
+              cellParams.view()[idx].i1() = i1;
+              cellParams.view()[idx].i2() = i2;
               cellParams.view()[idx].t() = t;
               cellParams.view()[idx].trace() = trace;
-              cellParams.view()[idx].thickness() = thickness;
             }
         }
 

@@ -134,11 +134,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             << "cellidx = " << cells.view()[i].cellidx() << ", "
             << "triglink = " << cells.view()[i].triglink() << ", "
             << "trigcell = " << cells.view()[i].trigcell() << ", "
-            << "iu = " << cells.view()[i].iu() << ", "
-            << "iv = " << cells.view()[i].iv() << ", "
+            << "i1 = " << cells.view()[i].i1() << ", "
+            << "i2 = " << cells.view()[i].i2() << ", "
             << "t = " << cells.view()[i].t() << ", "
-            << "trace = " << cells.view()[i].trace() << ", "
-            << "thickness = " << cells.view()[i].thickness() << "\n";
+            << "trace = " << cells.view()[i].trace() << " \n";
       }
     });
 

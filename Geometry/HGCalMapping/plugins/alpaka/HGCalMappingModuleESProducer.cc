@@ -51,12 +51,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       //
       std::optional<HGCalMappingModuleParamHostCollection> produce(const HGCalMappingModuleIndexerRcd& iRecord) {
 
-        //get module indexer
-        auto cpi = iRecord.get(moduleIndexTkn_);
+        //get cell and module indexer
+        auto modidx = iRecord.get(moduleIndexTkn_);
 
         
         // load dense indexing
-        const uint32_t size = cpi.maxModulesIdx_;
+        const uint32_t size = modidx.maxModulesIdx_;
         HGCalMappingModuleParamHostCollection moduleParams(size, cms::alpakatools::host());
 
         // load module mapping parameters
@@ -75,24 +75,36 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             stream >> plane >> u >> v >> typecode >> econdidx >> captureblock >> captureblockidx >> slinkidx >> fedid >> zside;
 
             /*
-              if(typecode.find("M")==0 && typecode.size()>4) typecode = typecode.substr(0,4);
+            uint32_t typecodeIdx = cellIndexer_.getEnumFromTypecode("MH-F");
+            if(typecode.find("M")==0 && typecode.size()>4) typecode = typecode.substr(0,4);
+            try {
+              typecodeIdx = cellIndexer_.getEnumFromTypecode(typecode);
+            }catch(cms::Exception &e) {
+              edm::LogWarning("HGCalMappingIndexESSource") << "Exception caught decoding index for typecode=" << typecode
+                                                           << " @ plane=" << plane << " u=" << u << " v=" << v << "\n"
+                                                           << e.what() << "\n"
+                                                           << "===> will assign default (MH-F) which may be inefficient";
+            }
+            
+
+            
         
               
               isHD = false;
               if(typecode[0] == 'T') {
               isSiPM = true;
-              type = cpi.convertSiPMTypecode(typecode);
+              type = modidx.convertSiPMTypecode(typecode);
               }
               else {
               isSiPM = false;
               if(typecode[1] == 'H'){
               isHD = true;
               }
-              type = cpi.convertSiTypecode(typecode);
+              type = modidx.convertSiTypecode(typecode);
               thickness = atoi(&typecode[4]);
               }
               
-              uint32_t idx = cpi.denseIndex(fedid, captureblock, econdidx);
+              uint32_t idx = modidx.denseIndex(fedid, captureblock, econdidx);
               moduleParams.view()[idx].zside()             = (zside>0);
               moduleParams.view()[idx].isSiPM()            = isSiPM;
               moduleParams.view()[idx].isHD()              = isHD;

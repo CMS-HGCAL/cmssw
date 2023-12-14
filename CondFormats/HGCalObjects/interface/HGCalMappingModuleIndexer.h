@@ -10,10 +10,16 @@
 #include "CondFormats/HGCalObjects/interface/HGCalDenseIndexerBase.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
 
+/**
+   @short this structure holds the indices and types in the readout sequence
+   as the 12 capture blocks may not all be used and the each capture block may also be under-utilized
+   a lookup table is used to hold the compact index
+ */
 struct FEDReadoutSequence_t {
   uint32_t id;
-  std::vector<int> readoutTypes_;
-  std::vector<uint32_t> modOffsets_, erxOffsets_, chDataOffsets_;
+  std::vector<int> moduleLUT_;                                    ///>look-up table (capture block, econd idx) -> internal dense index
+  std::vector<int> readoutTypes_;                                 ///>dense sequence of modules in the readout: the type is the one in use in the cell mapping
+  std::vector<uint32_t> modOffsets_, erxOffsets_, chDataOffsets_; ///>dense sequence of offsets for modules, e-Rx and channel data
   COND_SERIALIZABLE;
 };
 
@@ -26,7 +32,7 @@ class HGCalMappingModuleIndexer {
 
 public:
     
-  HGCalMappingModuleIndexer() { }
+  HGCalMappingModuleIndexer() : modFedIndexer_ ( {maxCBperFED_,maxECONDperCB_} ) { }
   
   virtual ~HGCalMappingModuleIndexer() {}
   
@@ -47,8 +53,7 @@ public:
     frs.id=fedid;
 
     //assign position, resize if needed, and fill the type code
-    HGCalDenseIndexerBase mi( {maxCBperFED_,maxECONDperCB_} );
-    uint32_t idx = mi.denseIndex({{captureblockIdx,econdIdx}});
+    uint32_t idx = modFedIndexer_.denseIndex({{captureblockIdx,econdIdx}});
     if(idx >= frs.readoutTypes_.size()) {
       frs.readoutTypes_.resize(idx+1,-1);
     }
@@ -95,7 +100,16 @@ public:
     std::vector<uint32_t > typeCounters(globalTypesCounter_.size(),0);
     for(auto &fedit : fedReadoutSequences_) {
 
-      //build the final, compact readout sequence
+      //assign the indexing in the look-up table
+      size_t nconn(0);
+      fedit.moduleLUT_.resize(fedit.readoutTypes_.size(),-1);
+      for(size_t i=0; i<fedit.readoutTypes_.size(); i++) {
+        if(fedit.readoutTypes_[i]==-1) continue; //unexisting
+        fedit.moduleLUT_[i]=nconn;
+        nconn++;
+      }
+            
+      //remove unexisting ECONs building a final compact readout sequence
       std::remove_if ( fedit.readoutTypes_.begin(),
                        fedit.readoutTypes_.end(),
                        [&](int val) -> bool { return val==-1; } );
@@ -105,20 +119,12 @@ public:
       fedit.modOffsets_.resize(nmods,0);
       fedit.erxOffsets_.resize(nmods,0);
       fedit.chDataOffsets_.resize(nmods,0);
-
-      //an internal counter of the modules types in this fed is needed (this will not be persisted)
-      //std::map<int,uint32_t> internal_modCounters;
-      //std::transform( fedit.readoutTypes_.begin(),
-      //                fedit.readoutTypes_.end(),
-      //               std::inserter( internal_modCounters, internal_modCounters.begin() ),
-      //               []( int t ){ return std::pair<int, uint32_t>( t, 0 ); } );
       for(size_t i=0; i<nmods; i++) {
         
         uint32_t type_val = fedit.readoutTypes_[i];
 
         //module offset : global offset for this type + current index for this type
         uint32_t baseMod_offset = moduleOffsets_[type_val]+typeCounters[type_val];
-        //uint32_t internalMod_offset = internal_modCounters[type_val];
         fedit.modOffsets_[i] = baseMod_offset;// + internalMod_offset;
 
         //erx-level offset : global offset of e-Rx of this type + #e-Rrx * current index for this type
@@ -131,7 +137,6 @@ public:
         uint32_t internalData_offset = globalTypesNWords_[type_val]*typeCounters[type_val];
         fedit.chDataOffsets_[i] = baseData_offset + internalData_offset;
 
-        //internal_modCounters[type_val]++;
         typeCounters[type_val]++;
       }
     }
@@ -140,23 +145,32 @@ public:
 
   /**
      @short returns the index for the n-th module in the readout sequence of a FED
+     if the index in the readout sequence is unknown alternative methods which take the (capture block, econd idx) are provided
+     which will find first what should be the internal dense index (index in the readout sequence)
    */
   uint32_t getIndexForModule(uint32_t fedid, uint32_t nmod) {
-    if(fedid>nfeds_ || fedReadoutSequences_[fedid].modOffsets_.size()<nmod)
-      throw cms::Exception("ValueError") << "FED ID=" << fedid << " or #module requested (=" << nmod << ") is unknown to current mapping";    
     return fedReadoutSequences_[fedid].modOffsets_[nmod];
   };
+  uint32_t getIndexForModule(uint32_t fedid,  uint16_t captureblockIdx, uint16_t econdIdx) {
+    uint32_t nmod = denseIndexingFor(fedid, captureblockIdx, econdIdx);
+    return getIndexForModule(fedid,nmod);
+  };
   uint32_t getIndexForModuleErx(uint32_t fedid, uint32_t nmod, uint32_t erxidx) {
-    if(fedid>nfeds_ || fedReadoutSequences_[fedid].erxOffsets_.size()<nmod)
-      throw cms::Exception("ValueError") << "FED ID=" << fedid << " or #module requested (=" << nmod << ") is unknown to current mapping";    
     return fedReadoutSequences_[fedid].erxOffsets_[nmod]+erxidx;
   };
+  uint32_t getIndexForModuleErx(uint32_t fedid, uint16_t captureblockIdx, uint16_t econdIdx, uint32_t erxidx) {
+    uint32_t nmod = denseIndexingFor(fedid, captureblockIdx, econdIdx);
+    return getIndexForModuleErx(fedid, nmod, erxidx);
+  }
   uint32_t getIndexForModuleData(uint32_t fedid, uint32_t nmod,uint32_t erxidx,uint32_t chidx) {
-    if(fedid>nfeds_ || fedReadoutSequences_[fedid].chDataOffsets_.size()<nmod)
-      throw cms::Exception("ValueError") << "FED ID=" << fedid << " or #module requested (=" << nmod << ") is unknown to current mapping";    
     return fedReadoutSequences_[fedid].chDataOffsets_[nmod]+erxidx*HGCalMappingCellIndexer::maxChPerErx_+chidx;
   };
+  uint32_t getIndexForModuleData(uint32_t fedid, uint16_t captureblockIdx, uint16_t econdIdx,uint32_t erxidx,uint32_t chidx) {
+    uint32_t nmod = denseIndexingFor(fedid, captureblockIdx, econdIdx);
+    return getIndexForModuleData(fedid, nmod, erxidx, chidx);
+  };
 
+  HGCalDenseIndexerBase modFedIndexer_;                                          ///< internal indexer  
   std::vector<FEDReadoutSequence_t> fedReadoutSequences_;                        ///< the sequence of FED readout sequence descriptors
   std::vector<uint32_t> globalTypesCounter_,globalTypesNErx_,globalTypesNWords_; ///< global counters for types of modules, number of e-Rx and words
   std::vector<uint32_t> moduleOffsets_,erxOffsets_,dataOffsets_;                 ///< base offsets to apply per module type with different granularity : module, e-Rx, channel data
@@ -164,6 +178,24 @@ public:
 
   constexpr static uint32_t maxCBperFED_ = 10;    ///< max number of main buffers/capture blocks per FED
   constexpr static uint32_t maxECONDperCB_ = 12;  ///< max number of ECON-Ds processed by a main buffer/capture block
+  
+private :
+
+  /**
+     @short given capture block and econd indices returns the dense indexer
+   */
+  uint32_t denseIndexingFor(uint32_t fedid, uint16_t captureblockIdx, uint16_t econdIdx) {
+    if(fedid>nfeds_)
+      throw cms::Exception("ValueError") << "FED ID=" << fedid << " is unknown to current mapping";    
+    uint32_t idx = modFedIndexer_.denseIndex({{captureblockIdx,econdIdx}});
+    auto dense_idx = fedReadoutSequences_[fedid].moduleLUT_[idx];
+    if(dense_idx<0)
+      throw cms::Exception("ValueError") << "FED ID=" << fedid
+                                         << " capture block=" << captureblockIdx
+                                         << " econ=" << econdIdx
+                                         << "has not been assigned a dense indexing" << std::endl;
+    return uint32_t(dense_idx);
+  }
 
   COND_SERIALIZABLE;
 };
