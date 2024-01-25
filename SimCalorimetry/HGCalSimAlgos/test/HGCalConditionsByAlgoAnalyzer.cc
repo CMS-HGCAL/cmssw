@@ -100,14 +100,14 @@ HGCalConditionsByAlgoAnalyzer::HGCalConditionsByAlgoAnalyzer(const edm::Paramete
 
   hgceeConds_.getConditionsAlgo().setDoseMap(doseMapURL,confAlgo[0]);
   hgceeConds_.getConditionsAlgo().setFluenceScaleFactor(scaleByDoseFactor);
-  hgceeConds_.getConditionsAlgo().setIleakParam(ileakParam);
+  hgceeConds_.getConditionsAlgo().setIleakParam(ileakParam*1e-19);
   hgceeConds_.getConditionsAlgo().setCceParam(HGCalSiConditionsByAlgo::HGCalSiSensorTypes_t::HD120,cceParamFine);
   hgceeConds_.getConditionsAlgo().setCceParam(HGCalSiConditionsByAlgo::HGCalSiSensorTypes_t::LD200,cceParamThin);
   hgceeConds_.getConditionsAlgo().setCceParam(HGCalSiConditionsByAlgo::HGCalSiSensorTypes_t::LD300,cceParamThick);
 
   hgchesiConds_.getConditionsAlgo().setDoseMap(doseMapURL,confAlgo[1]);
   hgchesiConds_.getConditionsAlgo().setFluenceScaleFactor(scaleByDoseFactor);
-  hgchesiConds_.getConditionsAlgo().setIleakParam(ileakParam);
+  hgchesiConds_.getConditionsAlgo().setIleakParam(ileakParam*1e-19);
   hgchesiConds_.getConditionsAlgo().setCceParam(HGCalSiConditionsByAlgo::HGCalSiSensorTypes_t::HD120,cceParamFine);
   hgchesiConds_.getConditionsAlgo().setCceParam(HGCalSiConditionsByAlgo::HGCalSiSensorTypes_t::LD200,cceParamThin);
   hgchesiConds_.getConditionsAlgo().setCceParam(HGCalSiConditionsByAlgo::HGCalSiSensorTypes_t::LD300,cceParamThick);
