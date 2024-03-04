@@ -4,7 +4,7 @@
 #include "DataFormats/Math/interface/libminifloat.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include "FWCore/Utilities/interface/Span.h"
-
+#include <iostream>
 #include <cstdint>
 #include <vector>
 #include <string>
@@ -123,6 +123,19 @@ namespace nanoaod {
       flatTableHelper::MaybeMantissaReduce<T>(mantissaBits).bulk(columnData<T>(columns_.size() - 1));
     }
 
+    template <typename T, typename C>
+    void addColumnFromArray(const std::string &name, const C &values, const std::string &docString, int mantissaBits = -1) {
+      if (columnIndex(name) != -1)
+        throw cms::Exception("LogicError", "Duplicated column: " + name);      
+      //if (sizeof(values)/sizeof(T) != size())
+      //  throw cms::Exception("LogicError", "Mismatched size for " + name);
+      auto &vec = bigVector<T>();
+      columns_.emplace_back(name, docString, defaultColumnType<T>(), vec.size());
+      vec.insert(vec.end(), values, values+size());
+      flatTableHelper::MaybeMantissaReduce<T>(mantissaBits).bulk(columnData<T>(columns_.size() - 1));
+    }
+
+    
     template <typename T, typename C>
     void addColumnValue(const std::string &name, const C &value, const std::string &docString, int mantissaBits = -1) {
       if (!singleton())

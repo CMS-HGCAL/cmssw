@@ -2,6 +2,7 @@
 #include "EventFilter/HGCalRawToDigi/interface/HGCalRawDataDefinitions.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/Exception.h"
+#include <iostream>
 
 std::vector<uint32_t> hgcal::econd::produceERxData(const ERxChannelEnable& channel_enable,
                                                    const ERxData& erx,
@@ -73,6 +74,7 @@ std::vector<uint32_t> hgcal::econd::produceERxData(const ERxChannelEnable& chann
       *it_data |= word << msb;
     msb += nbits;
   }
+
   return data;
 }
 
@@ -183,13 +185,18 @@ std::vector<uint32_t> hgcal::backend::buildCaptureBlockHeader(
 std::vector<uint32_t> hgcal::backend::buildSlinkHeader(
     uint8_t boe, uint8_t v, uint64_t global_event_id, uint32_t content_id, uint32_t fed_id) {
   std::vector<uint32_t> header(4, 0);
-  header[0] = (boe & hgcal::BACKEND_FRAME::SLINK_BOE_MASK) << hgcal::BACKEND_FRAME::SLINK_BOE_POS |
+  //----- 32b come ordered as
+  //          first word  [b'32-73]
+  //          second word [b'0-31]
+  //          third word  [b'96-127]
+  //          fourth word [b'64-95]
+  header[2] = (boe & hgcal::BACKEND_FRAME::SLINK_BOE_MASK) << hgcal::BACKEND_FRAME::SLINK_BOE_POS |
               (v & hgcal::BACKEND_FRAME::SLINK_V_MASK) << hgcal::BACKEND_FRAME::SLINK_V_POS |
               ((global_event_id >> 41) & SLINK_GLOBAL_EVENTID_MSB_MASK)
                   << hgcal::BACKEND_FRAME::SLINK_GLOBAL_EVENTID_MSB_POS;
-  header[1] = (global_event_id & SLINK_GLOBAL_EVENTID_LSB_MASK);
-  header[2] = (content_id & hgcal::BACKEND_FRAME::SLINK_CONTENTID_MASK) << hgcal::BACKEND_FRAME::SLINK_CONTENTID_POS;
-  header[3] = (fed_id & hgcal::BACKEND_FRAME::SLINK_SOURCEID_MASK) << hgcal::BACKEND_FRAME::SLINK_SOURCEID_POS;
+  header[3] = (global_event_id & SLINK_GLOBAL_EVENTID_LSB_MASK);
+  header[1] = (content_id & hgcal::BACKEND_FRAME::SLINK_CONTENTID_MASK) << hgcal::BACKEND_FRAME::SLINK_CONTENTID_POS;
+  header[0] = (fed_id & hgcal::BACKEND_FRAME::SLINK_SOURCEID_MASK) << hgcal::BACKEND_FRAME::SLINK_SOURCEID_POS;
 
   return header;
 }

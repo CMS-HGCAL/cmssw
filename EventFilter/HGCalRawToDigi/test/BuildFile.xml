@@ -1,8 +1,23 @@
+<library file="HGCalSoATester.cc" name="HGCalSoATester">
+  <use name="DataFormats/HGCalDigi"/>
+  <use name="FWCore/MessageLogger"/>
+  <use name="EventFilter/HGCalRawToDigi"/>
+  <flags EDM_PLUGIN="1"/>
+</library>
+
+<library file="HGCalEmptyEventFilter.cc" name="HGCalEmptyEventFilter">
+  <use name="EventFilter/HGCalRawToDigi"/>
+  <use name="DataFormats/HGCalDigi"/>
+  <flags EDM_PLUGIN="1"/>
+</library>
+
+
 <bin file="HGCalUnpackerTest.cc" name="HGCalUnpacker">
   <use name="DataFormats/HGCalDigi"/>
   <use name="FWCore/MessageLogger"/>
   <use name="EventFilter/HGCalRawToDigi"/>
 </bin>
+
 <test name="emul_emptyECOND" command="cmsRun ${LOCALTOP}/src/EventFilter/HGCalRawToDigi/test/emulation_and_unpacking_cfg.py activeECONDs=0 numERxsPerECOND=0 numChannelsPerERx=0"/>
 <test name="emul_3ECONDs" command="cmsRun ${LOCALTOP}/src/EventFilter/HGCalRawToDigi/test/emulation_and_unpacking_cfg.py activeECONDs=0,1,2"/>
 <test name="emul_allECONDs_1passthrough" command="cmsRun ${LOCALTOP}/src/EventFilter/HGCalRawToDigi/test/emulation_and_unpacking_cfg.py activeECONDs=0,1,2,3,4,5,6 ECONDsInPassthrough=0"/>

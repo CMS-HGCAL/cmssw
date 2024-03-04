@@ -1,0 +1,6 @@
+<use name="DataFormats/NanoAOD"/>
+<use name="PhysicsTools/NanoAOD"/>
+<use name="boost"/>
+<export>
+  <lib name="1"/>
+</export>

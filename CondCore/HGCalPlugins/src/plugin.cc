@@ -1,0 +1,17 @@
+#include "CondCore/ESSources/interface/registration_macros.h"
+#include "CondFormats/DataRecord/interface/HGCalCondSerializableConfigRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCondSerializableConfig.h"
+#include "CondFormats/DataRecord/interface/HGCalCondSerializableSiCellChannelInfoRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCondSerializableSiCellChannelInfo.h"
+#include "CondFormats/DataRecord/interface/HGCalCondSerializableSiPMTileInfoRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCondSerializableSiPMTileInfo.h"
+#include "CondFormats/DataRecord/interface/HGCalCondSerializableModuleInfoRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCondSerializableModuleInfo.h"
+#include "CondFormats/DataRecord/interface/HGCalCondSerializablePedestalsRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCondSerializablePedestals.h"
+
+REGISTER_PLUGIN(HGCalCondSerializableConfigRcd,HGCalCondSerializableConfig);
+REGISTER_PLUGIN(HGCalCondSerializableSiCellChannelInfoRcd,HGCalCondSerializableSiCellChannelInfo);
+REGISTER_PLUGIN(HGCalCondSerializableSiPMTileInfoRcd,HGCalCondSerializableSiPMTileInfo);
+REGISTER_PLUGIN(HGCalCondSerializableModuleInfoRcd,HGCalCondSerializableModuleInfo);
+REGISTER_PLUGIN(HGCalCondSerializablePedestalsRcd,HGCalCondSerializablePedestals);

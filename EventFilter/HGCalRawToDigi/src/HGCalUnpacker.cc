@@ -13,147 +13,199 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/Exception.h"
 
-template <class D>
-HGCalUnpacker<D>::HGCalUnpacker(HGCalUnpackerConfig config)
+HGCalUnpacker::HGCalUnpacker(HGCalUnpackerConfig config)
     : config_(config),
       channelData_(config_.channelMax),
-      commonModeIndex_(config_.channelMax),
+      commonModeSum_(config_.channelMax),
       commonModeData_(config_.commonModeMax) {}
 
-template <class D>
-void HGCalUnpacker<D>::parseSLink(
+void HGCalUnpacker::parseSLink(
     const std::vector<uint32_t>& inputArray,
     const std::function<uint16_t(uint16_t sLink, uint8_t captureBlock, uint8_t econd)>& enabledERXMapping,
-    const std::function<D(HGCalElectronicsId elecID)>& logicalMapping) {
-  uint16_t sLink = 0;
-
+    const std::function<uint16_t(uint16_t fedid)>& fed2slink) {
+  uint16_t sLink;
+  bool zside(false);
   channelDataSize_ = 0;
   commonModeDataSize_ = 0;
-  badECOND_.clear();
+  flaggedECOND_.clear();
 
   for (uint32_t iword = 0; iword < inputArray.size();) {  // loop through the S-Link
-    //----- parse the S-Link header
-    if (((inputArray[iword] >> kSLinkBOEShift) & kSLinkBOEMask) != config_.sLinkBOE)  // sanity check
+
+    //----- parse the S-Link header which is 128b long
+    //----- 32b come ordered as
+    //          first word  [b'32-73]
+    //          second word [b'0-31]
+    //          third word  [b'96-127]
+    //          fourth word [b'64-95]
+    LogDebug("[HGCalUnpacker::parseSLink]")
+        << std::dec << iword << " th word / " << inputArray.size() << " " << std::hex << inputArray[iword] << " "
+        << inputArray[iword + 1] << " | " << inputArray[iword + 2] << " " << inputArray[iword + 3];
+
+    if (((inputArray[iword + 2] >> kSLinkBOEShift) & kSLinkBOEMask) != config_.sLinkBOE)  // sanity check
       throw cms::Exception("CorruptData")
-          << "Expected a S-Link header at word " << std::dec << iword << "/0x" << std::hex << iword << " (BOE: 0x"
-          << config_.sLinkBOE << "), got 0x" << inputArray[iword] << ".";
+          << "Expected a S-Link header at word " << std::dec << iword + 2 << " (BOE: 0x" << config_.sLinkBOE
+          << "), got 0x" << std::hex << inputArray[iword + 2] << ".";
+
+    uint16_t fedid = ((inputArray[iword + 1] >> kSLinkFEDIdShift) & kSLinkFEDIdMask);
+    sLink = fed2slink(fedid);
+    zside = sLink > config_.maxFEDsPerEndcap;
+    LogDebug("[HGCalUnpacker::parseSLink]") << "SLink=" << sLink << " index assigned from FED ID=" << fedid;
 
     iword += 4;  // length of the S-Link header (128 bits)
-
-    LogDebug("HGCalUnpack") << "SLink=" << sLink;
 
     //----- parse the S-Link body
     for (uint8_t captureBlock = 0; captureBlock < config_.sLinkCaptureBlockMax;
          captureBlock++) {  // loop through all capture blocks
       //----- parse the capture block header
-      if (((inputArray[iword] >> kCaptureBlockReservedShift) & kCaptureBlockReservedMask) !=
-          config_.captureBlockReserved)  // sanity check
+      uint32_t cb_msb = inputArray[iword];
+      if (((cb_msb >> kCaptureBlockReservedShift) & kCaptureBlockReservedMask) !=
+          config_.cbHeaderMarker)  // sanity check
         throw cms::Exception("CorruptData")
             << "Expected a capture block header at word " << std::dec << iword << "/0x" << std::hex << iword
-            << " (reserved word: 0x" << config_.captureBlockReserved << "), got 0x" << inputArray[iword] << ".";
+            << " (reserved word: 0x" << config_.cbHeaderMarker << "), got 0x"
+            << ((cb_msb >> kCaptureBlockReservedShift) & kCaptureBlockReservedMask) << " from 0x" << cb_msb << ".";
+      uint32_t cb_lsb = inputArray[iword + 1];
 
-      const uint64_t captureBlockHeader = ((uint64_t)inputArray[iword] << 32) | ((uint64_t)inputArray[iword + 1]);
+      const uint64_t captureBlockHeader = ((uint64_t)cb_msb << 32) | ((uint64_t)cb_lsb);
       iword += 2;  // length of capture block header (64 bits)
-
-      LogDebug("HGCalUnpack") << "Capture block=" << (int)captureBlock << ", capture block header=0x" << std::hex
-                              << captureBlockHeader;
-
+      LogDebug("[HGCalUnpacker::parseSLink]")
+          << "Capture block=" << (int)captureBlock << ", capture block header=0x" << std::hex << captureBlockHeader;
       //----- parse the capture block body
       for (uint8_t econd = 0; econd < config_.captureBlockECONDMax; econd++) {  // loop through all ECON-Ds
-        if (((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask) >= 0b100)
-          continue;  // only pick active ECON-Ds
+
+        auto econd_status_flag = ((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask);
+
+        //start the ECOND flags
+        HGCalElectronicsId eleid(zside, sLink, captureBlock, econd, 0, 0);
+        flaggedECOND_.emplace_back(HGCalFlaggedECONDInfo(iword, econd_status_flag, 0, eleid.raw(), 0));
+        size_t econdFlagidx = flaggedECOND_.size() - 1;
+
+        //if 3rd bit is active the ECON-D packet will be missing
+        //exception being 0b101 BCID/OrbitID mismatch
+        if (econd_status_flag >= HGCalFlaggedECONDInfo::CBFlagTypes::FSMTIMEOUT) {
+          //currently the packet is still kept if ECOND_pkt_conf.BX_mismatch_passthrough: 1
+          //this will come from the YAMLs at some point
+          bool econd_kept(config_.applyFWworkaround &&
+                          econd_status_flag == HGCalFlaggedECONDInfo::CBFlagTypes::BCorORBITIDMISMATCH);
+          if (!econd_kept)
+            continue;
+        }
+
+        LogDebug("[HGCalUnpacker::parseSLink]") << std::dec << (uint32_t)zside << " " << (uint32_t)sLink << " "
+                                                << (uint32_t)captureBlock << " " << (uint32_t)econd << std::endl;
 
         //----- parse the ECON-D header
         // (the second word of ECON-D header contains no information for unpacking, use only the first one)
-        if (((inputArray[iword] >> kHeaderShift) & kHeaderMask) != config_.econdHeaderMarker)  // sanity check
+        if (((inputArray[iword] >> kHeaderShift) & kHeaderMask) != config_.econdHeaderMarker) {
+          flaggedECOND_[econdFlagidx].addFlag(HGCalFlaggedECONDInfo::WRONGHEADERMARKER);
           throw cms::Exception("CorruptData")
               << "Expected a ECON-D header at word " << std::dec << iword << "/0x" << std::hex << iword
               << " (marker: 0x" << config_.econdHeaderMarker << "), got 0x" << inputArray[iword] << ".";
+        }
 
         const auto& econdHeader = inputArray[iword];
         iword += 2;  // length of ECON-D header (2 * 32 bits)
 
-        LogDebug("HGCalUnpack") << "ECON-D #" << (int)econd << ", first word of ECON-D header=0x" << std::hex
-                                << econdHeader;
-
         //----- extract the payload length
         const uint32_t payloadLength = (econdHeader >> kPayloadLengthShift) & kPayloadLengthMask;
-        if (payloadLength > config_.payloadLengthMax)  // if payload length too big
+        flaggedECOND_[econdFlagidx].setPayload(payloadLength);
+        LogDebug("[HGCalUnpacker::parseSLink]")
+            << "ECON-D #" << (int)econd << ", first word of ECON-D header=0x" << std::hex << econdHeader
+            << "\t ECON-D payload=" << std::dec << payloadLength << "(max cfg=" << config_.payloadLengthMax << ")";
+
+        // if payload length too big
+        if (payloadLength > config_.payloadLengthMax) {
+          flaggedECOND_[econdFlagidx].addFlag(HGCalFlaggedECONDInfo::PAYLOADOVERFLOWS);
           throw cms::Exception("CorruptData") << "Unpacked payload length=" << payloadLength
                                               << " exceeds the maximal length=" << config_.payloadLengthMax;
+        }
 
-        LogDebug("HGCalUnpack") << "ECON-D #" << (int)econd << ", payload length=" << payloadLength;
-        //Quality check
-        if ((((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask) != 0b000) ||
-            (((econdHeader >> kHTShift) & kHTMask) >= 0b10) || (((econdHeader >> kEBOShift) & kEBOMask) >= 0b10) ||
-            (((econdHeader >> kMatchShift) & kMatchMask) == 0) ||
-            (((econdHeader >> kTruncatedShift) & kTruncatedMask) == 1)) {  // bad ECOND
-          LogDebug("HGCalUnpack") << "ECON-D failed quality check, HT=" << (econdHeader >> kHTShift & kHTMask)
-                                  << ", EBO=" << (econdHeader >> kEBOShift & kEBOMask)
-                                  << ", M=" << (econdHeader >> kMatchShift & kMatchMask)
-                                  << ", T=" << (econdHeader >> kTruncatedShift & kTruncatedMask);
-          badECOND_.emplace_back(iword - 2);
+        //
+        // Quality check for the ECON-D
+        //
+        bool isTruncated(((econdHeader >> kTruncatedShift) & kTruncatedMask) == 1);
+        uint32_t econdQuality((((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask) != 0b000) *
+                                  HGCalFlaggedECONDInfo::CBSTATUS +
+                              (((econdHeader >> kHTShift) & kHTMask) >= 0b10) * HGCalFlaggedECONDInfo::HTBITS +
+                              (((econdHeader >> kEBOShift) & kEBOMask) >= 0b10) * HGCalFlaggedECONDInfo::EBOBITS +
+                              (((econdHeader >> kMatchShift) & kMatchMask) == 0) * HGCalFlaggedECONDInfo::MATCHBIT +
+                              (isTruncated * HGCalFlaggedECONDInfo::TRUNCATED));
+        if (econdQuality > 0) {
+          flaggedECOND_[econdFlagidx].addToFlag(econdQuality);
+          LogDebug("[HGCalUnpacker::parseSLink]")
+              << "ECON-D failed quality check"
+              << ", HT=" << (econdHeader >> kHTShift & kHTMask) << ", EBO=" << (econdHeader >> kEBOShift & kEBOMask)
+              << ", M=" << (econdHeader >> kMatchShift & kMatchMask)
+              << ", T=" << (econdHeader >> kTruncatedShift & kTruncatedMask);
+        }
+
+        //if the ECON-D is truncated skip directly to the next
+        if (isTruncated) {
           iword += payloadLength;  // skip the current ECON-D (using the payload length parsed above)
-
-          if (iword % 2 != 0) {  //TODO: check this
-            LogDebug("HGCalUnpacker") << "Padding ECON-D payload to 2 32-bit words (remainder: " << (iword % 2) << ").";
+          if (iword % 2 != 0) {    //TODO: check this
+            LogDebug("[HGCalUnpacker::parseSLink]")
+                << "Padding ECON-D payload to 2 32-bit words (remainder: " << (iword % 2) << ").";
             iword += 1;
           }
-          continue;  // go to the next ECON-D
+          continue;
         }
-        const uint32_t econdBodyStart = iword;  // for the ECON-D length check
-        //----- parse the ECON-D body
+
+        //set this for the ECON-D length check later
+        const uint32_t econdBodyStart = iword;
+
+        //----- parse the ECON-D body NORMAL MODE
         if (((econdHeader >> kPassThroughShift) & kPassThroughMask) == 0) {
-          // standard ECON-D
-          LogDebug("HGCalUnpack") << "Standard ECON-D";
+          LogDebug("[HGCalUnpacker::parseSLink]") << "Standard ECON-D";
           const auto enabledERX = enabledERXMapping(sLink, captureBlock, econd);
+
+          //loop through eRx
           for (uint8_t erx = 0; erx < config_.econdERXMax; erx++) {
-            //loop through eRx
             //pick active eRx
             if ((enabledERX >> erx & 1) == 0)
               continue;
 
             //----- parse the eRX subpacket header
             //common mode
-            LogDebug("HGCalUnpack") << "ECON-D:eRx=" << (int)econd << ":" << (int)erx
-                                    << ", first word of the eRx header=0x" << std::hex << inputArray[iword] << "\n"
-                                    << "  extracted common mode 0=0x" << std::hex
-                                    << ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << std::dec
-                                    << ", saved at " << commonModeDataSize_ << "\n"
-                                    << "  extracted common mode 1=0x" << std::hex
-                                    << ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << std::dec
-                                    << ", saved at " << (commonModeDataSize_ + 1);
-            commonModeData_[commonModeDataSize_] = (inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask;
-            commonModeData_[commonModeDataSize_ + 1] = (inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask;
-            if ((erx % 2 == 0 && (enabledERX >> (erx + 1) & 1) == 0) ||
-                (erx % 2 == 1 && (enabledERX >> (erx - 1) & 1) == 0)) {
-              commonModeDataSize_ += 2;
-              commonModeData_[commonModeDataSize_] = commonModeData_[commonModeDataSize_ - 2];
-              commonModeData_[commonModeDataSize_ + 1] = commonModeData_[commonModeDataSize_ - 1];
-              LogDebug("HGCalUnpack") << "half ROC turned on, padding to 4 common modes\n"
-                                      << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 2] << std::dec
-                                      << " saved at " << commonModeDataSize_ << "\n"
-                                      << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 1] << std::dec
-                                      << " saved at " << commonModeDataSize_ + 1;
-            }
+            const HGCalElectronicsId cm0id(zside, sLink, captureBlock, econd, erx, 37);
+            const HGCalElectronicsId cm1id(zside, sLink, captureBlock, econd, erx, 38);
+            LogDebug("[HGCalUnpacker::parseSLink]")
+                << "ECON-D:eRx=" << (int)econd << ":" << (int)erx << ", first word of the eRx header=0x" << std::hex
+                << inputArray[iword] << "\n"
+                << "  extracted common mode 0 HGCalElectronicsId=" << std::dec << cm0id.raw() << ",adc=0x" << std::hex
+                << ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << "\n"
+                << "  extracted common mode 1 HGCalElectronicsId=" << std::dec << cm1id.raw() << ",adc=0x" << std::hex
+                << ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << "\n";
+
+            //assume common mode in char mode
+            commonModeData_[commonModeDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+                cm0id, ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << 10);
+            commonModeData_[commonModeDataSize_ + 1] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+                cm1id, ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << 10);
+            uint16_t cmSum = ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) +
+                             ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask);
+            if (commonModeDataSize_ + 1 > config_.commonModeMax)
+              throw cms::Exception("HGCalUnpack") << "Too many common mode data unpacked: " << (commonModeDataSize_ + 1)
+                                                  << " >= " << config_.commonModeMax << ".";
+            commonModeDataSize_ += 2;
+
             // empty check
             if (((inputArray[iword] >> kFormatShift) & kFormatMask) == 1) {  // empty
-              LogDebug("HGCalUnpack") << "eRx empty";
+              LogDebug("[HGCalUnpacker::parseSLink]") << "eRx empty";
               iword += 1;  // length of an empty eRx header (32 bits)
               continue;    // go to the next eRx
             }
+
             // regular mode
             const uint64_t erxHeader = ((uint64_t)inputArray[iword] << 32) | ((uint64_t)inputArray[iword + 1]);
             iword += 2;  // length of a standard eRx header (2 * 32 bits)
-            LogDebug("HGCalUnpack") << "whole eRx header=0x" << std::hex << erxHeader;
+            LogDebug("[HGCalUnpacker::parseSLink]") << "whole eRx header=0x" << std::hex << erxHeader;
 
             //----- parse the eRx subpacket body
             uint32_t bitCounter = 0;
             for (uint8_t channel = 0; channel < config_.erxChannelMax; channel++) {  // loop through all channels in eRx
               if (((erxHeader >> channel) & 1) == 0)
                 continue;  // only pick active channels
-              const HGCalElectronicsId id(sLink, captureBlock, econd, erx, channel);
-              commonModeIndex_[channelDataSize_] = commonModeDataSize_ / 4 * 4;
+              const HGCalElectronicsId id(zside, sLink, captureBlock, econd, erx, channel);
               const uint32_t tempIndex = bitCounter / 32 + iword;
               const uint8_t tempBit = bitCounter % 32;
               const uint32_t temp =
@@ -161,139 +213,305 @@ void HGCalUnpacker<D>::parseSLink(
                                  : (inputArray[tempIndex] << tempBit) | (inputArray[tempIndex + 1] >> (32 - tempBit));
               const uint8_t code = temp >> 28;
               // use if and else here
-              channelData_[channelDataSize_] = HGCROCChannelDataFrame<D>(
-                  logicalMapping(id),
-                  ((temp << erxBodyLeftShift_[code]) >> erxBodyRightShift_[code]) & erxBodyMask_[code]);
+              channelData_[channelDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+                  id, ((temp << erxBodyLeftShift_[code]) >> erxBodyRightShift_[code]) & erxBodyMask_[code]);
               bitCounter += erxBodyBits_[code];
               if (code == 0b0010)
                 channelData_[channelDataSize_].fillFlag1(1);
-              LogDebug("HGCalUnpack") << "Word " << channelDataSize_ << ", ECON-D:eRx:channel=" << (int)econd << ":"
-                                      << (int)erx << ":" << (int)channel << "\n"
-                                      << "  assigned common mode index=" << commonModeIndex_.at(channelDataSize_)
-                                      << "\n"
-                                      << "  full word readout=0x" << std::hex << temp << std::dec << ", code=0x"
-                                      << std::hex << (int)code << std::dec << "\n"
-                                      << "  extracted channel data=0x" << std::hex
-                                      << channelData_[channelDataSize_].raw();
+              commonModeSum_[channelDataSize_] = cmSum;
+              LogDebug("[HGCalUnpacker::parseSLink]")
+                  << "Word " << channelDataSize_ << ", ECON-D:eRx:channel=" << (int)econd << ":" << (int)erx << ":"
+                  << (int)channel << "\n"
+                  << "  full word readout=0x" << std::hex << temp << std::dec << ", code=0x" << std::hex << (int)code
+                  << std::dec << "\n"
+                  << "  extracted channel data=0x" << std::hex << channelData_[channelDataSize_].raw();
               channelDataSize_++;
             }
+
             // pad to the whole word
             iword += bitCounter / 32;
             if (bitCounter % 32 != 0)
               iword += 1;
-
-            if (commonModeDataSize_ + 1 > config_.commonModeMax)
-              throw cms::Exception("HGCalUnpack") << "Too many common mode data unpacked: " << (commonModeDataSize_ + 1)
-                                                  << " >= " << config_.commonModeMax << ".";
-            commonModeDataSize_ += 2;
-            // eRx subpacket has no trailer
           }
-        } else {
-          // passthrough ECON-D
-          LogDebug("HGCalUnpack") << "Passthrough ECON-D";
-          const auto enabledERX = enabledERXMapping(sLink, captureBlock, econd);
-          for (uint8_t erx = 0; erx < config_.econdERXMax; erx++) {  // loop through all eRxs
-            if ((enabledERX >> erx & 1) == 0)
-              continue;  // only pick active eRxs
 
-            //----- eRX subpacket header
-            // common mode
-            uint32_t temp = inputArray[iword];
-            LogDebug("HGCalUnpack") << "ECON-D:eRx=" << (int)econd << ":" << (int)erx
-                                    << ", first word of the eRx header=0x" << std::hex << temp << std::dec << "\n"
-                                    << "  extracted common mode 0=0x" << std::hex
-                                    << ((temp >> kCommonmode0Shift) & kCommonmode0Mask) << std::dec << ", saved at "
-                                    << commonModeDataSize_ << "\n"
-                                    << "  extracted common mode 1=0x" << std::hex
-                                    << ((temp >> kCommonmode1Shift) & kCommonmode1Mask) << std::dec << ", saved at "
-                                    << (commonModeDataSize_ + 1);
-            commonModeData_[commonModeDataSize_] = (temp >> kCommonmode0Shift) & kCommonmode0Mask;
-            commonModeData_[commonModeDataSize_ + 1] = (temp >> kCommonmode1Shift) & kCommonmode1Mask;
-            if ((erx % 2 == 0 && (enabledERX >> (erx + 1) & 1) == 0) ||
-                (erx % 2 == 1 && (enabledERX >> (erx - 1) & 1) == 0)) {
-              commonModeDataSize_ += 2;
-              commonModeData_[commonModeDataSize_] = commonModeData_[commonModeDataSize_ - 2];
-              commonModeData_[commonModeDataSize_ + 1] = commonModeData_[commonModeDataSize_ - 1];
-              LogDebug("HGCalUnpack") << "half ROC turned on, padding to 4 common modes\n"
-                                      << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 2] << std::dec
-                                      << " saved at " << commonModeDataSize_ << "\n"
-                                      << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 1] << std::dec
-                                      << " saved at " << commonModeDataSize_ + 1;
+        }
+
+        // passthrough ECON-D
+        else {
+          LogDebug("[HGCalUnpacker::parseSLink]") << "Passthrough ECON-D";
+
+          const auto enabledERX = enabledERXMapping(sLink, captureBlock, econd);
+
+          for (uint8_t erx = 0; erx < config_.econdERXMax; erx++) {  // loop through all eRxs
+            // only pick active eRxs
+            if ((enabledERX >> erx & 1) == 0)
+              continue;
+
+            //it was supposed to be enabled but we have exceeded the payload length already
+            if (iword - econdBodyStart > payloadLength) {
+              flaggedECOND_[econdFlagidx].addFlag(HGCalFlaggedECONDInfo::UNEXPECTEDTRUNCATED);
+              break;
             }
+
+            //check if e-RX is empty and skip it
+            bool emptyERX((inputArray[iword] & 0x1f) == 0b10000);
+            if (emptyERX) {
+              LogDebug("[HGCalUnpacker::parseSLink]") << "e-RX is empty...skipping";
+              iword += 1;
+              continue;
+            }
+
+            //----- parse the eRX subpacket header
+            const uint64_t erxHeader = ((uint64_t)inputArray[iword] << 32) | ((uint64_t)inputArray[iword + 1]);
+            LogDebug("[HGCalUnpacker::parseSLink]")
+                << "e-RX=" << std::dec << erx << " header=0x" << std::hex << erxHeader;
+
+            //common mode
+            const HGCalElectronicsId cm0id(zside, sLink, captureBlock, econd, erx, 37);
+            const HGCalElectronicsId cm1id(zside, sLink, captureBlock, econd, erx, 38);
+            LogDebug("[HGCalUnpacker::parseSLink]")
+                << "ECON-D:eRx=" << (int)econd << ":" << (int)erx << ", e-rx header=0x" << std::hex << erxHeader << "\n"
+                << "  extracted common mode 0 HGCalElectronicsId=" << std::dec << cm0id.raw() << ",adc=0x" << std::hex
+                << ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << "\n"
+                << "  extracted common mode 1 HGCalElectronicsId=" << std::dec << cm1id.raw() << ",adc=0x" << std::hex
+                << ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << "\n";
+
+            //read common mode
+            commonModeData_[commonModeDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+                cm0id, ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << 10);
+            commonModeData_[commonModeDataSize_ + 1] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+                cm1id, ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << 10);
+            uint16_t cmSum = ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) +
+                             ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask);
+
+            commonModeDataSize_ += 2;
             iword += 2;  // length of the standard eRx header (2 * 32 bits)
+
             for (uint8_t channel = 0; channel < config_.erxChannelMax; channel++) {  // loop through all channels in eRx
-              const HGCalElectronicsId id(sLink, captureBlock, econd, erx, channel);
-              commonModeIndex_[channelDataSize_] = commonModeDataSize_ / 4 * 4;
-              channelData_[channelDataSize_] =
-                  HGCROCChannelDataFrame<HGCalElectronicsId>(logicalMapping(id), inputArray[iword]);
-              LogDebug("HGCalUnpack") << "Word " << channelDataSize_ << ", ECON-D:eRx:channel=" << (int)econd << ":"
-                                      << (int)erx << ":" << (int)channel << ", HGCalElectronicsId=" << id.raw()
-                                      << ", assigned common mode index=" << commonModeIndex_.at(channelDataSize_)
-                                      << "\n"
-                                      << "extracted channel data=0x" << std::hex
-                                      << channelData_.at(channelDataSize_).raw();
+
+              bool ison = ((erxHeader >> channel) & 0xb);
+              if (!ison) {
+                LogDebug("[HGCalUnpacker::parseSLink]") << "Skipping channel " << uint32_t(channel) << " in "
+                                                        << uint32_t(econd) << " eRX=" << uint32_t(erx);
+                continue;
+              }
+
+              const HGCalElectronicsId id(zside, sLink, captureBlock, econd, erx, channel);
+              channelData_[channelDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(id, inputArray[iword]);
+              commonModeSum_[channelDataSize_] = cmSum;
+              LogDebug("[HGCalUnpacker::parseSLink]")
+                  << "Word " << channelDataSize_ << ", ECON-D:eRx:channel=" << (int)econd << ":" << (int)erx << ":"
+                  << (int)channel << ", HGCalElectronicsId=" << id.raw() << "\n"
+                  << "extracted channel data=0x" << std::hex << channelData_.at(channelDataSize_).raw();
               channelDataSize_++;
               iword++;
             }
-            if (commonModeDataSize_ + 1 > config_.commonModeMax)
-              throw cms::Exception("HGCalUnpack") << "Too many common mode data unpacked: " << (commonModeDataSize_ + 1)
-                                                  << " >= " << config_.commonModeMax << ".";
-            commonModeDataSize_ += 2;
           }
         }
+
         //----- parse the ECON-D trailer
         // (no information needed from ECON-D trailer in unpacker, skip it)
         iword += 1;  // length of the ECON-D trailer (32 bits CRC)
 
-        if (iword - econdBodyStart != payloadLength)
+        if (iword - econdBodyStart != payloadLength) {
+          flaggedECOND_[econdFlagidx].addFlag(HGCalFlaggedECONDInfo::PAYLOADMISMATCHES);
+
           throw cms::Exception("CorruptData")
               << "Mismatch between unpacked and expected ECON-D #" << (int)econd << " payload length\n"
               << "  unpacked payload length=" << iword - econdBodyStart << "\n"
-              << "  expected payload length=" << payloadLength;
+              << "  expected payload length=" << payloadLength << "  unpacked " << channelDataSize_ << " channels";
+        }
+
         // pad to 2 words
-        if (iword % 2 != 0) {  //TODO: check this
+        if (iword % 2 != 0) {
           LogDebug("HGCalUnpacker") << "Padding ECON-D payload to 2 32-bit words (remainder: " << (iword % 2) << ").";
           iword += 1;
         }
       }
-      //----- capture block has no trailer
+
+      //----- Capture block has no trailer
       // pad to 4 words
-      if (iword % 4 != 0) {  //TODO: check this
+      if (iword % 4 != 0) {
         LogDebug("HGCalUnpacker") << "Padding capture block to 4 32-bit words (remainder: " << (iword % 4) << ").";
         iword += 4 - (iword % 4);
       }
     }
+
     //----- parse the S-Link trailer
     // (no information is needed in unpacker)
-
     iword += 4;  // length of the S-Link trailer (128 bits)
-    sLink++;
   }
+
+  //in case an ECON was suppressed this will set the array to 0 ...
   channelData_.resize(channelDataSize_);
-  commonModeIndex_.resize(channelDataSize_);
+  commonModeSum_.resize(channelDataSize_);
   commonModeData_.resize(commonModeDataSize_);
   return;
 }
 
-template <class D>
-void HGCalUnpacker<D>::parseCaptureBlock(
+void HGCalUnpacker::parseSLinkHeaderOnly(const std::vector<uint32_t>& inputArray,
+                                         const std::function<uint16_t(uint16_t fedid)>& fed2slink) {
+  uint16_t sLink;
+  bool zside(false);
+  channelDataSize_ = 0;
+  commonModeDataSize_ = 0;
+  flaggedECOND_.clear();
+
+  for (uint32_t iword = 0; iword < inputArray.size();) {  // loop through the S-Link
+
+    //----- parse the S-Link header which is 128b long
+    //----- 32b come ordered as
+    //          first word  [b'32-73]
+    //          second word [b'0-31]
+    //          third word  [b'96-127]
+    //          fourth word [b'64-95]
+    LogDebug("[HGCalUnpacker::parseSLink]")
+        << std::dec << iword << " th word / " << inputArray.size() << " " << std::hex << inputArray[iword] << " "
+        << inputArray[iword + 1] << " | " << inputArray[iword + 2] << " " << inputArray[iword + 3];
+
+    if (((inputArray[iword + 2] >> kSLinkBOEShift) & kSLinkBOEMask) != config_.sLinkBOE)  // sanity check
+      throw cms::Exception("CorruptData")
+          << "Expected a S-Link header at word " << std::dec << iword + 2 << " (BOE: 0x" << config_.sLinkBOE
+          << "), got 0x" << std::hex << inputArray[iword + 2] << ".";
+
+    uint16_t fedid = ((inputArray[iword + 1] >> kSLinkFEDIdShift) & kSLinkFEDIdMask);
+    sLink = fed2slink(fedid);
+    zside = sLink > config_.maxFEDsPerEndcap;
+    LogDebug("[HGCalUnpacker::parseSLink]") << "SLink=" << sLink << " index assigned from FED ID=" << fedid;
+
+    iword += 4;  // length of the S-Link header (128 bits)
+
+    //----- parse the S-Link body
+    for (uint8_t captureBlock = 0; captureBlock < config_.sLinkCaptureBlockMax;
+         captureBlock++) {  // loop through all capture blocks
+      //----- parse the capture block header
+      uint32_t cb_msb = inputArray[iword];
+      if (((cb_msb >> kCaptureBlockReservedShift) & kCaptureBlockReservedMask) !=
+          config_.cbHeaderMarker)  // sanity check
+        throw cms::Exception("CorruptData")
+            << "Expected a capture block header at word " << std::dec << iword << "/0x" << std::hex << iword
+            << " (reserved word: 0x" << config_.cbHeaderMarker << "), got 0x"
+            << ((cb_msb >> kCaptureBlockReservedShift) & kCaptureBlockReservedMask) << " from 0x" << cb_msb << ".";
+      uint32_t cb_lsb = inputArray[iword + 1];
+
+      const uint64_t captureBlockHeader = ((uint64_t)cb_msb << 32) | ((uint64_t)cb_lsb);
+      iword += 2;  // length of capture block header (64 bits)
+      LogDebug("[HGCalUnpacker::parseSLink]")
+          << "Capture block=" << (int)captureBlock << ", capture block header=0x" << std::hex << captureBlockHeader;
+      //----- parse the capture block body
+      for (uint8_t econd = 0; econd < config_.captureBlockECONDMax; econd++) {  // loop through all ECON-Ds
+
+        auto econd_status_flag = ((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask);
+
+        //start the ECOND flags
+        HGCalElectronicsId eleid(zside, sLink, captureBlock, econd, 0, 0);
+        flaggedECOND_.emplace_back(HGCalFlaggedECONDInfo(iword, econd_status_flag, 0, eleid.raw(), 0));
+        size_t econdFlagidx = flaggedECOND_.size() - 1;
+
+        //if 3rd bit is active the ECON-D packet will be missing
+        //exception being 0b101 BCID/OrbitID mismatch
+        if (econd_status_flag >= HGCalFlaggedECONDInfo::CBFlagTypes::FSMTIMEOUT) {
+          //currently the packet is still kept if ECOND_pkt_conf.BX_mismatch_passthrough: 1
+          //this will come from the YAMLs at some point
+          bool econd_kept(config_.applyFWworkaround &&
+                          econd_status_flag == HGCalFlaggedECONDInfo::CBFlagTypes::BCorORBITIDMISMATCH);
+          if (!econd_kept)
+            continue;
+        }
+
+        LogDebug("[HGCalUnpacker::parseSLink]") << std::dec << (uint32_t)zside << " " << (uint32_t)sLink << " "
+                                                << (uint32_t)captureBlock << " " << (uint32_t)econd << std::endl;
+
+        //----- parse the ECON-D header
+        // (the second word of ECON-D header contains no information for unpacking, use only the first one)
+        if (((inputArray[iword] >> kHeaderShift) & kHeaderMask) != config_.econdHeaderMarker) {
+          flaggedECOND_[econdFlagidx].addFlag(HGCalFlaggedECONDInfo::WRONGHEADERMARKER);
+          throw cms::Exception("CorruptData")
+              << "Expected a ECON-D header at word " << std::dec << iword << "/0x" << std::hex << iword
+              << " (marker: 0x" << config_.econdHeaderMarker << "), got 0x" << inputArray[iword] << ".";
+        }
+
+        const auto& econdHeader = inputArray[iword];
+        iword += 2;  // length of ECON-D header (2 * 32 bits)
+
+        //----- extract the payload length
+        const uint32_t payloadLength = (econdHeader >> kPayloadLengthShift) & kPayloadLengthMask;
+        flaggedECOND_[econdFlagidx].setPayload(payloadLength);
+        LogDebug("[HGCalUnpacker::parseSLink]")
+            << "ECON-D #" << (int)econd << ", first word of ECON-D header=0x" << std::hex << econdHeader
+            << "\t ECON-D payload=" << std::dec << payloadLength << "(max cfg=" << config_.payloadLengthMax << ")";
+
+        // if payload length too big
+        if (payloadLength > config_.payloadLengthMax) {
+          flaggedECOND_[econdFlagidx].addFlag(HGCalFlaggedECONDInfo::PAYLOADOVERFLOWS);
+          throw cms::Exception("CorruptData") << "Unpacked payload length=" << payloadLength
+                                              << " exceeds the maximal length=" << config_.payloadLengthMax;
+        }
+
+        //
+        // Quality check for the ECON-D
+        //
+        bool isTruncated(((econdHeader >> kTruncatedShift) & kTruncatedMask) == 1);
+        uint32_t econdQuality((((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask) != 0b000) *
+                                  HGCalFlaggedECONDInfo::CBSTATUS +
+                              (((econdHeader >> kHTShift) & kHTMask) >= 0b10) * HGCalFlaggedECONDInfo::HTBITS +
+                              (((econdHeader >> kEBOShift) & kEBOMask) >= 0b10) * HGCalFlaggedECONDInfo::EBOBITS +
+                              (((econdHeader >> kMatchShift) & kMatchMask) == 0) * HGCalFlaggedECONDInfo::MATCHBIT +
+                              (isTruncated * HGCalFlaggedECONDInfo::TRUNCATED));
+        if (econdQuality > 0) {
+          flaggedECOND_[econdFlagidx].addToFlag(econdQuality);
+          LogDebug("[HGCalUnpacker::parseSLink]")
+              << "ECON-D failed quality check"
+              << ", HT=" << (econdHeader >> kHTShift & kHTMask) << ", EBO=" << (econdHeader >> kEBOShift & kEBOMask)
+              << ", M=" << (econdHeader >> kMatchShift & kMatchMask)
+              << ", T=" << (econdHeader >> kTruncatedShift & kTruncatedMask);
+        }
+        iword += payloadLength;  // skip the current ECON-D (using the payload length parsed above)
+        // pad to 2 words
+        if (iword % 2 != 0) {
+          LogDebug("HGCalUnpacker") << "Padding ECON-D payload to 2 32-bit words (remainder: " << (iword % 2) << ").";
+          iword += 1;
+        }
+      }
+
+      //----- Capture block has no trailer
+      // pad to 4 words
+      if (iword % 4 != 0) {
+        LogDebug("HGCalUnpacker") << "Padding capture block to 4 32-bit words (remainder: " << (iword % 4) << ").";
+        iword += 4 - (iword % 4);
+      }
+    }
+
+    //----- parse the S-Link trailer
+    // (no information is needed in unpacker)
+    iword += 4;  // length of the S-Link trailer (128 bits)
+  }
+
+  //this needs to be resized to the final size
+  channelData_.resize(channelDataSize_);
+  commonModeSum_.resize(channelDataSize_);
+  commonModeData_.resize(commonModeDataSize_);
+  return;
+}
+
+void HGCalUnpacker::parseCaptureBlock(
     const std::vector<uint32_t>& inputArray,
-    const std::function<uint16_t(uint16_t sLink, uint8_t captureBlock, uint8_t econd)>& enabledERXMapping,
-    const std::function<D(HGCalElectronicsId elecID)>& logicalMapping) {
+    const std::function<uint16_t(uint16_t sLink, uint8_t captureBlock, uint8_t econd)>& enabledERXMapping) {
   uint16_t sLink = 0;
+  bool zside(false);  //fixme me this should be based on the slink id
   uint8_t captureBlock = 0;
 
   channelDataSize_ = 0;
   commonModeDataSize_ = 0;
-  badECOND_.clear();
+  flaggedECOND_.clear();
 
   for (uint32_t iword = 0; iword < inputArray.size();) {  // loop through all capture blocks
 
     //----- parse the capture block header
-    if (((inputArray[iword] >> kCaptureBlockReservedShift) & kCaptureBlockReservedMask) != config_.captureBlockReserved)
+    if (((inputArray[iword] >> kCaptureBlockReservedShift) & kCaptureBlockReservedMask) != config_.cbHeaderMarker)
       throw cms::Exception("CorruptData")
           << "Expected a capture block header at word " << std::dec << iword << "/0x" << std::hex << iword
-          << " (reserved word: 0x" << config_.captureBlockReserved << "), got 0x" << inputArray[iword] << ".";
+          << " (reserved word: 0x" << config_.cbHeaderMarker << "), got 0x" << inputArray[iword] << ".";
 
     const uint64_t captureBlockHeader = ((uint64_t)inputArray[iword] << 32) | ((uint64_t)inputArray[iword + 1]);
     LogDebug("HGCalUnpack") << "Capture block=" << (int)captureBlock << ", capture block header=0x" << std::hex
@@ -302,7 +520,14 @@ void HGCalUnpacker<D>::parseCaptureBlock(
 
     //----- parse the capture block body
     for (uint8_t econd = 0; econd < config_.captureBlockECONDMax; econd++) {  // loop through all ECON-Ds
-      if ((captureBlockHeader >> (3 * econd) & kCaptureBlockECONDStatusMask) >= 0b100)
+
+      auto econd_status_flag = ((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask);
+
+      HGCalElectronicsId eleid(zside, sLink, captureBlock, econd, 0, 0);
+      flaggedECOND_.emplace_back(HGCalFlaggedECONDInfo(iword, econd_status_flag, 0, eleid.raw(), 0));
+      size_t econdFlagidx = flaggedECOND_.size() - 1;
+
+      if (econd_status_flag >= 0b100)
         continue;  // only pick the active ECON-Ds
 
       //----- parse the ECON-D header
@@ -320,20 +545,28 @@ void HGCalUnpacker<D>::parseCaptureBlock(
 
       //----- extract the payload length
       const uint32_t payloadLength = ((econdHeader >> kPayloadLengthShift)) & kPayloadLengthMask;
+      flaggedECOND_[econdFlagidx].setPayload(payloadLength);
       if (payloadLength > config_.payloadLengthMax)  // payload length is too large
         throw cms::Exception("CorruptData") << "Unpacked payload length=" << payloadLength
                                             << " exceeds the maximal length=" << config_.payloadLengthMax;
       LogDebug("HGCalUnpack") << "ECON-D #" << (int)econd << ", payload length = " << payloadLength;
 
-      if ((((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask) != 0b000) ||
-          (((econdHeader >> kHTShift) & kHTMask) >= 0b10) || (((econdHeader >> kEBOShift) & kEBOMask) >= 0b10) ||
-          (((econdHeader >> kMatchShift) & kMatchMask) == 0) ||
-          (((econdHeader >> kTruncatedShift) & kTruncatedMask) == 1)) {  // quality check failed: bad ECON-D
+      //check econ-d quality
+      uint32_t econdQuality((((captureBlockHeader >> (3 * econd)) & kCaptureBlockECONDStatusMask) != 0b000) *
+                                HGCalFlaggedECONDInfo::CBSTATUS +
+                            (((econdHeader >> kHTShift) & kHTMask) >= 0b10) * HGCalFlaggedECONDInfo::HTBITS +
+                            (((econdHeader >> kEBOShift) & kEBOMask) >= 0b10) * HGCalFlaggedECONDInfo::EBOBITS +
+                            (((econdHeader >> kMatchShift) & kMatchMask) == 0) * HGCalFlaggedECONDInfo::MATCHBIT +
+                            (((econdHeader >> kTruncatedShift) & kTruncatedMask) == 1) *
+                                HGCalFlaggedECONDInfo::TRUNCATED);
+      flaggedECOND_[econdFlagidx].addToFlag(econdQuality);
+
+      if (econdQuality) {
         LogDebug("HGCalUnpack") << "ECON-D failed quality check, HT=" << (econdHeader >> kHTShift & kHTMask)
                                 << ", EBO=" << (econdHeader >> kEBOShift & kEBOMask)
                                 << ", M=" << (econdHeader >> kMatchShift & kMatchMask)
                                 << ", T=" << (econdHeader >> kTruncatedShift & kTruncatedMask);
-        badECOND_.emplace_back(iword - 2);
+
         iword += payloadLength;  // skip the current ECON-D (using the payload length parsed above)
 
         if (iword % 2 != 0) {  //TODO: check this
@@ -354,30 +587,28 @@ void HGCalUnpacker<D>::parseCaptureBlock(
             continue;  // only pick active eRx
 
           //----- parse the eRX subpacket header
-          // common mode
+          //common mode
+          const HGCalElectronicsId cm0id(zside, sLink, captureBlock, econd, erx, 37);
+          const HGCalElectronicsId cm1id(zside, sLink, captureBlock, econd, erx, 38);
           LogDebug("HGCalUnpack") << "ECON-D:eRx=" << (int)econd << ":" << (int)erx
-                                  << ", first word of the eRx header=0x" << std::hex << inputArray[iword] << std::dec
-                                  << "\n"
-                                  << "  extracted common mode 0=0x" << std::hex
-                                  << ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << std::dec
-                                  << ", saved at " << commonModeDataSize_ << "\n"
-                                  << "  extracted common mode 1=0x" << std::hex
-                                  << ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << std::dec
-                                  << ", saved at " << (commonModeDataSize_ + 1);
-
-          commonModeData_[commonModeDataSize_] = (inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask;
-          commonModeData_[commonModeDataSize_ + 1] = (inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask;
-          if ((erx % 2 == 0 && (enabledERX >> (erx + 1) & 1) == 0) ||
-              (erx % 2 == 1 && (enabledERX >> (erx - 1) & 1) == 0)) {
-            commonModeDataSize_ += 2;
-            commonModeData_[commonModeDataSize_] = commonModeData_[commonModeDataSize_ - 2];
-            commonModeData_[commonModeDataSize_ + 1] = commonModeData_[commonModeDataSize_ - 1];
-            LogDebug("HGCalUnpack") << "half ROC turned on, padding to 4 common modes\n"
-                                    << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 2] << std::dec
-                                    << " saved at " << commonModeDataSize_ << "\n"
-                                    << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 1] << std::dec
-                                    << " saved at " << commonModeDataSize_ + 1;
-          }
+                                  << ", first word of the eRx header=0x" << std::hex << inputArray[iword] << "\n"
+                                  << "  extracted common mode 0 HGCalElectronicsId=" << std::dec << cm0id.raw()
+                                  << ",adc=0x" << std::hex
+                                  << ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << "\n"
+                                  << "  extracted common mode 1 HGCalElectronicsId=" << std::dec << cm1id.raw()
+                                  << ",adc=0x" << std::hex
+                                  << ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << "\n";
+          //assume common mode in char mode
+          commonModeData_[commonModeDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+              cm0id, ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << 10);
+          commonModeData_[commonModeDataSize_ + 1] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+              cm1id, ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << 10);
+          uint16_t cmSum = ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) +
+                           ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask);
+          if (commonModeDataSize_ + 1 > config_.commonModeMax)
+            throw cms::Exception("HGCalUnpack") << "Too many common mode data unpacked: " << (commonModeDataSize_ + 1)
+                                                << " >= " << config_.commonModeMax << ".";
+          commonModeDataSize_ += 2;
 
           // empty check
           if (((inputArray[iword] >> kFormatShift) & kFormatMask) == 1) {
@@ -396,8 +627,7 @@ void HGCalUnpacker<D>::parseCaptureBlock(
           for (uint8_t channel = 0; channel < config_.erxChannelMax; channel++) {  // loop through channels in eRx
             if (((erxHeader >> channel) & 1) == 0)
               continue;  // only pick active channels
-            const HGCalElectronicsId id(sLink, captureBlock, econd, erx, channel);
-            commonModeIndex_[channelDataSize_] = commonModeDataSize_ / 4 * 4;
+            const HGCalElectronicsId id(zside, sLink, captureBlock, econd, erx, channel);
             const uint32_t tempIndex = bitCounter / 32 + iword;
             const uint8_t tempBit = bitCounter % 32;
             const uint32_t temp =
@@ -405,17 +635,15 @@ void HGCalUnpacker<D>::parseCaptureBlock(
                                : (inputArray[tempIndex] << tempBit) | (inputArray[tempIndex + 1] >> (32 - tempBit));
             const uint8_t code = temp >> 28;
             // use if and else here
-            channelData_[channelDataSize_] = HGCROCChannelDataFrame<D>(
-                logicalMapping(id),
-                ((temp << erxBodyLeftShift_[code]) >> erxBodyRightShift_[code]) & erxBodyMask_[code]);
+            channelData_[channelDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+                id, ((temp << erxBodyLeftShift_[code]) >> erxBodyRightShift_[code]) & erxBodyMask_[code]);
             bitCounter += erxBodyBits_[code];
             if (code == 0b0010)
               channelData_[channelDataSize_].fillFlag1(1);
+            commonModeSum_[channelDataSize_] = cmSum;
             LogDebug("HGCalUnpack") << "Word " << channelDataSize_ << ", ECON-D:eRx:channel=" << (int)econd << ":"
-                                    << (int)erx << ":" << (int)channel
-                                    << ", assigned common mode index=" << commonModeIndex_[channelDataSize_] << "\n"
-                                    << "  full word readout=0x" << std::hex << temp << std::dec << ", code=0x"
-                                    << std::hex << (int)code << std::dec << "\n"
+                                    << (int)erx << ":" << (int)channel << "  full word readout=0x" << std::hex << temp
+                                    << std::dec << ", code=0x" << std::hex << (int)code << std::dec << "\n"
                                     << "  extracted channel data=0x" << std::hex
                                     << channelData_[channelDataSize_].raw();
             channelDataSize_++;
@@ -424,11 +652,6 @@ void HGCalUnpacker<D>::parseCaptureBlock(
           iword += bitCounter / 32;
           if (bitCounter % 32 != 0)
             iword += 1;
-
-          if (commonModeDataSize_ + 1 > config_.commonModeMax)
-            throw cms::Exception("HGCalUnpack") << "Too many common mode data unpacked: " << (commonModeDataSize_ + 1)
-                                                << " >= " << config_.commonModeMax << ".";
-          commonModeDataSize_ += 2;
           // eRx subpacket has no trailer
         }
       } else {  // passthrough ECON-D
@@ -439,47 +662,41 @@ void HGCalUnpacker<D>::parseCaptureBlock(
             continue;  // only pick active eRx
 
           //----- parse the eRX subpacket header
-          // common mode
-          uint32_t temp = inputArray[iword];
+          //common mode
+          const HGCalElectronicsId cm0id(zside, sLink, captureBlock, econd, erx, 37);
+          const HGCalElectronicsId cm1id(zside, sLink, captureBlock, econd, erx, 38);
           LogDebug("HGCalUnpack") << "ECON-D:eRx=" << (int)econd << ":" << (int)erx
-                                  << ", first word of the eRx header=0x" << std::hex << temp << std::dec << "\n"
-                                  << "  extracted common mode 0=0x" << std::hex
-                                  << ((temp >> kCommonmode0Shift) & kCommonmode0Mask) << std::dec << ", saved at "
-                                  << commonModeDataSize_ << "\n"
-                                  << "  extracted common mode 1=0x" << std::hex
-                                  << ((temp >> kCommonmode1Shift) & kCommonmode1Mask) << std::dec << ", saved at "
-                                  << (commonModeDataSize_ + 1);
-          commonModeData_[commonModeDataSize_] = (temp >> kCommonmode0Shift) & kCommonmode0Mask;
-          commonModeData_[commonModeDataSize_ + 1] = (temp >> kCommonmode1Shift) & kCommonmode1Mask;
-          if ((erx % 2 == 0 && (enabledERX >> (erx + 1) & 1) == 0) ||
-              (erx % 2 == 1 && (enabledERX >> (erx - 1) & 1) == 0)) {
-            commonModeDataSize_ += 2;
-            commonModeData_[commonModeDataSize_] = commonModeData_[commonModeDataSize_ - 2];
-            commonModeData_[commonModeDataSize_ + 1] = commonModeData_[commonModeDataSize_ - 1];
-            LogDebug("HGCalUnpack") << "half ROC turned on, padding to 4 common modes\n"
-                                    << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 2] << std::dec
-                                    << " saved at " << commonModeDataSize_ << "\n"
-                                    << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 1] << std::dec
-                                    << " saved at " << commonModeDataSize_ + 1;
-          }
-          iword += 2;  // length of a standard eRx header (2 * 32 bits)
-
-          for (uint8_t channel = 0; channel < config_.erxChannelMax; channel++) {  // loop through all channels in eRx
-            const HGCalElectronicsId id(sLink, captureBlock, econd, erx, channel);
-            commonModeIndex_[channelDataSize_] = commonModeDataSize_ / 4 * 4;
-            channelData_[channelDataSize_] =
-                HGCROCChannelDataFrame<HGCalElectronicsId>(logicalMapping(id), inputArray[iword]);
-            LogDebug("HGCalUnpack") << "Word" << channelDataSize_ << ", ECON-D:eRx:channel=" << (int)econd << ":"
-                                    << (int)erx << ":" << (int)channel << ", HGCalElectronicsId=" << id.raw()
-                                    << ", assigned common mode index=" << commonModeIndex_[channelDataSize_] << "\n"
-                                    << "extracted channel data=0x" << std::hex << channelData_[channelDataSize_].raw();
-            channelDataSize_++;
-            iword++;
-          }
+                                  << ", first word of the eRx header=0x" << std::hex << inputArray[iword] << "\n"
+                                  << "  extracted common mode 0 HGCalElectronicsId=" << std::dec << cm0id.raw()
+                                  << ",adc=0x" << std::hex
+                                  << ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << "\n"
+                                  << "  extracted common mode 1 HGCalElectronicsId=" << std::dec << cm1id.raw()
+                                  << ",adc=0x" << std::hex
+                                  << ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << "\n";
+          //assume common mode in char mode
+          commonModeData_[commonModeDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+              cm0id, ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << 10);
+          commonModeData_[commonModeDataSize_ + 1] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+              cm1id, ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << 10);
+          uint16_t cmSum = ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) +
+                           ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask);
           if (commonModeDataSize_ + 1 > config_.commonModeMax)
             throw cms::Exception("HGCalUnpack") << "Too many common mode data unpacked: " << (commonModeDataSize_ + 1)
                                                 << " >= " << config_.commonModeMax << ".";
           commonModeDataSize_ += 2;
+
+          iword += 2;  // length of a standard eRx header (2 * 32 bits)
+
+          for (uint8_t channel = 0; channel < config_.erxChannelMax; channel++) {  // loop through all channels in eRx
+            const HGCalElectronicsId id(zside, sLink, captureBlock, econd, erx, channel);
+            channelData_[channelDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(id, inputArray[iword]);
+            commonModeSum_[channelDataSize_] = cmSum;
+            LogDebug("HGCalUnpack") << "Word" << channelDataSize_ << ", ECON-D:eRx:channel=" << (int)econd << ":"
+                                    << (int)erx << ":" << (int)channel << ", HGCalElectronicsId=" << id.raw()
+                                    << "extracted channel data=0x" << std::hex << channelData_[channelDataSize_].raw();
+            channelDataSize_++;
+            iword++;
+          }
         }
       }
 
@@ -500,24 +717,23 @@ void HGCalUnpacker<D>::parseCaptureBlock(
     }
     captureBlock++;  // the capture block has no trailer to parse
   }
-  channelData_.resize(channelDataSize_);
-  commonModeIndex_.resize(channelDataSize_);
-  commonModeData_.resize(commonModeDataSize_);
+  //channelData_.resize(channelDataSize_);
+  //commonModeSum_.resize(channelDataSize_);
+  //commonModeData_.resize(commonModeDataSize_);
   return;
 }
 
-template <class D>
-void HGCalUnpacker<D>::parseECOND(
+void HGCalUnpacker::parseECOND(
     const std::vector<uint32_t>& inputArray,
-    const std::function<uint16_t(uint16_t sLink, uint8_t captureBlock, uint8_t econd)>& enabledERXMapping,
-    const std::function<D(HGCalElectronicsId elecID)>& logicalMapping) {
+    const std::function<uint16_t(uint16_t sLink, uint8_t captureBlock, uint8_t econd)>& enabledERXMapping) {
   uint16_t sLink = 0;
+  bool zside(false);  //fixme this should be based on the slink id
   uint8_t captureBlock = 0;
   uint8_t econd = 0;
 
   channelDataSize_ = 0;
   commonModeDataSize_ = 0;
-  badECOND_.clear();
+  flaggedECOND_.clear();
 
   for (uint32_t iword = 0; iword < inputArray.size();) {  // loop through all ECON-Ds
     //----- parse the ECON-D header
@@ -535,20 +751,29 @@ void HGCalUnpacker<D>::parseECOND(
 
     //----- extract the payload length
     const uint32_t payloadLength = (econdHeader >> kPayloadLengthShift) & kPayloadLengthMask;
+    HGCalElectronicsId eleid(zside, sLink, captureBlock, econd, 0, 0);
+    flaggedECOND_.emplace_back(HGCalFlaggedECONDInfo(iword, 0, 0, eleid.raw(), payloadLength));
+    size_t econdFlagidx = flaggedECOND_.size() - 1;
+
     if (payloadLength > config_.payloadLengthMax)  // payload length too big
       throw cms::Exception("CorruptData")
           << "Unpacked payload length=" << payloadLength << " exceeds the maximal length=" << config_.payloadLengthMax;
 
     LogDebug("HGCalUnpack") << "ECON-D #" << (int)econd << ", payload length = " << payloadLength;
+
     //Quality check
-    if (((econdHeader >> kHTShift & kHTMask) >= 0b10) || ((econdHeader >> kEBOShift & kEBOMask) >= 0b10) ||
-        ((econdHeader >> kMatchShift & kMatchMask) == 0) ||
-        ((econdHeader >> kTruncatedShift & kTruncatedMask) == 1)) {  // bad ECOND
+    uint32_t econdQuality((((econdHeader >> kHTShift) & kHTMask) >= 0b10) * HGCalFlaggedECONDInfo::HTBITS +
+                          (((econdHeader >> kEBOShift) & kEBOMask) >= 0b10) * HGCalFlaggedECONDInfo::EBOBITS +
+                          (((econdHeader >> kMatchShift) & kMatchMask) == 0) * HGCalFlaggedECONDInfo::MATCHBIT +
+                          (((econdHeader >> kTruncatedShift) & kTruncatedMask) == 1) *
+                              HGCalFlaggedECONDInfo::TRUNCATED);
+    flaggedECOND_[econdFlagidx].addToFlag(econdQuality);
+    if (econdQuality) {
       LogDebug("HGCalUnpack") << "ECON-D failed quality check, HT=" << (econdHeader >> kHTShift & kHTMask)
                               << ", EBO=" << (econdHeader >> kEBOShift & kEBOMask)
                               << ", M=" << (econdHeader >> kMatchShift & kMatchMask)
                               << ", T=" << (econdHeader >> kTruncatedShift & kTruncatedMask);
-      badECOND_.emplace_back(iword - 2);
+
       iword += payloadLength;  // skip the current ECON-D (using the payload length parsed above)
 
       continue;  // go to the next ECON-D
@@ -565,28 +790,29 @@ void HGCalUnpacker<D>::parseECOND(
           continue;  // only pick active eRxs
 
         //----- parse the eRX subpacket header
-        // common mode
+        //common mode
+        const HGCalElectronicsId cm0id(zside, sLink, captureBlock, econd, erx, 37);
+        const HGCalElectronicsId cm1id(zside, sLink, captureBlock, econd, erx, 38);
         LogDebug("HGCalUnpack") << "ECON-D:eRx=" << (int)econd << ":" << (int)erx << ", first word of the eRx header=0x"
-                                << std::hex << inputArray[iword] << std::dec << "\n"
-                                << "  extracted common mode 0=0x" << std::hex
-                                << ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << std::dec
-                                << ", saved at " << commonModeDataSize_ << "\n"
-                                << "  extracted common mode 1=0x" << std::hex
-                                << ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << std::dec
-                                << ", saved at " << (commonModeDataSize_ + 1);
-        commonModeData_[commonModeDataSize_] = (inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask;
-        commonModeData_[commonModeDataSize_ + 1] = (inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask;
-        if ((erx % 2 == 0 && (enabledERX >> (erx + 1) & 1) == 0) ||
-            (erx % 2 == 1 && (enabledERX >> (erx - 1) & 1) == 0)) {
-          commonModeDataSize_ += 2;
-          commonModeData_[commonModeDataSize_] = commonModeData_[commonModeDataSize_ - 2];
-          commonModeData_[commonModeDataSize_ + 1] = commonModeData_[commonModeDataSize_ - 1];
-          LogDebug("HGCalUnpack") << "half ROC turned on, padding to 4 common modes\n"
-                                  << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 2] << std::dec
-                                  << " saved at " << commonModeDataSize_ << "\n"
-                                  << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 1] << std::dec
-                                  << " saved at " << commonModeDataSize_ + 1;
-        }
+                                << std::hex << inputArray[iword] << "\n"
+                                << "  extracted common mode 0 HGCalElectronicsId=" << std::dec << cm0id.raw()
+                                << ",adc=0x" << std::hex
+                                << ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << "\n"
+                                << "  extracted common mode 1 HGCalElectronicsId=" << std::dec << cm1id.raw()
+                                << ",adc=0x" << std::hex
+                                << ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << "\n";
+        //assume common mode in char mode
+        commonModeData_[commonModeDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+            cm0id, ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << 10);
+        commonModeData_[commonModeDataSize_ + 1] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+            cm1id, ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << 10);
+        uint16_t cmSum = ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) +
+                         ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask);
+        if (commonModeDataSize_ + 1 > config_.commonModeMax)
+          throw cms::Exception("HGCalUnpack") << "Too many common mode data unpacked: " << (commonModeDataSize_ + 1)
+                                              << " >= " << config_.commonModeMax << ".";
+        commonModeDataSize_ += 2;
+
         if (((inputArray[iword] >> kFormatShift) & kFormatMask) == 1) {  // empty eRx
           LogDebug("HGCalUnpack") << "eRx empty";
           iword += 1;  // length of an empty eRx header (32 bits)
@@ -604,8 +830,7 @@ void HGCalUnpacker<D>::parseECOND(
         for (uint8_t channel = 0; channel < config_.erxChannelMax; channel++) {  // loop through all channels in eRx
           if (((erxHeader >> channel) & 1) == 0)
             continue;  // only pick active channels
-          const HGCalElectronicsId id(sLink, captureBlock, econd, erx, channel);
-          commonModeIndex_[channelDataSize_] = commonModeDataSize_ / 4 * 4;
+          const HGCalElectronicsId id(zside, sLink, captureBlock, econd, erx, channel);
           const uint32_t tempIndex = bitCounter / 32 + iword;
           const uint8_t tempBit = bitCounter % 32;
           const uint32_t temp =
@@ -613,14 +838,14 @@ void HGCalUnpacker<D>::parseECOND(
                              : (inputArray[tempIndex] << tempBit) | (inputArray[tempIndex + 1] >> (32 - tempBit));
           const uint8_t code = temp >> 28;
           // use if and else here
-          channelData_[channelDataSize_] = HGCROCChannelDataFrame<D>(
-              logicalMapping(id), ((temp << erxBodyLeftShift_[code]) >> erxBodyRightShift_[code]) & erxBodyMask_[code]);
+          channelData_[channelDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+              id, ((temp << erxBodyLeftShift_[code]) >> erxBodyRightShift_[code]) & erxBodyMask_[code]);
           bitCounter += erxBodyBits_[code];
           if (code == 0b0010)
             channelData_[channelDataSize_].fillFlag1(1);
+          commonModeSum_[channelDataSize_] = cmSum;
           LogDebug("HGCalUnpack") << "Word " << channelDataSize_ << ", ECON-D:eRx:channel=" << (int)econd << ":"
                                   << (int)erx << ":" << (int)channel << "\n"
-                                  << "  assigned common mode index=" << commonModeIndex_.at(channelDataSize_) << "\n"
                                   << "  full word readout=0x" << std::hex << temp << std::dec << ", code=0x" << std::hex
                                   << (int)code << std::dec << "\n"
                                   << "  extracted channel data=0x" << std::hex << channelData_[channelDataSize_].raw();
@@ -630,11 +855,6 @@ void HGCalUnpacker<D>::parseECOND(
         iword += bitCounter / 32;
         if (bitCounter % 32 != 0)
           iword += 1;
-
-        if (commonModeDataSize_ + 1 > config_.commonModeMax)
-          throw cms::Exception("HGCalUnpack") << "Too many common mode data unpacked: " << (commonModeDataSize_ + 1)
-                                              << " >= " << config_.commonModeMax << ".";
-        commonModeDataSize_ += 2;
         // eRx subpacket has no trailer
       }
     } else {
@@ -645,39 +865,32 @@ void HGCalUnpacker<D>::parseECOND(
         if ((enabledERX >> erx & 1) == 0)
           continue;  // only pick active eRx
         //----- parse the eRX subpacket header
-        // common mode
-        uint32_t temp = inputArray[iword];
+        //common mode
+        const HGCalElectronicsId cm0id(zside, sLink, captureBlock, econd, erx, 37);
+        const HGCalElectronicsId cm1id(zside, sLink, captureBlock, econd, erx, 38);
         LogDebug("HGCalUnpack") << "ECON-D:eRx=" << (int)econd << ":" << (int)erx << ", first word of the eRx header=0x"
-                                << std::hex << temp << std::dec << "\n"
-                                << "  extracted common mode 0=0x" << std::hex
-                                << ((temp >> kCommonmode0Shift) & kCommonmode0Mask) << std::dec << ", saved at "
-                                << commonModeDataSize_ << "\n"
-                                << "  extracted common mode 1=0x" << std::hex
-                                << ((temp >> kCommonmode1Shift) & kCommonmode1Mask) << std::dec << ", saved at "
-                                << (commonModeDataSize_ + 1);
-        commonModeData_[commonModeDataSize_] = (temp >> kCommonmode0Shift) & kCommonmode0Mask;
-        commonModeData_[commonModeDataSize_ + 1] = (temp >> kCommonmode1Shift) & kCommonmode1Mask;
-        if ((erx % 2 == 0 && (enabledERX >> (erx + 1) & 1) == 0) ||
-            (erx % 2 == 1 && (enabledERX >> (erx - 1) & 1) == 0)) {
-          commonModeDataSize_ += 2;
-          commonModeData_[commonModeDataSize_] = commonModeData_[commonModeDataSize_ - 2];
-          commonModeData_[commonModeDataSize_ + 1] = commonModeData_[commonModeDataSize_ - 1];
-          LogDebug("HGCalUnpack") << "half ROC turned on, padding to 4 common modes\n"
-                                  << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 2] << std::dec
-                                  << " saved at " << commonModeDataSize_ << "\n"
-                                  << "0x" << std::hex << commonModeData_[commonModeDataSize_ - 1] << std::dec
-                                  << " saved at " << commonModeDataSize_ + 1;
-        }
+                                << std::hex << inputArray[iword] << "\n"
+                                << "  extracted common mode 0 HGCalElectronicsId=" << std::dec << cm0id.raw()
+                                << ",adc=0x" << std::hex
+                                << ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << "\n"
+                                << "  extracted common mode 1 HGCalElectronicsId=" << std::dec << cm1id.raw()
+                                << ",adc=0x" << std::hex
+                                << ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << "\n";
+        //assume common mode in char mode
+        commonModeData_[commonModeDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+            cm0id, ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) << 10);
+        commonModeData_[commonModeDataSize_ + 1] = HGCROCChannelDataFrame<HGCalElectronicsId>(
+            cm1id, ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask) << 10);
+        uint16_t cmSum = ((inputArray[iword] >> kCommonmode0Shift) & kCommonmode0Mask) +
+                         ((inputArray[iword] >> kCommonmode1Shift) & kCommonmode1Mask);
         iword += 2;  // length of the standard eRx header (2 * 32 bits)
 
         for (uint8_t channel = 0; channel < config_.erxChannelMax; channel++) {  // loop through all channels in eRx
-          const HGCalElectronicsId id(sLink, captureBlock, econd, erx, channel);
-          commonModeIndex_[channelDataSize_] = commonModeDataSize_ / 4 * 4;
-          channelData_[channelDataSize_] =
-              HGCROCChannelDataFrame<HGCalElectronicsId>(logicalMapping(id), inputArray[iword]);
+          const HGCalElectronicsId id(zside, sLink, captureBlock, econd, erx, channel);
+          channelData_[channelDataSize_] = HGCROCChannelDataFrame<HGCalElectronicsId>(id, inputArray[iword]);
+          commonModeSum_[channelDataSize_] = cmSum;
           LogDebug("HGCalUnpack") << "Word " << channelDataSize_ << ", ECON-D:eRx:channel=" << (int)econd << ":"
                                   << (int)erx << ":" << (int)channel << ", HGCalElectronicsId=" << id.raw() << "\n"
-                                  << "  assigned common mode index=" << commonModeIndex_.at(channelDataSize_) << "\n"
                                   << "extracted channel data=0x" << std::hex << channelData_.at(channelDataSize_).raw();
           channelDataSize_++;
           iword++;
@@ -698,11 +911,8 @@ void HGCalUnpacker<D>::parseECOND(
           << "  unpacked payload length=" << iword - econdBodyStart << "\n"
           << "  expected payload length=" << payloadLength;
   }
-  channelData_.resize(channelDataSize_);
-  commonModeIndex_.resize(channelDataSize_);
-  commonModeData_.resize(commonModeDataSize_);
+  //channelData_.resize(channelDataSize_);
+  //commonModeSum_.resize(channelDataSize_);
+  //commonModeData_.resize(commonModeDataSize_);
   return;
 }
-
-// class specialisation for the electronics ID indexing
-template class HGCalUnpacker<HGCalElectronicsId>;

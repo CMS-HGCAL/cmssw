@@ -10,8 +10,9 @@
 #define EventFilter_HGCalRawToDigi_HGCalFrameGenerator_h
 
 #include "DataFormats/HGCalDigi/interface/HGCalRawDataEmulatorInfo.h"
+#include "EventFilter/HGCalRawToDigi/interface/HGCalRawDataBaseEmulator.h"
 #include "EventFilter/HGCalRawToDigi/interface/HGCalECONDEmulatorParameters.h"
-#include "EventFilter/HGCalRawToDigi/interface/SlinkTypes.h"
+#include "EventFilter/HGCalRawToDigi/interface/ECONDTypes.h"
 
 #include <cstdint>
 #include <vector>
@@ -25,9 +26,7 @@ namespace CLHEP {
 }
 
 namespace hgcal {
-  namespace econd {
-    class Emulator;
-  }
+  
   /// A S-link/ECON-D payload generator helper
   class HGCalFrameGenerator {
   public:
@@ -38,7 +37,8 @@ namespace hgcal {
     /// Set the random number generator engine
     void setRandomEngine(CLHEP::HepRandomEngine& rng);
     /// Set the emulation source for ECON-D frames
-    void setEmulator(econd::Emulator&);
+    /// \params[in] emul_type = 'trivial'=randomized values 'hgcmodule'=reads TB tree
+    void setEmulator(std::string emul_type);
 
     /// Produce a S-link event from an emulated event
     std::vector<uint64_t> produceSlinkEvent(unsigned int fed_id) const;
@@ -66,7 +66,15 @@ namespace hgcal {
     /// List of ECON-D operational parameters for emulation
     const std::map<unsigned int, econd::EmulatorParameters>& econdParams() const { return econd_params_; }
 
+    /**
+       @short retriever for event metadata
+    */
+    HGCalTestSystemMetaData produceMetaData();
+    
   private:
+    
+    std::unique_ptr<ECONDEmulatorBase> emulator_;
+
     econd::ERxChannelEnable generateEnabledChannels(unsigned int) const;
     std::vector<uint32_t> generateERxData(unsigned int,
                                           const econd::ERxInput&,
@@ -85,10 +93,14 @@ namespace hgcal {
     std::map<unsigned int, econd::EmulatorParameters> econd_params_;
 
     CLHEP::HepRandomEngine* rng_{nullptr};    // NOT owning
-    mutable econd::Emulator* emul_{nullptr};  // NOT owning
+    mutable ECONDEmulatorBase* emul_{nullptr};  // NOT owning
 
     mutable HGCalSlinkEmulatorInfo last_slink_emul_info_;
     mutable econd::ECONDInput last_emul_event_;
+
+    //optional parameters in case we are reading inputs from a file
+    std::string inputfile_key_;
+    std::vector<std::string> inputfile_list_;
   };
 }  // namespace hgcal
 

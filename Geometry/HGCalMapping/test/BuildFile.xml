@@ -1,0 +1,8 @@
+<library file="HGCalElectronicsMapESSourceTester.cc" name="HGCalElectronicsMapESSourceTester">
+  <use name="CondFormats/DataRecord"/>
+  <use name="CondFormats/HGCalObjects"/>
+  <use name="FWCore/Framework"/>
+  <use name="FWCore/ParameterSet"/>
+  <use name="Geometry/HGCalMapping"/>
+  <flags EDM_PLUGIN="1"/>
+</library>

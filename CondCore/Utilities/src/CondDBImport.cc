@@ -197,6 +197,7 @@ namespace cond {
         IMPORT_PAYLOAD_CASE(HcalTPParameters)
         IMPORT_PAYLOAD_CASE(HcalZSThresholds)
         IMPORT_PAYLOAD_CASE(HcalInterpolatedPulseColl)
+        IMPORT_PAYLOAD_CASE(HGCalCondSerializableConfig)
         IMPORT_PAYLOAD_CASE(JetCorrectorParametersCollection)
         IMPORT_PAYLOAD_CASE(JME::JetResolutionObject)
         IMPORT_PAYLOAD_CASE(METCorrectorParametersCollection)

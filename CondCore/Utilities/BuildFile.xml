@@ -18,6 +18,7 @@
 <use name="CondFormats/GBRForest"/>
 <use name="CondFormats/Luminosity"/>
 <use name="CondFormats/HcalObjects"/>
+<use name="CondFormats/HGCalObjects"/>
 <use name="CondFormats/JetMETObjects"/>
 <use name="CondFormats/L1TObjects"/>
 <use name="CondFormats/PhysicsToolsObjects"/>

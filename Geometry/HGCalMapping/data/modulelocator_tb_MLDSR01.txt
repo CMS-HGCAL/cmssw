@@ -1,0 +1,2 @@
+plane   u   v   isSiPM  HDorLD  itype   idx     captureblock    slink   captureblockidx     fedid zside
+    1   1   1        0       0      4     0                0        0                 0         0    -1

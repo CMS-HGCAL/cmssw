@@ -1,0 +1,13 @@
+<use name="CondFormats/DataRecord"/>
+<use name="CondFormats/HGCalObjects"/>
+<use name="FWCore/Framework"/>
+<use name="FWCore/ParameterSet"/>
+<use name="DataFormats/Math"/>
+<use name="DataFormats/HGCalDigi"/>
+<use name="yaml-cpp"/>
+<library file="HGCalConfigESSourceFromYAMLAnalyzer.cc" name="HGCalConfigESSourceFromYAMLAnalyzer">
+<flags EDM_PLUGIN="1"/>
+</library>
+<library file="HGCalPedestalsESSourceAnalyzer.cc" name="HGCalPedestalsESSourceAnalyzer">
+<flags EDM_PLUGIN="1"/>
+</library>

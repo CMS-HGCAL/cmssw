@@ -12,7 +12,10 @@ uint16_t enabledERXMapping(uint16_t sLink, uint8_t captureBlock, uint8_t econd) 
   return 0b11;
 }
 
-HGCalElectronicsId logicalMapping(HGCalElectronicsId elecID) { return elecID; }
+uint16_t fed2slink(uint16_t fedid) {
+  return 0;
+}
+
 
 int main(int argc, char* argv[]) {
   std::vector<uint32_t> testInput;
@@ -40,24 +43,22 @@ int main(int argc, char* argv[]) {
 
   HGCalUnpackerConfig config;
   config.sLinkCaptureBlockMax = 2;
-  HGCalUnpacker<HGCalElectronicsId> unpacker(config);
-  unpacker.parseSLink(testInput, enabledERXMapping, logicalMapping);
+  HGCalUnpacker unpacker(config);
+  unpacker.parseSLink(testInput, enabledERXMapping,fed2slink);
 
   auto channeldata = unpacker.channelData();
-  auto cms = unpacker.commonModeIndex();
   for (unsigned int i = 0; i < channeldata.size(); i++) {
     auto data = channeldata.at(i);
-    auto cm = cms.at(i);
     auto id = data.id();
     auto idraw = id.raw();
     auto raw = data.raw();
-    std::cout << "id=" << idraw << ", raw=" << raw << ", common mode index=" << cm << std::endl;
+    std::cout << "id=" << idraw << ", raw=" << raw << std::endl;
   }
-  if (auto badECONDs = unpacker.badECOND(); !badECONDs.empty()) {
+  if (auto flaggedECONDs = unpacker.flaggedECOND(); !flaggedECONDs.empty()) {
     std::cerr << "bad ECON-Ds: " << std::dec;
     std::string sep;
-    for (auto badECOND : badECONDs)
-      std::cerr << sep << badECOND, sep = ", ";
+    for (auto flaggedECOND : flaggedECONDs)
+      std::cerr << sep << flaggedECOND.iword, sep = ", ";
     std::cerr << std::endl;
   }
   return 0;

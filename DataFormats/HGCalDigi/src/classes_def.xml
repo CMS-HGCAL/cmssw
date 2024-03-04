@@ -3,10 +3,19 @@
    <version ClassVersion="3" checksum="2587023721"/>
    </class>
 
-   <class name="HGCROCChannelDataFrame<HGCalDetId>" ClassVersion="3">
-   <version ClassVersion="3" checksum="2026905296"/>
+   <class name="HGCalTestSystemMetaData">
    </class>
-
+   <class name="edm::Wrapper<HGCalTestSystemMetaData>">
+   </class>
+   
+   <class name="HGCalFlaggedECONDInfo">
+   </class>
+   <class name="HGCalFlaggedECONDInfoCollection">
+   </class>
+   <class name="edm::Wrapper<HGCalFlaggedECONDInfoCollection>">
+   </class>
+   
+   
    <class name="HGCROCChannelDataFrame<HGCalElectronicsId>" ClassVersion="3">
    <version ClassVersion="3" checksum="2054618736"/>
    </class>
@@ -40,4 +49,20 @@
     <version ClassVersion="3" checksum="2245547372"/>
   </class>
   <class name="edm::Wrapper<HGCalSlinkEmulatorInfo>"/>
+
+  <class name="hgcaldigi::HGCalDigiSoA"/>
+  <class name="hgcaldigi::HGCalDigiSoA::View"/>
+  <class name="hgcaldigi::HGCalDigiHostCollection"/>
+  <read
+    sourceClass="hgcaldigi::HGCalDigiHostCollection"
+    targetClass="hgcaldigi::HGCalDigiHostCollection"
+    version="[1-]"
+    source="hgcaldigi::HGCalDigiSoA layout_;"
+    target="buffer_,layout_,view_"
+    embed="false">
+  <![CDATA[
+    hgcaldigi::HGCalDigiHostCollection::ROOTReadStreamer(newObj, onfile.layout_);
+  ]]>
+  </read>
+  <class name="edm::Wrapper<hgcaldigi::HGCalDigiHostCollection>" splitLevel="0"/>
 </lcgdict>

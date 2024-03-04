@@ -1,0 +1,5 @@
+<use name="CondCore/ESSources"/>
+<use name="CondFormats/DataRecord"/>
+<use name="CondFormats/HGCalObjects"/>
+<use name="boost_serialization"/>
+<flags EDM_PLUGIN="1"/>

@@ -1,0 +1,24 @@
+run: 0
+ECONs:
+- id: 0x0
+  configs:
+    ECOND: Run_0.yaml
+    ECONT: Run_0.yaml
+    ROCs:
+    - initial_full_config.yaml
+    - initial_full_config.yaml
+    - initial_full_config.yaml
+    - initial_full_config.yaml
+    - initial_full_config.yaml
+    - initial_full_config.yaml
+- id: 0x400
+  configs:
+    ECOND: Run_0.yaml
+    ECONT: Run_0.yaml
+    ROCs:
+    - initial_full_config.yaml
+    - initial_full_config.yaml
+    - initial_full_config.yaml
+    - initial_full_config.yaml
+    - initial_full_config.yaml
+    - initial_full_config.yaml

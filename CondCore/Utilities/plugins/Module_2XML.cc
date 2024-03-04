@@ -152,6 +152,7 @@ PAYLOAD_2XML_MODULE(pluginUtilities_payload2xml) {
   PAYLOAD_2XML_CLASS(HcalTimeCorrs);
   PAYLOAD_2XML_CLASS(HcalZDCLowGainFractions);
   PAYLOAD_2XML_CLASS(HcalZSThresholds);
+  PAYLOAD_2XML_CLASS(HGCalCondSerializableConfig);
   PAYLOAD_2XML_CLASS(JME::JetResolutionObject);
   PAYLOAD_2XML_CLASS(JetCorrectorParametersCollection);
   PAYLOAD_2XML_CLASS(L1CaloEcalScale);

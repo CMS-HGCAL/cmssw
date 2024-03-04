@@ -1,0 +1,8 @@
+<use name="FWCore/Framework"/>
+<use name="FWCore/Utilities"/>
+<use name="DataFormats/HGCalDigi"/>
+<use name="DataFormats/ForwardDetId"/>
+<use name="CondFormats/HGCalObjects"/>
+<export>
+  <lib name="1"/>
+</export>

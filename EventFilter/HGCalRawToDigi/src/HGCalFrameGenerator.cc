@@ -9,8 +9,8 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/CRC16.h"
-
 #include "EventFilter/HGCalRawToDigi/interface/HGCalECONDEmulator.h"
+#include "EventFilter/HGCalRawToDigi/interface/HGCalModuleTreeReader.h"
 #include "EventFilter/HGCalRawToDigi/interface/HGCalFrameGenerator.h"
 #include "EventFilter/HGCalRawToDigi/interface/HGCalRawDataPackingTools.h"
 
@@ -49,6 +49,11 @@ namespace hgcal {
   }
 
   HGCalFrameGenerator::HGCalFrameGenerator(const edm::ParameterSet& iConfig) {
+
+    inputfile_key_= iConfig.exists("treeName") ? iConfig.getUntrackedParameter<std::string>("treeName") : "";
+    if(iConfig.exists("inputs"))
+      inputfile_list_= iConfig.getUntrackedParameter<std::vector<std::string>>("inputs");
+    
     const auto slink_config = iConfig.getParameter<edm::ParameterSet>("slinkParams");
 
     size_t econd_id = 0;
@@ -100,9 +105,30 @@ namespace hgcal {
     return desc;
   }
 
+  //
   void HGCalFrameGenerator::setRandomEngine(CLHEP::HepRandomEngine& rng) { rng_ = &rng; }
 
-  void HGCalFrameGenerator::setEmulator(econd::Emulator& emul) { emul_ = &emul; }
+  //
+  void HGCalFrameGenerator::setEmulator(std::string emul_type) {
+
+    //check for the presence of ECON-D parameters
+    if (econdParams().empty())
+      throw cms::Exception("HGCalFrameGenerator")
+        << "No ECON-D parameters were retrieved from the configuration. Please add at least one.";
+    const auto& econd_params = econdParams().begin()->second;
+
+    //instantiate the correct emulator type
+    if (emul_type == "trivial") {
+      emulator_ = std::make_unique<hgcal::econd::TrivialEmulator>(econd_params);
+    }
+    else if (emul_type == "hgcmodule") {
+      emulator_ = std::make_unique<hgcal::econd::HGCalModuleTreeReader>(econd_params, inputfile_key_, inputfile_list_);
+    }
+    else {
+      throw cms::Exception("HGCalSlinkEmulator") << "Invalid emulator type chosen: '" << emul_type << "'.";
+    }
+    
+  }
 
   //--------------------------------------------------
   // emulation part
@@ -148,23 +174,32 @@ namespace hgcal {
       bool bit_e = false;  // did unmasked stat error bits associated with the eRx cause the sub-packet to be supressed?
       auto erx_header = econd::eRxSubPacketHeader(stat, hamming_check, bit_e, jt.second.cm0, jt.second.cm1, chmap);
       erx_data.insert(erx_data.end(), erx_header.begin(), erx_header.end());
-      if (jt.second.adc.size() < econd_params.num_channels_per_erx) {
+      if (jt.second.adc.size() < econd_params.num_channels_per_erx && jt.second.rawROCword.size() < econd_params.num_channels_per_erx) {
         edm::LogError("HGCalFrameGenerator:generateERxData")
             << "Data multiplicity too low (" << jt.second.adc.size() << ") to emulate "
             << econd_params.num_channels_per_erx << " ECON-D channel(s).";
         continue;
       }
+
       // insert eRx payloads (integrating all readout channels)
-      const auto erx_chan_data = econd::produceERxData(chmap,
-                                                       jt.second,
-                                                       true,  // passZS
-                                                       true,  // passZSm1
-                                                       true,  // hasToA
-                                                       econd_params.characterisation_mode);
-      erx_data.insert(erx_data.end(), erx_chan_data.begin(), erx_chan_data.end());
+      // if RAW roc words were given instead of individual fields copy directly (ECON-D passthrought mode)
+      if(jt.second.rawROCword.size()>0 && jt.second.adc.size()==0) {
+        erx_data.insert(erx_data.end(), jt.second.rawROCword.begin(), jt.second.rawROCword.end());
+      } else {
+        const auto erx_chan_data = econd::produceERxData(chmap,
+                                                         jt.second,
+                                                         true,  // passZS
+                                                         true,  // passZSm1
+                                                         true,  // hasToA
+                                                         econd_params.characterisation_mode);
+        erx_data.insert(erx_data.end(), erx_chan_data.begin(), erx_chan_data.end());
+      }
+      
       enabled_channels.emplace_back(chmap);
     }
+
     LogDebug("HGCalFrameGenerator").log([&erx_data](auto& log) { printWords(log, "erx", erx_data); });
+    
     return erx_data;
   }
 
@@ -178,14 +213,14 @@ namespace hgcal {
   //--------------------------------------------------
 
   std::vector<uint64_t> HGCalFrameGenerator::produceECONEvent(unsigned int econd_id, unsigned int cb_id) const {
-    if (!emul_)
+    if (!emulator_)
       throw cms::Exception("HGCalFrameGenerator")
           << "ECON-D emulator was not properly set to the frame generator. Please ensure you are calling the "
              "HGCalFrameGenerator::setEmulator method.";
 
     std::vector<uint64_t> econd_event;
 
-    const auto event = emul_->next();
+    const auto event = *emulator_->next();
     const auto& econd_params = econd_params_.at(econd_id);
     auto header_bits = generateStatusBits(econd_id);
     std::vector<econd::ERxChannelEnable> enabled_ch_per_erx;
@@ -212,6 +247,7 @@ namespace hgcal {
                                  rr);
     LogDebug("HGCalFrameGenerator").log([&econd_header](auto& log) { printWords(log, "econ-d header", econd_header); });
     auto econd_header_64bit = to64bit(econd_header);
+
     econd_event.insert(econd_event.end(), econd_header_64bit.begin(), econd_header_64bit.end());
     LogDebug("HGCalFrameGenerator") << econd_header.size()
                                     << " word(s) of event packet header prepend. New size of ECON frame: "
@@ -282,7 +318,7 @@ namespace hgcal {
       const auto& eid = last_emul_event_.first;
       const uint64_t event_id = std::get<0>(eid), bx_id = std::get<1>(eid), orbit_id = std::get<2>(eid);
       const auto slink_header = to128bit(to64bit(backend::buildSlinkHeader(
-          slink_params_.boe_marker, slink_params_.format_version, event_id, content_id, fed_id)));
+           slink_params_.boe_marker, slink_params_.format_version, event_id, content_id, fed_id)));
       slink_event.insert(slink_event.begin(), slink_header.begin(), slink_header.end());  // prepend S-link header
 
       // build the S-link trailer words
@@ -306,4 +342,11 @@ namespace hgcal {
 
     return to128bit(slink_event);
   }
+
+  //
+  HGCalTestSystemMetaData HGCalFrameGenerator::produceMetaData() {
+    return emulator_->nextMetaData();
+  }
+  
+
 }  // namespace hgcal
