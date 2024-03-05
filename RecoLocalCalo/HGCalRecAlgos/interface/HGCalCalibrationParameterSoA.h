@@ -14,12 +14,20 @@ namespace hgcalrechit {
 
   // Generate structure of channel-level arrays (SoA) layout with RecHit dataformat
   GENERATE_SOA_LAYOUT(HGCalCalibParamSoALayout,
-                      SOA_SCALAR(HGCalCalibrationParameterIndex, config),
-                      SOA_COLUMN(float, pedestal),
-                      SOA_COLUMN(float, CM_slope),
-                      SOA_COLUMN(float, CM_offset),
-                      SOA_COLUMN(float, BXm1_slope),
-                      SOA_COLUMN(float, BXm1_offset)
+                      SOA_SCALAR(HGCalCalibrationParameterIndex, config), // map elecId <-> dense idx
+                      SOA_COLUMN(float, ADC_ped),     // ADC pedestals
+                      SOA_COLUMN(float, CM_slope),    // common mode slope
+                      SOA_COLUMN(float, CM_ped),      // common mode pedestal (offset)
+                      SOA_COLUMN(float, BXm1_slope),  // leakage correction from previous bunch
+                      SOA_COLUMN(float, ADCtofC),     // ADC conversion to charge (fC)
+                      SOA_COLUMN(float, TOTtofC),     // TOT conversion to charge (fC)
+                      SOA_COLUMN(float, TOT_ped),     // TOT pedestal (offset)
+                      SOA_COLUMN(float, TOT_lin),     // threshold at which TOT is linear
+                      SOA_COLUMN(float, TOT_P0),      // coefficient pol2 in nonlinear region
+                      SOA_COLUMN(float, TOT_P1),      // coefficient pol2 in nonlinear region
+                      SOA_COLUMN(float, TOT_P2),      // coefficient pol2 in nonlinear region
+                      SOA_COLUMN(float, TOAtops),     // TOA conversion to time (ps)
+                      SOA_COLUMN(bool,  valid)        // if false: mask dead channel
   )
   using HGCalCalibParamSoA = HGCalCalibParamSoALayout<>;
 

@@ -113,11 +113,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       for(int i=0; i<deviceCalibParamProvider.view().metadata().size(); i++) {
           LogDebug("HGCalCalibrationParameter")
               << "idx = "         << i << ", "
-              << "pedestal = "    << deviceCalibParamProvider.view()[i].pedestal()   << ", "
+              << "ADC_ped = "     << deviceCalibParamProvider.view()[i].ADC_ped()    << ", "
               << "CM_slope = "    << deviceCalibParamProvider.view()[i].CM_slope()   << ", "
-              << "CM_offset = "   << deviceCalibParamProvider.view()[i].CM_offset()  << ", "
+              << "CM_ped = "      << deviceCalibParamProvider.view()[i].CM_ped()     << ", "
               << "BXm1_slope = "  << deviceCalibParamProvider.view()[i].BXm1_slope() << ", "
-              << "BXm1_offset = " << deviceCalibParamProvider.view()[i].BXm1_offset(); //<< std::endl;
+              //<< "BXm1_offset = " << deviceCalibParamProvider.view()[i].BXm1_offset() // redundant
+              << std::endl;
       }
     }
     #endif

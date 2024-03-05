@@ -29,6 +29,7 @@
 #include <fstream>
 #include <sstream>
 
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   namespace hgcalrechit {
@@ -60,7 +61,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         hgcalrechit::HGCalCalibParamHostCollection product(size, cms::alpakatools::host());
         product.view().config() = cpi; // set dense indexing in SoA
 
-        // load calib parameters
+        // load calib parameters from txt
         edm::FileInPath fip(filename_);
         std::ifstream file(fip.fullPath());
         std::string line;
@@ -70,18 +71,30 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           if(line.find("Channel")!=std::string::npos || line.find("#")!=std::string::npos) continue;
 
           std::istringstream stream(line);
-          stream >> std::hex >> id >> std::dec >> ped >> noise >> cm_slope >> cm_offset >> bxm1_slope >> bxm1_offset;
+          //stream >> std::hex >> id >> std::dec >> ped >> noise >> cm_slope >> cm_offset >> bxm1_slope >> bxm1_offset;
+          stream >> std::hex >> id >> std::dec >> ped >> noise >> cm_offset >> cm_slope >> bxm1_slope >> bxm1_offset;  // columns got switched in txt file
 
           //reduce to half-point float and fill the pedestals of this channel
           uint32_t idx = cpi.denseMap(id); // convert electronicsId to idx from denseMap
 
           // Comment: if planning to use MiniFloatConverter::float32to16(), a host function,
           // one needs to think how to perform MiniFloatConverter::float16to32() in kernels running on GPU (HGCalCalibrationAlgorithms.dev.cc)
-          product.view()[idx].pedestal()    = ped;
-          product.view()[idx].CM_slope()    = cm_slope;
-          product.view()[idx].CM_offset()   = cm_offset;
+          //std::cout << "HGCalCalibrationESProducer: idx=" << idx << ", json ped=" << product.view()[idx].ADC_ped()
+          //          << ", txt ped=" << ped << ", txt cm_slope=" << cm_slope << std::endl;
+          product.view()[idx].ADC_ped()     = ped;
+          product.view()[idx].CM_slope()    = cm_slope;  // should be O(0.25)
+          product.view()[idx].CM_ped()      = cm_offset; // should be O(91)
           product.view()[idx].BXm1_slope()  = bxm1_slope;
-          product.view()[idx].BXm1_offset() = bxm1_offset;
+          //product.view()[idx].BXm1_offset() = bxm1_offset; // redundant
+          product.view()[idx].ADCtofC()     = 0.19;
+          product.view()[idx].TOTtofC()     = 2.47;
+          product.view()[idx].TOT_ped()     = 9.;
+          product.view()[idx].TOT_lin()     = 200.;
+          product.view()[idx].TOT_P0()      = 145.0972;
+          product.view()[idx].TOT_P1()      = 1.0125;
+          product.view()[idx].TOT_P2()      = 0.0037;
+          product.view()[idx].TOAtops()     = 24.41;
+          product.view()[idx].valid()       = true;
         }
 
         return product;

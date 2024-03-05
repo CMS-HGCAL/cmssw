@@ -62,8 +62,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       for (auto index : elements_with_stride(acc, digis.metadata().size())) {
         if ((digis[index].tctp()==0) && (digis[index].flags() >> kPedestalCorrection) & 1){
           uint32_t idx = config_calib_param.denseMap(digis[index].electronicsId());
-          float pedestalValue = calib[idx].pedestal();
-          recHits[index].energy() = recHits[index].energy() - pedestalValue;
+          recHits[index].energy() = recHits[index].energy() - calib[idx].ADC_ped();
         }
       }
     }
@@ -91,7 +90,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto const& config_calib_param = calib.config();
       for (auto index : elements_with_stride(acc, recHits.metadata().size())) {
         uint32_t idx = config_calib_param.denseMap(digis[index].electronicsId());
-        float commonModeValue = calib[idx].CM_slope() * digis[index].cm() + calib[idx].CM_offset();
+        float commonModeValue = calib[idx].CM_slope() * ( digis[index].cm() - calib[idx].CM_ped() );
         recHits[index].energy() -= commonModeValue;
       }
     }
@@ -103,7 +102,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto const& config_calib_param = calib.config();
       for (auto index : elements_with_stride(acc, recHits.metadata().size())) {
         uint32_t idx = config_calib_param.denseMap(digis[index].electronicsId());
-        float ADCmValue = calib[idx].BXm1_slope() * digis[index].adcm1() + calib[idx].BXm1_offset(); // placeholder
+        float ADCmValue = calib[idx].BXm1_slope() * ( digis[index].adcm1() - calib[idx].ADC_ped() ); // placeholder
         recHits[index].adc() -= ADCmValue;
       }
     }
