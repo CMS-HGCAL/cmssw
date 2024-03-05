@@ -4,7 +4,8 @@ import FWCore.ParameterSet.VarParsing as VarParsing
 process = cms.Process("testRecHit")
 
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring('file:/eos/user/y/yumiao/public/HGCALRawDataHandling/Digis/testFakeDigis.root')
+    fileNames = cms.untracked.vstring('file:/afs/cern.ch/user/y/yumiao/public/HGCAL_Raw_Data_Handling/Data/Digis/testFakeDigisSoA.root')
+        #file:/eos/user/y/yumiao/public/HGCALRawDataHandling/Digis/testFakeDigis.root')
 )
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(1) )
