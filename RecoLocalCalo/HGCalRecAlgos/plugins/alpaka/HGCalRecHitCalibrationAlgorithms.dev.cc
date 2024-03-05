@@ -35,6 +35,26 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
+  struct HGCalRecHitCalibrationKernel_chargeConversion_exp {
+    template <typename TAcc>
+    ALPAKA_FN_ACC void operator()(TAcc const& acc, HGCalDigiDeviceCollection::View digis, HGCalRecHitDeviceCollection::View recHits, HGCalConfigParamDeviceCollection::ConstView config) const {
+      auto const& config_param = config.config();
+      float calib_energy=0;
+      auto ADC_to_charge = [&](float energy, uint8_t tctp, uint8_t gain) {
+	      calib_energy =  tctp>1 ? energy*1.953125 : energy*gain*0.078125; 
+        return calib_energy>0 ? calib_energy : 0.0; // fC
+        //                TOT / 2^12 * 8000 fC = TOT * 1.953125 fC
+        // ( ADC - pedestal ) / 2^10 *   80 fC = ( ADC - pedestal ) * 0.078125 fC
+      };
+      for (auto index : elements_with_stride(acc, digis.metadata().size())) {
+        uint32_t idx = config_param.denseROCMap(digis[index].electronicsId());
+        recHits[index].energy() = ADC_to_charge(recHits[index].energy(),digis[index].tctp(),config[idx].gain());
+      }
+    }
+  };
+
+
+
   struct HGCalRecHitCalibrationKernel_pedestalCorrection {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc, HGCalDigiDeviceCollection::View digis, HGCalRecHitDeviceCollection::View recHits, HGCalCalibParamDeviceCollection::ConstView calib) const {
@@ -135,7 +155,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     //print_digi_device(device_digis, n_hits_to_print);
     print_recHit_device(queue, *device_recHits, n_hits_to_print);
 
-    alpaka::exec<Acc1D>(queue, grid, HGCalRecHitCalibrationKernel_chargeConversion{}, device_digis.view(), device_recHits->view(), device_config.view());
+    alpaka::exec<Acc1D>(queue, grid, HGCalRecHitCalibrationKernel_chargeConversion_exp{}, device_digis.view(), device_recHits->view(), device_config.view());
+    //alpaka::exec<Acc1D>(queue, grid, HGCalRecHitCalibrationKernel_chargeConversion{}, device_digis.view(), device_recHits->view(), device_config.view());
     LogDebug("HGCalRecHitCalibrationAlgorithms") << "RecHits after charge conversion: " << std::endl;
     print_recHit_device(queue, *device_recHits, n_hits_to_print);
 
