@@ -40,7 +40,7 @@ namespace hgcal {
                       SOA_COLUMN(uint16_t, half),
                       SOA_COLUMN(uint16_t, seq),
                       SOA_COLUMN(uint16_t, rocpin),
-                      SOA_COLUMN(int, cellidx),
+                      SOA_COLUMN(int, sensorcell),
                       SOA_COLUMN(int, triglink),
                       SOA_COLUMN(int, trigcell),
                       SOA_COLUMN(int, i1),  // iu/iring
