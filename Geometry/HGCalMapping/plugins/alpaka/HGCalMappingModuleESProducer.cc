@@ -7,14 +7,14 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/host.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
-#include "CondFormats/DataRecord/interface/HGCalMappingModuleIndexerRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalMappingModuleRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHostCollection.h"
 #include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDeviceCollection.h"
 #include "DataFormats/HGCalDigi/interface/HGCalElectronicsId.h"
 #include "DataFormats/ForwardDetId/interface/HGCSiliconDetId.h"
 #include "DataFormats/ForwardDetId/interface/HGCScintillatorDetId.h"
+#include "Geometry/HGCalMapping/interface/HGCalMappingTools.h"
 
 #include <string>
 #include <iostream>
@@ -28,7 +28,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     class HGCalMappingModuleESProducer : public ESProducer {
     public:
       //
-      HGCalMappingModuleESProducer(const edm::ParameterSet& iConfig)
+       HGCalMappingModuleESProducer(const edm::ParameterSet& iConfig)
           : ESProducer(iConfig), filename_(iConfig.getParameter<edm::FileInPath>("filename")) {
         auto cc = setWhatProduced(this);
         moduleIndexTkn_ = cc.consumes(iConfig.getParameter<edm::ESInputTag>("moduleindexer"));
@@ -43,7 +43,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
 
       //
-      std::optional<HGCalMappingModuleParamHostCollection> produce(const HGCalMappingModuleRcd& iRecord) {
+      std::optional<HGCalMappingModuleParamHostCollection> produce(const HGCalElectronicsMappingRcd& iRecord) {
         //get cell and module indexer
         auto modIndexer = iRecord.get(moduleIndexTkn_);
 
@@ -53,34 +53,26 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         for (size_t i = 0; i < size; i++)
           moduleParams.view()[i].valid() = false;
 
-        // load module mapping parameters
-        std::ifstream file(filename_.fullPath());
-        std::string line, typecode;
-        size_t iline(0);
-        int plane, i1, i2, zside, celltype;
-        uint16_t fedid, slinkidx, captureblock, econdidx, captureblockidx, typeidx;
-        bool isSiPM;
-        uint32_t idx, eleid, detid(0);
+        ::hgcal::mappingtools::HGCalEntityList pmap;
+        pmap.buildFrom(filename_.fullPath());
+        auto &entities = pmap.getEntries();
+        for(auto row : entities) {      
 
-        while (std::getline(file, line)) {
-          iline++;
-          if (iline == 1)
-            continue;
-
-          std::istringstream stream(line);
-          stream >> plane >> i1 >> i2 >> typecode >> econdidx >> captureblock >> captureblockidx >> slinkidx >> fedid >>
-              zside;
-
-          idx = modIndexer.getIndexForModule(fedid, captureblockidx, econdidx);
-
-          typeidx = modIndexer.getTypeForModule(fedid, captureblockidx, econdidx);
-
+          int fedid = pmap.getIntAttr("fedid",row);
+          int captureblockidx = pmap.getIntAttr("captureblockidx",row);
+          int econdidx = pmap.getIntAttr("econdidx",row);
+          int idx = modIndexer.getIndexForModule(fedid, captureblockidx, econdidx);
+          int typeidx = modIndexer.getTypeForModule(fedid, captureblockidx, econdidx);
+          std::string typecode = pmap.getAttr("typecode",row);
           auto celltypes = modIndexer.convertTypeCode(typecode);
-          isSiPM = celltypes.first;
-          celltype = celltypes.second;
-
-          eleid = HGCalElectronicsId((zside > 0), fedid, captureblock, econdidx, 0, 0).raw();
-
+          bool isSiPM = celltypes.first;
+          int celltype = celltypes.second;
+          int zside = pmap.getIntAttr("zside",row);
+          int plane=pmap.getIntAttr("plane",row);
+          int i1=pmap.getIntAttr("u",row);
+          int i2=pmap.getIntAttr("v",row);
+          uint32_t eleid = HGCalElectronicsId((zside > 0), fedid, captureblockidx, econdidx, 0, 0).raw();
+          uint32_t detid(0);
           if (!isSiPM) {
             int zp(zside > 0 ? 1 : -1);
             DetId::Detector det = plane <= 26 ? DetId::Detector::HGCalEE : DetId::Detector::HGCalHSi;
@@ -97,8 +89,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           module.i2() = i2;
           module.typeidx() = typeidx;
           module.fedid() = fedid;
-          module.slinkidx() = slinkidx;
-          module.captureblock() = captureblock;
+          module.slinkidx() = pmap.getIntAttr("slinkidx",row);
+          module.captureblock() = pmap.getIntAttr("captureblock",row);;
           module.econdidx() = econdidx;
           module.captureblockidx() = captureblockidx;
           module.eleid() = eleid;
@@ -110,7 +102,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }  // end of produce()
 
     private:
-      edm::ESGetToken<HGCalMappingModuleIndexer, HGCalMappingModuleIndexerRcd> moduleIndexTkn_;
+      edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIndexTkn_;
       const edm::FileInPath filename_;
     };
 

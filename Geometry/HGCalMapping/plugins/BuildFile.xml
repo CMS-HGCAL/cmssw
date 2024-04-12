@@ -6,7 +6,7 @@
 <use name="FWCore/Utilities"/>
 
 <!-- indexer plugin -->
-<library file="HGCalMappingIndexESSource.cc">
+<library file="HGCalMappingESProducer.cc">
   <flags EDM_PLUGIN="1"/>
 </library>
 
