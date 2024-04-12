@@ -20,7 +20,7 @@
 
 #include "FWCore/Framework/interface/EventSetupRecordImplementation.h"
 
-class HGCalElectronicsMappingRcd
-    : public edm::eventsetup::EventSetupRecordImplementation<HGCalElectronicsMappingRcd> {};
+class HGCalElectronicsMappingRcd : public edm::eventsetup::EventSetupRecordImplementation<HGCalElectronicsMappingRcd> {
+};
 
 #endif

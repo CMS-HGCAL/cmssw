@@ -8,26 +8,26 @@ namespace hgcal {
   namespace mappingtools {
 
     //
-    void HGCalEntityList::buildFrom(std::string url){
-      
+    void HGCalEntityList::buildFrom(std::string url) {
       std::string line;
       std::ifstream file(url);
 
       //parse the lines to build the list of entities
       size_t iline(0);
       while (std::getline(file, line)) {
-
         HGCalEntityRow row;
         std::stringstream s;
         s << line;
         HGCalEntityAttr attr;
-        while(s >> attr) row.push_back(attr);
-          
-        if(iline==0) setHeader(row);
-        else addRow(row);
-        iline+=1;
-      }
+        while (s >> attr)
+          row.push_back(attr);
 
+        if (iline == 0)
+          setHeader(row);
+        else
+          addRow(row);
+        iline += 1;
+      }
     }
 
     //

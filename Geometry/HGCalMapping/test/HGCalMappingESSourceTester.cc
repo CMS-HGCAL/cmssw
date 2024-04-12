@@ -38,9 +38,9 @@ public:
   explicit HGCalMappingESSourceTester(const edm::ParameterSet&);
   static void fillDescriptions(edm::ConfigurationDescriptions&);
   std::map<uint32_t, uint32_t> mapGeoToElectronics(const hgcal::HGCalMappingModuleParamHostCollection& modules,
-                                                    const hgcal::HGCalMappingCellParamHostCollection& cells,
-                                                    bool geo2ele,
-                                                    bool sipm);
+                                                   const hgcal::HGCalMappingCellParamHostCollection& cells,
+                                                   bool geo2ele,
+                                                   bool sipm);
 
 private:
   void analyze(const edm::Event&, const edm::EventSetup&) override;
@@ -92,11 +92,11 @@ void HGCalMappingESSourceTester::analyze(const edm::Event& iEvent, const edm::Ev
 
     //print
     printf("[HGCalMappingIndexESSourceTester][analyze][%s] has index(internal)=%ld #eRx=%d #cells=%d offset=%d\n",
-            typecode.c_str(),
-            idx,
-            cellIdx.maxErx_[idx],
-            cellIdx.di_[idx].getMaxIndex(),
-            cellIdx.offsets_[idx]);
+           typecode.c_str(),
+           idx,
+           cellIdx.maxErx_[idx],
+           cellIdx.di_[idx].getMaxIndex(),
+           cellIdx.offsets_[idx]);
   }
 
   assert(totOffset == cellIdx.maxDenseIndex());
@@ -138,9 +138,9 @@ void HGCalMappingESSourceTester::analyze(const edm::Event& iEvent, const edm::Ev
   //module mapping
   auto modulesIdx = iSetup.getData(moduleIndexTkn_);
   printf("[HGCalMappingIndexESSourceTester][analyze] Module indexer has FEDs=%d Types in sequences=%ld max idx=%d\n",
-          modulesIdx.nfeds_,
-          modulesIdx.globalTypesCounter_.size(),
-          modulesIdx.maxModulesIdx_);
+         modulesIdx.nfeds_,
+         modulesIdx.globalTypesCounter_.size(),
+         modulesIdx.maxModulesIdx_);
   printf("[HGCalMappingIndexESSourceTester][analyze] FED Readout sequence\n");
   std::unordered_set<uint32_t> unique_modOffsets, unique_erxOffsets, unique_chDataOffsets;
   uint32_t totalmods(0);
@@ -157,8 +157,7 @@ void HGCalMappingESSourceTester::analyze(const edm::Event& iEvent, const edm::Ev
     totalmods += nmods;
     printf("\t[FED %d] packs data from %ld ECON-Ds - readout types -> (offsets) :", frs.id, nmods);
     for (size_t i = 0; i < nmods; i++) {
-      printf(
-          "\t%d -> (%d;%d;%d)", frs.readoutTypes_[i], frs.modOffsets_[i], frs.erxOffsets_[i], frs.chDataOffsets_[i]);
+      printf("\t%d -> (%d;%d;%d)", frs.readoutTypes_[i], frs.modOffsets_[i], frs.erxOffsets_[i], frs.chDataOffsets_[i]);
     }
     printf("\n");
   }
@@ -400,13 +399,13 @@ std::map<uint32_t, uint32_t> HGCalMappingESSourceTester::mapGeoToElectronics(
         if (!sipm && it != idmap.end() && imod.plane() <= 26) {
           HGCSiliconDetId detid(geoid);
           printf("WARNING duplicate found for plane=%d u=%d v=%d cellU=%d cellV=%d valid=%d -> detid=0x%x\n",
-                  imod.plane(),
-                  imod.i1(),
-                  imod.i2(),
-                  jcell.i1(),
-                  jcell.i2(),
-                  jcell.valid(),
-                  detid.rawId());
+                 imod.plane(),
+                 imod.i1(),
+                 imod.i2(),
+                 jcell.i1(),
+                 jcell.i2(),
+                 jcell.valid(),
+                 detid.rawId());
         }
       }
       if (!geo2ele) {
@@ -421,9 +420,9 @@ std::map<uint32_t, uint32_t> HGCalMappingESSourceTester::mapGeoToElectronics(
 
   if (ndups > 0) {
     printf("[HGCalMappingESSourceTester][mapGeoToElectronics] found %d duplicates with geo2ele=%d for sipm=%d\n",
-            ndups,
-            geo2ele,
-            sipm);
+           ndups,
+           geo2ele,
+           sipm);
   }
 
   return idmap;

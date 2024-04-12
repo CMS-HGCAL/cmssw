@@ -28,7 +28,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     class HGCalMappingModuleESProducer : public ESProducer {
     public:
       //
-       HGCalMappingModuleESProducer(const edm::ParameterSet& iConfig)
+      HGCalMappingModuleESProducer(const edm::ParameterSet& iConfig)
           : ESProducer(iConfig), filename_(iConfig.getParameter<edm::FileInPath>("filename")) {
         auto cc = setWhatProduced(this);
         moduleIndexTkn_ = cc.consumes(iConfig.getParameter<edm::ESInputTag>("moduleindexer"));
@@ -55,22 +55,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         ::hgcal::mappingtools::HGCalEntityList pmap;
         pmap.buildFrom(filename_.fullPath());
-        auto &entities = pmap.getEntries();
-        for(auto row : entities) {      
-
-          int fedid = pmap.getIntAttr("fedid",row);
-          int captureblockidx = pmap.getIntAttr("captureblockidx",row);
-          int econdidx = pmap.getIntAttr("econdidx",row);
+        auto& entities = pmap.getEntries();
+        for (auto row : entities) {
+          int fedid = pmap.getIntAttr("fedid", row);
+          int captureblockidx = pmap.getIntAttr("captureblockidx", row);
+          int econdidx = pmap.getIntAttr("econdidx", row);
           int idx = modIndexer.getIndexForModule(fedid, captureblockidx, econdidx);
           int typeidx = modIndexer.getTypeForModule(fedid, captureblockidx, econdidx);
-          std::string typecode = pmap.getAttr("typecode",row);
+          std::string typecode = pmap.getAttr("typecode", row);
           auto celltypes = modIndexer.convertTypeCode(typecode);
           bool isSiPM = celltypes.first;
           int celltype = celltypes.second;
-          int zside = pmap.getIntAttr("zside",row);
-          int plane=pmap.getIntAttr("plane",row);
-          int i1=pmap.getIntAttr("u",row);
-          int i2=pmap.getIntAttr("v",row);
+          int zside = pmap.getIntAttr("zside", row);
+          int plane = pmap.getIntAttr("plane", row);
+          int i1 = pmap.getIntAttr("u", row);
+          int i2 = pmap.getIntAttr("v", row);
           uint32_t eleid = HGCalElectronicsId((zside > 0), fedid, captureblockidx, econdidx, 0, 0).raw();
           uint32_t detid(0);
           if (!isSiPM) {
@@ -89,8 +88,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           module.i2() = i2;
           module.typeidx() = typeidx;
           module.fedid() = fedid;
-          module.slinkidx() = pmap.getIntAttr("slinkidx",row);
-          module.captureblock() = pmap.getIntAttr("captureblock",row);;
+          module.slinkidx() = pmap.getIntAttr("slinkidx", row);
+          module.captureblock() = pmap.getIntAttr("captureblock", row);
+          ;
           module.econdidx() = econdidx;
           module.captureblockidx() = captureblockidx;
           module.eleid() = eleid;
