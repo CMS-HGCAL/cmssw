@@ -149,7 +149,7 @@ public:
   size_t getNErxExpectedFor(size_t typecodeidx) const { return maxErx_[typecodeidx]; }
 
   constexpr static char maxHalfPerROC_ = 2;
-  constexpr static uint16_t maxChPerErx_ = 39;  //36 channels + 1 calib + 2 CM
+  constexpr static uint16_t maxChPerErx_ = 37;  //36 channels + 1 calib + 2 CM
 
   std::map<std::string, size_t> typeCodeIndexer_;
   std::vector<uint16_t> maxErx_;
