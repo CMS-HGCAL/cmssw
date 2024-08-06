@@ -120,7 +120,7 @@ public:
     //now go through the FEDs and ascribe the offsets per module in the readout sequence
     std::vector<uint32_t> typeCounters(globalTypesCounter_.size(), 0);
     for (auto &fedit : fedReadoutSequences_) {
-      //assign the indexing in the look-up table
+      //assign the final indexing in the look-up table depending on which ECON-D's are really present
       size_t nconn(0);
       fedit.moduleLUT_.resize(fedit.readoutTypes_.size(), -1);
       for (size_t i = 0; i < fedit.readoutTypes_.size(); i++) {
@@ -140,7 +140,7 @@ public:
 	    fedit.readoutTypes_.end()
       );
       
-      //assign the final offsets at the different levels
+      //resize vectors to their final size and set final values
       size_t nmods = fedit.readoutTypes_.size();
       fedit.modOffsets_.resize(nmods, 0);
       fedit.erxOffsets_.resize(nmods, 0);
