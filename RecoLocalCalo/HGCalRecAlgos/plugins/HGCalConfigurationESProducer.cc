@@ -66,7 +66,10 @@ public:
     descriptions.addWithDefaultLabel(desc);
   }
 
-  static bool checkkeys(const json& data, const std::string& firstkey, const std::vector<std::string>& keys, const std::string& fname) {
+  static bool checkkeys(const json& data,
+                        const std::string& firstkey,
+                        const std::vector<std::string>& keys,
+                        const std::string& fname) {
     // check if json contains key
     bool iscomplete = true;
     for (auto const& key : keys) {
@@ -138,7 +141,7 @@ public:
       checkkeys(fed_config_data, sfedid, fedkeys, fedjson_);  // check required keys are in the JSON, warn otherwise
 
       // fill FED configurations
-      HGCalFedConfig_t fed;
+      HGCalFedConfig fed;
       fed.mismatchPassthroughMode = getint(fed_config_data[sfedid]["mismatchPassthroughMode"],
                                            bePassthroughMode_);  // ignore ECON-D packet mismatches
       fed.cbHeaderMarker = gethex(fed_config_data[sfedid]["cbHeaderMarker"],
@@ -164,7 +167,7 @@ public:
           fed.econds.resize(imod + 1);
 
         // fill ECON-D configuration
-        HGCalECONDConfig_t mod;
+        HGCalECONDConfig mod;
         mod.headerMarker = gethex(mod_config_data[typecode]["headerMarker"],
                                   econdHeaderMarker_);  // begin of event marker/identifier for capture block
         mod.passThrough = getint(mod_config_data[typecode]["passthrough"], econPassthroughMode_);
@@ -182,17 +185,17 @@ public:
         // fill eRX (half-ROC) configuration
         for (uint32_t iroc = 0; iroc < nrocs; iroc++) {
           ntot_rocs++;
-          HGCalROCConfig_t roc;
+          HGCalROCConfig roc;
           roc.gain = (uint8_t)mod_config_data[typecode]["Gain"][iroc];
           //roc.charMode = getint(mod_config_data[typecode]["characMode"],charMode_);
           roc.charMode = getint(mod_config_data[typecode]["CalibrationSC"][iroc], charMode_);
           //roc.charMode = mod_config_data[typecode]["CalibrationSC"];
-          mod.rocs[iroc] = roc;  // add to ECON-D's vector<HGCalROCConfig_t> of eRx half-ROCs
+          mod.rocs[iroc] = roc;  // add to ECON-D's vector<HGCalROCConfig> of eRx half-ROCs
         }
-        fed.econds[imod] = mod;  // add to FED's vector<HGCalECONDConfig_t> of ECON-D modules
+        fed.econds[imod] = mod;  // add to FED's vector<HGCalECONDConfig> of ECON-D modules
       }
 
-      config_.feds.push_back(fed);  // add to config's vector of HGCalFedConfig_t FEDs
+      config_.feds.push_back(fed);  // add to config's vector of HGCalFedConfig FEDs
     }
 
     // consistency check

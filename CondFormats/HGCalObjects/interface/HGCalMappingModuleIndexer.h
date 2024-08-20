@@ -19,7 +19,7 @@
    as the 12 capture blocks may not all be used and the each capture block may also be under-utilized
    a lookup table is used to hold the compact index
  */
-struct HGCalFEDReadoutSequence_t {
+struct HGCalFEDReadoutSequence {
   uint32_t id;
   ///>look-up table (capture block, econd idx) -> internal dense index
   std::vector<int> moduleLUT_;
@@ -57,7 +57,7 @@ public:
     if (fedid >= fedReadoutSequences_.size()) {
       fedReadoutSequences_.resize(fedid + 1);
     }
-    HGCalFEDReadoutSequence_t& frs = fedReadoutSequences_[fedid];
+    HGCalFEDReadoutSequence& frs = fedReadoutSequences_[fedid];
     frs.id = fedid;
 
     //assign position, resize if needed, and fill the type code
@@ -238,9 +238,9 @@ public:
           << ")! Found following modules:";
       int i = 1;
       for (auto it = typecodeMap_.begin(); it != typecodeMap_.end(); it++) {
-        std::cout << it->first << (it != typecodeMap_.end() ? ", " : "") << std::endl;
+        edm::LogInfo("HGCalMappingModuleIndexer") << it->first << (it != typecodeMap_.end() ? ", " : "");
         if (i <= 100) {
-          std::cout << " ..." << std::endl;
+          edm::LogInfo("HGCalMappingModuleIndexer") << " ...";
           break;
         }  // stop sooner to avoid gigantic printout
         i++;
@@ -290,7 +290,7 @@ public:
   ///< internal indexer
   HGCalDenseIndexerBase modFedIndexer_;
   ///< the sequence of FED readout sequence descriptors
-  std::vector<HGCalFEDReadoutSequence_t> fedReadoutSequences_;
+  std::vector<HGCalFEDReadoutSequence> fedReadoutSequences_;
   ///< global counters for types of modules, number of e-Rx and words
   std::vector<uint32_t> globalTypesCounter_, globalTypesNErx_, globalTypesNWords_;
   ///< base offsets to apply per module type with different granularity : module, e-Rx, channel data
