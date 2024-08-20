@@ -106,7 +106,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     //fill the SoA collection in the host
     uint32_t finaldigi_size = modidx.maxDataIdx_;
-    std::cout << "Allocating SOA with " << finaldigi_size << " entries" << std::endl;
+    //std::cout << "Allocating SOA with " << finaldigi_size << " entries" << std::endl;
     hgcaldigi::HGCalDigiHost host_buffer(finaldigi_size, cms::alpakatools::host());
     int nmatch(0), nfail(0);
     for (auto d : digisCEE) {
@@ -130,15 +130,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           HGCSiliconDetId siid(d.id());
           int32_t midx = modcellidx.first;
           int32_t cidx = modcellidx.second;
-          std::cout << "Failed to get proper index (" << i << ") for "
-                    << "layer=" << siid.layer() << " u=" << siid.waferU() << " v=" << siid.waferV() << std::endl
-                    << "\t Modidx:" << midx << " cellidx: " << cidx << " cellu=" << siid.cellU()
-                    << " cellv=" << siid.cellV() << std::endl
-                    << "\tModule info FED:" << (uint32_t)modules.view()[midx].fedid()
-                    << " CB:" << (uint32_t)modules.view()[midx].captureblockidx()
-                    << " ECOND: " << (uint32_t)modules.view()[midx].econdidx()
-                    << "\tEle id: FED=" << (uint32_t)eleid.localFEDId() << " CB:" << (uint32_t)eleid.captureBlock()
-                    << " ECONDidx: " << (uint32_t)eleid.econdIdx() << std::endl;
+          edm::LogWarning("HGCalDigiSoaFiller")
+              << "Failed to get proper index (" << i << ") for "
+              << "layer=" << siid.layer() << " u=" << siid.waferU() << " v=" << siid.waferV() << std::endl
+              << "\t Modidx:" << midx << " cellidx: " << cidx << " cellu=" << siid.cellU() << " cellv=" << siid.cellV()
+              << std::endl
+              << "\tModule info FED:" << (uint32_t)modules.view()[midx].fedid()
+              << " CB:" << (uint32_t)modules.view()[midx].captureblockidx()
+              << " ECOND: " << (uint32_t)modules.view()[midx].econdidx()
+              << "\tEle id: FED=" << (uint32_t)eleid.localFEDId() << " CB:" << (uint32_t)eleid.captureBlock()
+              << " ECONDidx: " << (uint32_t)eleid.econdIdx();
           nfail++;
           continue;
         }
@@ -169,7 +170,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       idigi.flags() = 0;
     }
 
-    std::cout << "Matched: " << nmatch << " failed: " << nfail << std::endl;
+    //std::cout << "Matched: " << nmatch << " failed: " << nfail << std::endl;
 
     //allocate device colleciton, copy from host and put in event
     auto& queue = iEvent.queue();
