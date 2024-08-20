@@ -232,13 +232,14 @@ public:
     return getIndexForModuleData(fedid, modid, 0, 0);
   };
   std::pair<uint32_t, uint32_t> getIndexForFedAndModule(std::string const& typecode) const {
-    if (typecodeMap_.find(typecode) == typecodeMap_.end()) {  // did not find key
+    auto it = typecodeMap_.find(typecode);
+    if (it == typecodeMap_.end()) {  // did not find key
       edm::LogWarning("HGCalMappingModuleIndexer")
           << "Could not find typecode " << typecode << " in map (size=" << typecodeMap_.size()
           << ")! Found following modules:";
       int i = 1;
-      for (auto it = typecodeMap_.begin(); it != typecodeMap_.end(); it++) {
-        edm::LogInfo("HGCalMappingModuleIndexer") << it->first << (it != typecodeMap_.end() ? ", " : "");
+      for (auto it2 = typecodeMap_.begin(); it2 != typecodeMap_.end(); it2++) {
+        edm::LogInfo("HGCalMappingModuleIndexer") << it2->first << (it2 != typecodeMap_.end() ? ", " : "");
         if (i <= 100) {
           edm::LogInfo("HGCalMappingModuleIndexer") << " ...";
           break;
@@ -247,7 +248,7 @@ public:
       }
       //return {0,0};
     }
-    return typecodeMap_.at(typecode);  // (fedid,modid)
+    return it->second;  // (fedid,modid)
   };
 
   /**
