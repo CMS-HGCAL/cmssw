@@ -95,7 +95,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
         // load calib parameters from JSON
         //std::cout << "HGCalCalibrationESProducer::produce: filename_=" << filename_ << std::endl;
-        std::ifstream infile(filename_);
+	edm::FileInPath fip(filename_);
+        std::ifstream infile(fip.fullPath().c_str());
         json calib_data = json::parse(infile);
         for (const auto& it : calib_data.items()) {  // loop over module typecodes in JSON file
           std::string module = it.key();             // module typecode, e.g. "ML-F3PT-TX-0003"
