@@ -101,7 +101,7 @@ public:
   //}
 
   std::shared_ptr<HGCalConfiguration> produce(const HGCalModuleConfigurationRcd& iRecord) {
-    auto const& moduleMap = iRecord.getRecord<HGCalElectronicsMappingRcd>().get(indexToken_);
+    auto const& moduleMap = iRecord.get(indexToken_);
 
     // retrieve values from custom JSON format (see HGCalCalibrationESProducer)
     edm::FileInPath fedfip(fedjson_);  // e.g. HGCalCommissioning/LocalCalibration/data/config_feds.json
