@@ -58,7 +58,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       template <typename T>
       static void fill_SoA_column(
-          T* col_SoA, const std::vector<T>& values, const int offset, const int nrows, int arr_offset = 0) {
+          T* column_SoA, const std::vector<T>& values, const int offset, const int nrows, int arr_offset = 0) {
         // fill SoA column with data from vector for any type
         const int nrows_vals = values.size();
         if (arr_offset < 0) {
@@ -72,10 +72,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               << " Tried to copy " << nrows << " rows to SoA with offset " << arr_offset << ", but only have "
               << nrows_vals << " values in JSON!";
         }
-        ::memcpy(&col_SoA[offset],
-                 &values.data()[arr_offset],
-                 sizeof(T) * nrows);  // use mybool (=std::byte) instead of bool
-        //return values;
+        auto begin = values.begin() + arr_offset;
+        auto end = (begin + nrows > values.end()) ? values.end() : begin + nrows;
+        std::copy(begin, end, &column_SoA[offset]);
       }
 
       std::optional<hgcalrechit::HGCalCalibParamHost> produce(const HGCalModuleConfigurationRcd& iRecord) {

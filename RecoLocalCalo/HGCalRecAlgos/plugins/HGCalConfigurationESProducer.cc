@@ -85,7 +85,7 @@ public:
 
   static int32_t gethex(const std::string& value, const int32_t value_override) {
     // get value, and override if value_override>=0
-    return (value_override >= 0 ? value_override : std::stoi(value, NULL, 16));
+    return (value_override >= 0 ? value_override : std::stoi(value, nullptr, 16));
   }
 
   static int32_t getint(const int32_t value, const int32_t value_override) {
@@ -100,7 +100,7 @@ public:
   //  return (value_override>=0 ? (T) value_override : value);
   //}
 
-  std::shared_ptr<HGCalConfiguration> produce(const HGCalModuleConfigurationRcd& iRecord) {
+  std::unique_ptr<HGCalConfiguration> produce(const HGCalModuleConfigurationRcd& iRecord) {
     auto const& moduleMap = iRecord.get(indexToken_);
 
     // retrieve values from custom JSON format (see HGCalCalibrationESProducer)
@@ -126,9 +126,8 @@ public:
 
     // loop over FEDs in indexer & fill configuration structs: FED > ECON-D > eRx
     // follow indexing by HGCalMappingModuleIndexer
-    // https://github.com/CMS-HGCAL/cmssw/blob/dev/hackathon_base_CMSSW_14_1_X/CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h
-    // https://github.com/CMS-HGCAL/cmssw/blob/dev/hackathon_base_CMSSW_14_1_X/EventFilter/HGCalRawToDigi/plugins/HGCalRawToDigi.cc#L107-L111
-    config_ = HGCalConfiguration();  // container class holding FED structs of ECON-D structs of eRx structs
+    // HGCalConfiguration = container class holding FED structs of ECON-D structs of eRx structs
+    std::unique_ptr<HGCalConfiguration> config_ = std::make_unique<HGCalConfiguration>();
     for (std::size_t fedid = 0; fedid < moduleMap.getMaxFEDSize(); ++fedid) {
       // sanity checks
       //std::cout << "HGCalConfigurationESProducer::produce:   fed=" << fedid << std::endl;
@@ -189,13 +188,12 @@ public:
           roc.gain = (uint8_t)mod_config_data[typecode]["Gain"][iroc];
           //roc.charMode = getint(mod_config_data[typecode]["characMode"],charMode_);
           roc.charMode = getint(mod_config_data[typecode]["CalibrationSC"][iroc], charMode_);
-          //roc.charMode = mod_config_data[typecode]["CalibrationSC"];
           mod.rocs[iroc] = roc;  // add to ECON-D's vector<HGCalROCConfig> of eRx half-ROCs
         }
         fed.econds[imod] = mod;  // add to FED's vector<HGCalECONDConfig> of ECON-D modules
       }
 
-      config_.feds.push_back(fed);  // add to config's vector of HGCalFedConfig FEDs
+      config_->feds.push_back(fed);  // add to config's vector of HGCalFedConfig FEDs
     }
 
     // consistency check
@@ -208,7 +206,7 @@ public:
           << "Total number of eRx half-ROCs found in JSON file " << modjson_ << " (" << ntot_rocs
           << ") does not match indexer (" << moduleMap.getMaxERxSize() << ")";
 
-    return std::shared_ptr<HGCalConfiguration>(&config_, edm::do_nothing_deleter());
+    return config_;
   }  // end of produce()
 
 private:
@@ -219,16 +217,15 @@ private:
   }
 
   edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> indexToken_;
-  HGCalConfiguration config_;    // container class holding FED structs of ECON-D structs of eRx structs
-  const std::string fedjson_;    // JSON file
-  const std::string modjson_;    // JSON file
-  int32_t bePassthroughMode_;    // for manual override
-  int32_t cbHeaderMarker_;       // for manual override
-  int32_t slinkHeaderMarker_;    // for manual override
-  int32_t econdHeaderMarker_;    // for manual override
-  int32_t econPassthroughMode_;  // for manual override
-  int32_t charMode_;             // for manual override
-  int32_t gain_;                 // for manual override
+  const std::string fedjson_;         // JSON file
+  const std::string modjson_;         // JSON file
+  int32_t bePassthroughMode_ = -1;    // for manual override
+  int32_t cbHeaderMarker_ = -1;       // for manual override
+  int32_t slinkHeaderMarker_ = -1;    // for manual override
+  int32_t econdHeaderMarker_ = -1;    // for manual override
+  int32_t econPassthroughMode_ = -1;  // for manual override
+  int32_t charMode_ = -1;             // for manual override
+  int32_t gain_ = -1;                 // for manual override
 };
 
 DEFINE_FWK_EVENTSETUP_SOURCE(HGCalConfigurationESProducer);
