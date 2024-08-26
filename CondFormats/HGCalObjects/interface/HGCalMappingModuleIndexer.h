@@ -4,8 +4,9 @@
 #include <cstdint>
 #include <vector>
 #include <map>
+#include <algorithm>  // for std::min
 #include <utility>  // for std::pair, std::make_pair
-#include <algorithm>
+#include <iterator>  // for std::next and std::advance
 
 #include "DataFormats/HGCalDigi/interface/HGCalElectronicsId.h"
 #include "CondFormats/Serialization/interface/Serializable.h"
@@ -234,19 +235,16 @@ public:
   std::pair<uint32_t, uint32_t> getIndexForFedAndModule(std::string const& typecode) const {
     auto it = typecodeMap_.find(typecode);
     if (it == typecodeMap_.end()) {  // did not find key
-      edm::LogWarning("HGCalMappingModuleIndexer")
-          << "Could not find typecode " << typecode << " in map (size=" << typecodeMap_.size()
-          << ")! Found following modules:";
-      int i = 1;
-      for (auto it2 = typecodeMap_.begin(); it2 != typecodeMap_.end(); it2++) {
-        edm::LogInfo("HGCalMappingModuleIndexer") << it2->first << (it2 != typecodeMap_.end() ? ", " : "");
-        if (i <= 100) {
-          edm::LogInfo("HGCalMappingModuleIndexer") << " ...";
-          break;
-        }  // stop sooner to avoid gigantic printout
-        i++;
-      }
-      //return {0,0};
+      std::size_t nmax = 100;  // maximum number of keys to print
+      auto maxit = typecodeMap_.begin();  // limit printout to prevent gigantic print out
+      std::advance(maxit,std::min(typecodeMap_.size(),nmax));
+      std::string allkeys = std::accumulate(std::next(typecodeMap_.begin()), maxit, typecodeMap_.begin()->first,
+                                            [](const std::string& a, const auto& b) { return a + ',' + b.first; });
+      if (typecodeMap_.size() > nmax)
+        allkeys += ", ...";
+      throw cms::Exception("HGCalMappingModuleIndexer")
+          << "Could not find typecode '" << typecode << "' in map (size=" << typecodeMap_.size()
+          << ")! Found the following modules (from the module locator file): " << allkeys;
     }
     return it->second;  // (fedid,modid)
   };
