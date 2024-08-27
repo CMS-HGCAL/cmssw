@@ -161,11 +161,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         device_calib.view());
 
     LogDebug("HGCalRecHitCalibrationAlgorithms") << "Input recHits: " << std::endl;
-#ifdef EDM_ML_DEBUG      
+#ifdef EDM_ML_DEBUG
     int n_hits_to_print = 10;
     print_recHit_device(queue, *device_recHits, n_hits_to_print);
 #endif
-    
+
     return device_recHits;
   }
 
@@ -173,8 +173,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     int max_ = max > 0 ? max : digis.view().metadata().size();
     for (int i = 0; i < max_; i++) {
       LogDebug("HGCalRecHitCalibrationAlgorithms")
-          << i
-          << digis.view()[i].tot() << "\t" << digis.view()[i].toa() << "\t" << digis.view()[i].cm() << "\t"
+          << i << digis.view()[i].tot() << "\t" << digis.view()[i].toa() << "\t" << digis.view()[i].cm() << "\t"
           << digis.view()[i].flags() << std::endl;
     }
   }
@@ -183,8 +182,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     int max_ = max > 0 ? max : digis.view().metadata().size();
     for (int i = 0; i < max_; i++) {
       LogDebug("HGCalRecHitCalibrationAlgorithms")
-          << i
-          << digis.view()[i].tot() << "\t" << digis.view()[i].toa() << "\t" << digis.view()[i].cm() << "\t"
+          << i << digis.view()[i].tot() << "\t" << digis.view()[i].toa() << "\t" << digis.view()[i].cm() << "\t"
           << digis.view()[i].flags() << std::endl;
     }
   }

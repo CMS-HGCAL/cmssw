@@ -148,7 +148,6 @@ private:
                                           hgcal::DIGI_FLAG::FULL_READOUT,
                                           hgcal::DIGI_FLAG::FULL_READOUT};
   constexpr static uint32_t erxBodyBits_[16] = {24, 16, 24, 24, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32};
-
 };
 
 #endif

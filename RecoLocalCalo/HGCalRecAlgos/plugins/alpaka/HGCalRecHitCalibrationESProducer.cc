@@ -155,7 +155,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   calib_data[module]["Valid"],
                                   offset,
                                   nrows);  // mybool (=std::byte) defined in HGCalCalibrationParameterSoA.h
-
         }
 
         return product;
