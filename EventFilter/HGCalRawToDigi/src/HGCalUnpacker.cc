@@ -65,11 +65,12 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
     uint32_t ECONDdenseIdx = moduleIndexer.getIndexForModule(fedId, 0);
     econdPacketInfo.view()[ECONDdenseIdx].exception() = 1;
     econdPacketInfo.view()[ECONDdenseIdx].location() = 0;
-    throw cms::Exception("CorruptData") << "Expected a S-Link header (BOE: 0x" << std::hex
-                                        << fedConfig.slinkHeaderMarker << "), got 0x" << std::hex
-                                        << ((slink_header >> (BACKEND_FRAME::SLINK_BOE_POS + 32)) &
-                                            BACKEND_FRAME::SLINK_BOE_MASK)
-                                        << " from " << slink_header << ".";
+    return;
+    // throw cms::Exception("CorruptData") << "Expected a S-Link header (BOE: 0x" << std::hex
+    //                                     << fedConfig.slinkHeaderMarker << "), got 0x" << std::hex
+    //                                     << ((slink_header >> (BACKEND_FRAME::SLINK_BOE_POS + 32)) &
+    //                                         BACKEND_FRAME::SLINK_BOE_MASK)
+    //                                     << " from " << slink_header << ".";
   }
 
   ptr += 2;
@@ -105,12 +106,13 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
       uint32_t ECONDdenseIdx = moduleIndexer.getIndexForModule(fedId, 0);
       econdPacketInfo.view()[ECONDdenseIdx].exception() = 2;
       econdPacketInfo.view()[ECONDdenseIdx].location() = (uint32_t)(ptr - header);
-      throw cms::Exception("CorruptData")
-          << "Expected a capture block header at word " << std::dec << (uint32_t)(ptr - header) << "/0x" << std::hex
-          << (uint32_t)(ptr - header) << " (reserved word: 0x" << fedConfig.cbHeaderMarker << "), got 0x"
-          << ((cb_header >> (BACKEND_FRAME::CAPTUREBLOCK_RESERVED_POS + 32)) &
-              BACKEND_FRAME::CAPTUREBLOCK_RESERVED_MASK)
-          << " from 0x" << cb_header << ".";
+      return;
+      // throw cms::Exception("CorruptData")
+      //     << "Expected a capture block header at word " << std::dec << (uint32_t)(ptr - header) << "/0x" << std::hex
+      //     << (uint32_t)(ptr - header) << " (reserved word: 0x" << fedConfig.cbHeaderMarker << "), got 0x"
+      //     << ((cb_header >> (BACKEND_FRAME::CAPTUREBLOCK_RESERVED_POS + 32)) &
+      //         BACKEND_FRAME::CAPTUREBLOCK_RESERVED_MASK)
+      //     << " from 0x" << cb_header << ".";
     }
     ++ptr;
     // parse Capture Block body (ECON-Ds)
@@ -157,8 +159,9 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
       const auto econd_payload_length = ((econd_headers[0] >> ECOND_FRAME::PAYLOAD_POS) & ECOND_FRAME::PAYLOAD_MASK);
       if (econd_payload_length > 469) {
         econdPacketInfo.view()[ECONDdenseIdx].exception() = 4;
-        throw cms::Exception("CorruptData")
-            << "Unpacked payload length=" << econd_payload_length << " exceeds the maximal length=469";
+        return;
+        // throw cms::Exception("CorruptData")
+        //     << "Unpacked payload length=" << econd_payload_length << " exceeds the maximal length=469";
       }
       const auto econdFlag = ((econd_headers[0] >> ECOND_FRAME::BITT_POS) & 0b1111111) +
                              (((econd_headers[1] >> ECOND_FRAME::BITS_POS) & 0b1) << hgcaldigi::ECONDFlag::BITS_POS);
@@ -330,10 +333,11 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
     uint32_t ECONDdenseIdx = moduleIndexer.getIndexForModule(fedId, 0);
     econdPacketInfo.view()[ECONDdenseIdx].exception() = 6;
     econdPacketInfo.view()[ECONDdenseIdx].location() = 0;
-    throw cms::Exception("CorruptData") << "Error finding the S-link trailer, expected at" << std::dec
-                                        << (uint32_t)(trailer - header) << "/0x" << std::hex
-                                        << (uint32_t)(trailer - header) << "Unpacked trailer at" << std::dec
-                                        << (uint32_t)(trailer - header + 2) << "/0x" << std::hex
-                                        << (uint32_t)(ptr - header + 2);
+    return;
+    // throw cms::Exception("CorruptData") << "Error finding the S-link trailer, expected at" << std::dec
+    //                                     << (uint32_t)(trailer - header) << "/0x" << std::hex
+    //                                     << (uint32_t)(trailer - header) << "Unpacked trailer at" << std::dec
+    //                                     << (uint32_t)(trailer - header + 2) << "/0x" << std::hex
+    //                                     << (uint32_t)(ptr - header + 2);
   }
 }
