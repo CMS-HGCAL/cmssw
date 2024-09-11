@@ -87,6 +87,18 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
     LogDebug("[HGCalUnpacker]") << "fedId = " << fedId << ", captureblockIdx = " << captureblockIdx
                                 << ", cb_header = " << std::hex << std::setfill('0') << std::setw(16) << cb_header
                                 << std::dec;
+
+    //if word is a 0x0 it probably means that it's a 64b padding word: check that we are ending
+    if( cb_header == 0x0) {      
+      auto nToEnd = (fed_data.size()/8-2) - std::distance(header,ptr);
+      if(nToEnd==1) {
+	ptr++;
+	LogDebug("[HGCalUnpacker]") << "fedId = " << fedId << ", 64b padding word caught, stop parsing";
+	break;
+      }
+      LogDebug("[HGCalUnpacker]") << "fedId = " << fedId << ", captureblockIdx = " << captureblockIdx << " is 0, but there are " << nToEnd << " words ahead...";
+    }
+    
     // sanity check
     if (((cb_header >> (BACKEND_FRAME::CAPTUREBLOCK_RESERVED_POS + 32)) & BACKEND_FRAME::CAPTUREBLOCK_RESERVED_MASK) !=
         fedConfig.cbHeaderMarker) {
@@ -310,11 +322,6 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
         //    << "  expected payload length=" << econd_payload_length;
       }
     }
-  }
-
-  // skip the padding word as the last capture block will be aligned to 128b if needed
-  if (std::distance(ptr, header) % 2) {
-    ++ptr;
   }
 
   // check SLink trailer (128b)
