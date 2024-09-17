@@ -52,7 +52,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                            float cm_ped,
                            float bxm1_slope,
                            float adc2fC) {
-        return adc2fC * ((adc - adc_ped) - cm_slope * (cm - cm_ped) - bxm1_slope * (adcm1 - adc_ped));
+        float cmf=cm_slope*(0.5*float(cm)-cm_ped);
+        return adc2fC * ((adc - adc_ped) - cmf - bxm1_slope * (adcm1 - adc_ped - cmf));
       };
 
       auto tot_to_fC =
