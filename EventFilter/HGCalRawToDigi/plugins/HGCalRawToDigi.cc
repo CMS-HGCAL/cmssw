@@ -21,6 +21,7 @@
 #include "CondFormats/HGCalObjects/interface/HGCalConfiguration.h"
 
 #include "EventFilter/HGCalRawToDigi/interface/HGCalUnpacker.h"
+#include "oneapi/tbb.h"
 
 class HGCalRawToDigi : public edm::stream::EDProducer<> {
 public:
@@ -58,6 +59,9 @@ private:
 
   // TODO @hqucms
   // HGCalUnpackerConfig unpackerConfig_;
+  hgcaldigi::HGCalDigiHost digis_;
+  hgcaldigi::HGCalECONDPacketInfoHost econdPacketInfo_;
+
   HGCalUnpacker unpacker_;
 
   const bool fixCalibChannel_;
@@ -84,7 +88,8 @@ void HGCalRawToDigi::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetu
     cellIndexer_ = iSetup.getData(cellIndexToken_);
     config_ = iSetup.getData(configToken_);
   }
-
+  digis_ = hgcaldigi::HGCalDigiHost(moduleIndexer_.getMaxDataSize(), cms::alpakatools::host());
+  econdPacketInfo_ = hgcaldigi::HGCalECONDPacketInfoHost(moduleIndexer_.getMaxModuleSize(), cms::alpakatools::host());
   // TODO @hqucms
   // retrieve configs: TODO
   // auto moduleInfo = iSetup.getData(moduleInfoToken_);
@@ -94,28 +99,25 @@ void HGCalRawToDigi::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetu
 }
 
 void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
-  hgcaldigi::HGCalDigiHost digis(moduleIndexer_.getMaxDataSize(), cms::alpakatools::host());
-  hgcaldigi::HGCalECONDPacketInfoHost econdPacketInfo(moduleIndexer_.getMaxModuleSize(), cms::alpakatools::host());
   // std::cout << "Created DIGIs SOA with " << digis.view().metadata().size() << " entries" << std::endl;
-
   // TODO @hqucms
-
   // retrieve the FED raw data
   const auto& raw_data = iEvent.get(fedRawToken_);
-
-  for (int32_t i = 0; i < digis.view().metadata().size(); i++) {
-    digis.view()[i].flags() = hgcal::DIGI_FLAG::NotAvailable;
+  for (int32_t i = 0; i < digis_.view().metadata().size(); i++) {
+    digis_.view()[i].flags() = hgcal::DIGI_FLAG::NotAvailable;
   }
-  for (unsigned fedId = 0; fedId < moduleIndexer_.nfeds_; ++fedId) {
+  tbb::parallel_for(0U, moduleIndexer_.nfeds_, [&](unsigned fedId) {
     const auto& fed_data = raw_data.FEDData(fedId);
     if (fed_data.size() == 0)
-      continue;
-    unpacker_.parseFEDData(fedId, fed_data, moduleIndexer_, config_, digis, econdPacketInfo, /*headerOnlyMode*/ false);
-  }
+      return;
+    unpacker_.parseFEDData(
+        fedId, fed_data, moduleIndexer_, config_, digis_, econdPacketInfo_, /*headerOnlyMode*/ false);
+    return;
+  });
 
   // put information to the event
-  iEvent.emplace(digisToken_, std::move(digis));
-  iEvent.emplace(econdPacketInfoToken_, std::move(econdPacketInfo));
+  iEvent.emplace(digisToken_, std::move(digis_));
+  iEvent.emplace(econdPacketInfoToken_, std::move(econdPacketInfo_));
 }
 
 // fill descriptions
