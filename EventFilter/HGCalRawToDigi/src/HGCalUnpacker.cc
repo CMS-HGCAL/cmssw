@@ -12,13 +12,13 @@
 
 using namespace hgcal;
 
-void HGCalUnpacker::parseFEDData(unsigned fedId,
-                                 const FEDRawData& fed_data,
-                                 const HGCalMappingModuleIndexer& moduleIndexer,
-                                 const HGCalConfiguration& config,
-                                 hgcaldigi::HGCalDigiHost& digis,
-                                 hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo,
-                                 bool headerOnlyMode) {
+uint8_t HGCalUnpacker::parseFEDData(unsigned fedId,
+                                    const FEDRawData& fed_data,
+                                    const HGCalMappingModuleIndexer& moduleIndexer,
+                                    const HGCalConfiguration& config,
+                                    hgcaldigi::HGCalDigiHost& digis,
+                                    hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo,
+                                    bool headerOnlyMode) {
   // ReadoutSequence object for this FED
   const auto& fedReadoutSequence = moduleIndexer.fedReadoutSequences_[fedId];
   // Configuration object for this FED
@@ -65,12 +65,12 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
     uint32_t ECONDdenseIdx = moduleIndexer.getIndexForModule(fedId, 0);
     econdPacketInfo.view()[ECONDdenseIdx].exception() = 1;
     econdPacketInfo.view()[ECONDdenseIdx].location() = 0;
-    return;
-    // throw cms::Exception("CorruptData") << "Expected a S-Link header (BOE: 0x" << std::hex
-    //                                     << fedConfig.slinkHeaderMarker << "), got 0x" << std::hex
-    //                                     << ((slink_header >> (BACKEND_FRAME::SLINK_BOE_POS + 32)) &
-    //                                         BACKEND_FRAME::SLINK_BOE_MASK)
-    //                                     << " from " << slink_header << ".";
+    edm::LogWarning("[HGCalUnpacker]") << "Expected a S-Link header (BOE: 0x" << std::hex << fedConfig.slinkHeaderMarker
+                                       << "), got 0x" << std::hex
+                                       << ((slink_header >> (BACKEND_FRAME::SLINK_BOE_POS + 32)) &
+                                           BACKEND_FRAME::SLINK_BOE_MASK)
+                                       << " from " << slink_header << ".";
+    return UNPACKER_STAT::WrongSLinkHeader;
   }
 
   ptr += 2;
@@ -88,31 +88,31 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
     LogDebug("[HGCalUnpacker]") << "fedId = " << fedId << ", captureblockIdx = " << captureblockIdx
                                 << ", cb_header = " << std::hex << std::setfill('0') << std::setw(16) << cb_header
                                 << std::dec;
-
-    //if word is a 0x0 it probably means that it's a 64b padding word: check that we are ending
-    if( cb_header == 0x0) {      
-      auto nToEnd = (fed_data.size()/8-2) - std::distance(header,ptr);
-      if(nToEnd==1) {
-	ptr++;
-	LogDebug("[HGCalUnpacker]") << "fedId = " << fedId << ", 64b padding word caught, stop parsing";
-	break;
-      }
-      LogDebug("[HGCalUnpacker]") << "fedId = " << fedId << ", captureblockIdx = " << captureblockIdx << " is 0, but there are " << nToEnd << " words ahead...";
-    }
-    
     // sanity check
     if (((cb_header >> (BACKEND_FRAME::CAPTUREBLOCK_RESERVED_POS + 32)) & BACKEND_FRAME::CAPTUREBLOCK_RESERVED_MASK) !=
         fedConfig.cbHeaderMarker) {
+      //if word is a 0x0 it probably means that it's a 64b padding word: check that we are ending
       uint32_t ECONDdenseIdx = moduleIndexer.getIndexForModule(fedId, 0);
-      econdPacketInfo.view()[ECONDdenseIdx].exception() = 2;
       econdPacketInfo.view()[ECONDdenseIdx].location() = (uint32_t)(ptr - header);
-      return;
-      // throw cms::Exception("CorruptData")
-      //     << "Expected a capture block header at word " << std::dec << (uint32_t)(ptr - header) << "/0x" << std::hex
-      //     << (uint32_t)(ptr - header) << " (reserved word: 0x" << fedConfig.cbHeaderMarker << "), got 0x"
-      //     << ((cb_header >> (BACKEND_FRAME::CAPTUREBLOCK_RESERVED_POS + 32)) &
-      //         BACKEND_FRAME::CAPTUREBLOCK_RESERVED_MASK)
-      //     << " from 0x" << cb_header << ".";
+      if (cb_header == 0x0) {
+        auto nToEnd = (fed_data.size() / 8 - 2) - std::distance(header, ptr);
+        if (nToEnd == 1) {
+          ptr++;
+          edm::LogWarning("[HGCalUnpacker]")
+              << "fedId = " << fedId
+              << ", 64b padding word caught before parsing all capture blocks, captureblockIdx = " << captureblockIdx;
+          econdPacketInfo.view()[ECONDdenseIdx].exception() = 7;
+          return UNPACKER_STAT::EarlySLinkEnd;
+        }
+      }
+      econdPacketInfo.view()[ECONDdenseIdx].exception() = 2;
+      edm::LogWarning("[HGCalUnpacker]") << "Expected a capture block header at word " << std::dec
+                                         << (uint32_t)(ptr - header) << "/0x" << std::hex << (uint32_t)(ptr - header)
+                                         << " (reserved word: 0x" << fedConfig.cbHeaderMarker << "), got 0x"
+                                         << ((cb_header >> (BACKEND_FRAME::CAPTUREBLOCK_RESERVED_POS + 32)) &
+                                             BACKEND_FRAME::CAPTUREBLOCK_RESERVED_MASK)
+                                         << " from 0x" << cb_header << ".";
+      return UNPACKER_STAT::WrongCaptureBlockHeader;
     }
     ++ptr;
     // parse Capture Block body (ECON-Ds)
@@ -144,12 +144,11 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
       if (((econd_headers[0] >> ECOND_FRAME::HEADER_POS) & ECOND_FRAME::HEADER_MASK) !=
           fedConfig.econds[globalECONDIdx].headerMarker) {
         econdPacketInfo.view()[ECONDdenseIdx].exception() = 3;
-
-        //DO NOT THROW!! just flag as exception and try to continue
-        //throw cms::Exception("CorruptData")
-        //    << "Expected a ECON-D header at word " << std::dec << (uint32_t)(ptr - header) << "/0x" << std::hex
-        //     << (uint32_t)(ptr - header) << " (marker: 0x" << fedConfig.econds[globalECONDIdx].headerMarker
-        //    << "), got 0x" << econd_headers[0] << ".";
+        edm::LogWarning("[HGCalUnpacker]")
+            << "Expected a ECON-D header at word " << std::dec << (uint32_t)(ptr - header) << "/0x" << std::hex
+            << (uint32_t)(ptr - header) << " (marker: 0x" << fedConfig.econds[globalECONDIdx].headerMarker
+            << "), got 0x" << econd_headers[0] << ".";
+        return UNPACKER_STAT::WrongECONDHeader;
       }
       ++ptr;
 
@@ -159,9 +158,9 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
       const auto econd_payload_length = ((econd_headers[0] >> ECOND_FRAME::PAYLOAD_POS) & ECOND_FRAME::PAYLOAD_MASK);
       if (econd_payload_length > 469) {
         econdPacketInfo.view()[ECONDdenseIdx].exception() = 4;
-        return;
-        // throw cms::Exception("CorruptData")
-        //     << "Unpacked payload length=" << econd_payload_length << " exceeds the maximal length=469";
+        edm::LogWarning("[HGCalUnpacker]")
+            << "Unpacked payload length=" << econd_payload_length << " exceeds the maximal length=469";
+        return UNPACKER_STAT::ECONDPayloadLengthOverflow;
       }
       const auto econdFlag = ((econd_headers[0] >> ECOND_FRAME::BITT_POS) & 0b1111111) +
                              (((econd_headers[1] >> ECOND_FRAME::BITS_POS) & 0b1) << hgcaldigi::ECONDFlag::BITS_POS);
@@ -318,26 +317,30 @@ void HGCalUnpacker::parseFEDData(unsigned fedId,
       // end of ECON-D parsing
       if (iword != econd_payload_length - 1) {
         econdPacketInfo.view()[ECONDdenseIdx].exception() = 5;
-        //SHOULD NOT THROW!!!!
-        //throw cms::Exception("CorruptData")
-        //    << "Mismatch between unpacked and expected ECON-D #" << (int)globalECONDIdx << " payload length\n"
-        //    << "  unpacked payload length=" << iword + 1 << "\n"
-        //    << "  expected payload length=" << econd_payload_length;
+        edm::LogWarning("[HGCalUnpacker]")
+            << "Mismatch between unpacked and expected ECON-D #" << (int)globalECONDIdx << " payload length\n"
+            << "  unpacked payload length=" << iword + 1 << "\n"
+            << "  expected payload length=" << econd_payload_length;
+        return UNPACKER_STAT::ECONDPayloadLengthMismatch;
       }
     }
   }
-
+  // skip the padding word as the last capture block will be aligned to 128b if needed
+  if (std::distance(ptr, header) % 2) {
+    ++ptr;
+  }
   // check SLink trailer (128b)
   // TODO
   if (ptr + 2 != trailer) {
     uint32_t ECONDdenseIdx = moduleIndexer.getIndexForModule(fedId, 0);
     econdPacketInfo.view()[ECONDdenseIdx].exception() = 6;
     econdPacketInfo.view()[ECONDdenseIdx].location() = 0;
-    return;
-    // throw cms::Exception("CorruptData") << "Error finding the S-link trailer, expected at" << std::dec
-    //                                     << (uint32_t)(trailer - header) << "/0x" << std::hex
-    //                                     << (uint32_t)(trailer - header) << "Unpacked trailer at" << std::dec
-    //                                     << (uint32_t)(trailer - header + 2) << "/0x" << std::hex
-    //                                     << (uint32_t)(ptr - header + 2);
+    edm::LogWarning("[HGCalUnpacker]") << "Error finding the S-link trailer, expected at" << std::dec
+                                       << (uint32_t)(trailer - header) << "/0x" << std::hex
+                                       << (uint32_t)(trailer - header) << "Unpacked trailer at" << std::dec
+                                       << (uint32_t)(trailer - header + 2) << "/0x" << std::hex
+                                       << (uint32_t)(ptr - header + 2);
+    return UNPACKER_STAT::WrongSLinkTrailer;
   }
+  return UNPACKER_STAT::Normal;
 }
