@@ -92,17 +92,18 @@ uint8_t HGCalUnpacker::parseFEDData(unsigned fedId,
     if (((cb_header >> (BACKEND_FRAME::CAPTUREBLOCK_RESERVED_POS + 32)) & BACKEND_FRAME::CAPTUREBLOCK_RESERVED_MASK) !=
         fedConfig.cbHeaderMarker) {
       //if word is a 0x0 it probably means that it's a 64b padding word: check that we are ending
+      //the s-link may have less capture blocks than the maxCBperFED_ so for now this is considered normal
       uint32_t ECONDdenseIdx = moduleIndexer.getIndexForModule(fedId, 0);
       econdPacketInfo.view()[ECONDdenseIdx].location() = (uint32_t)(ptr - header);
       if (cb_header == 0x0) {
         auto nToEnd = (fed_data.size() / 8 - 2) - std::distance(header, ptr);
         if (nToEnd == 1) {
           ptr++;
-          edm::LogWarning("[HGCalUnpacker]")
-              << "fedId = " << fedId
-              << ", 64b padding word caught before parsing all capture blocks, captureblockIdx = " << captureblockIdx;
+          LogDebug("[HGCalUnpacker]")
+            << "fedId = " << fedId
+              << ", 64b padding word caught before parsing all max capture blocks, captureblockIdx = " << captureblockIdx;
           econdPacketInfo.view()[ECONDdenseIdx].exception() = 7;
-          return UNPACKER_STAT::EarlySLinkEnd;
+          return UNPACKER_STAT::Normal;
         }
       }
       econdPacketInfo.view()[ECONDdenseIdx].exception() = 2;
