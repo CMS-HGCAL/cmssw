@@ -246,7 +246,7 @@ uint8_t HGCalUnpacker::parseFEDData(unsigned fedId,
           }
           iword += iBit / 32;
           if (iBit % 32 != 0) {
-            iBit += 1;
+            iword += 1;
           }
         }
       } else {
