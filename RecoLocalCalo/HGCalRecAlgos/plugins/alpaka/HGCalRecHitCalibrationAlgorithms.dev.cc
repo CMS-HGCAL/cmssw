@@ -51,7 +51,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           };
 
       auto tot_linearization =
-          [&](uint32_t tot, float tot_lin, float tot2adc, float tot_ped, float tot_p0, float tot_p1, float tot_p2) {          
+          [&](uint32_t tot, float tot_lin, float tot2adc, float tot_ped, float tot_p0, float tot_p1, float tot_p2) {
             bool isLin(tot > tot_lin);
             bool isNotLin(!isLin);
             return isLin * (tot2adc * (tot - tot_ped)) + isNotLin * (tot_p0 + tot_p1 * tot + tot_p2 * tot * tot);
