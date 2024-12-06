@@ -85,14 +85,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     LogDebug("HGCalCalibrationParameter").log([&](auto& log) {
       if (calibWatcher_.check(iSetup)) {
         for (int i = 0; i < deviceConfigParamProvider.view().metadata().size(); i++) {
-          log << "gain = " << deviceConfigParamProvider.view()[i].gain() << "\n";
-        }
-      }
-    });
-    LogDebug("HGCalCalibrationParameter").log([&](auto& log) {
-      if (calibWatcher_.check(iSetup)) {
-        for (int i = 0; i < deviceCalibParamProvider.view().metadata().size(); i++) {
           log << "idx = " << i << ", "
+              << "gain = " << deviceConfigParamProvider.view()[i].gain() << ","
               << "ADC_ped = " << deviceCalibParamProvider.view()[i].ADC_ped() << ", "
               << "CM_slope = " << deviceCalibParamProvider.view()[i].CM_slope() << ", "
               << "CM_ped = " << deviceCalibParamProvider.view()[i].CM_ped() << ", "

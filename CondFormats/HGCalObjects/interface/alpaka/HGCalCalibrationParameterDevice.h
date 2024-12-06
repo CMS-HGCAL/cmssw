@@ -13,7 +13,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     using namespace ::hgcalrechit;
     using HGCalCalibParamDevice = PortableCollection<HGCalCalibParamSoA>;
-    //using HGCalChannelConfigParamDevice = PortableCollection<HGCalChannelConfigParamSoA>;
     using HGCalConfigParamDevice = PortableCollection<HGCalConfigParamSoA>;
 
   }  // namespace hgcalrechit

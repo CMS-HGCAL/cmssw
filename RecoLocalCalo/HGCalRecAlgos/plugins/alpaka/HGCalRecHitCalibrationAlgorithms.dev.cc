@@ -4,6 +4,7 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 // Alpaka imports
+//#include <alpaka/alpaka.hpp>
 #include "HeterogeneousCore/AlpakaInterface/interface/traits.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
@@ -17,8 +18,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   //
   struct HGCalRecHitCalibrationKernel_flagRecHits {
-    template <typename TAcc>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc,
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   HGCalDigiDevice::View digis,
                                   HGCalRecHitDevice::View recHits,
                                   HGCalCalibParamDevice::ConstView calibs) const {
@@ -39,8 +39,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   //
   struct HGCalRecHitCalibrationKernel_adcToCharge {
-    template <typename TAcc>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc,
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   HGCalDigiDevice::View digis,
                                   HGCalRecHitDevice::View recHits,
                                   HGCalCalibParamDevice::ConstView calibs) const {
@@ -89,8 +88,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   //
   struct HGCalRecHitCalibrationKernel_toaToTime {
-    template <typename TAcc>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc,
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   HGCalDigiDevice::View digis,
                                   HGCalRecHitDevice::View recHits,
                                   HGCalCalibParamDevice::ConstView calibs) const {
@@ -111,8 +109,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   };
 
   struct HGCalRecHitCalibrationKernel_printRecHits {
-    template <typename TAcc>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc, HGCalRecHitDevice::ConstView view, int size) const {
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc, HGCalRecHitDevice::ConstView view, int size) const {
       for (int i = 0; i < size; ++i) {
         auto const& recHit = view[i];
         printf("%d\t%f\t%f\t%d\n", i, recHit.energy(), recHit.time(), recHit.flags());
