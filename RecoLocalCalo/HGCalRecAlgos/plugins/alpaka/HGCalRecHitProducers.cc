@@ -74,7 +74,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   }
 
   void HGCalRecHitsProducer::produce(device::Event& iEvent, device::EventSetup const& iSetup) {
-    auto &queue = iEvent.queue();
+    auto& queue = iEvent.queue();
 
     // Read digis
     auto const& deviceCalibParamProvider = iSetup.getData(calibToken_);

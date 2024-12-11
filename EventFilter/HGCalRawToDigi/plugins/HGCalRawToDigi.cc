@@ -74,7 +74,6 @@ void HGCalRawToDigi::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetu
 }
 
 void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
-
   // retrieve logical mapping
   auto moduleIndexer = iSetup.getData(moduleIndexToken_);
   auto cellIndexer = iSetup.getData(cellIndexToken_);
@@ -103,8 +102,7 @@ void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
       const auto& fed_data = raw_data.FEDData(fedId);
       if (fed_data.size() == 0)
         return;
-      unpacker_.parseFEDData(
-          fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo, /*headerOnlyMode*/ false);
+      unpacker_.parseFEDData(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo, /*headerOnlyMode*/ false);
       return;
     });
   });

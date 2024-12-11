@@ -117,8 +117,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
-  HGCalRecHitDevice HGCalRecHitCalibrationAlgorithms::calibrate(
-                                                                Queue& queue,
+  HGCalRecHitDevice HGCalRecHitCalibrationAlgorithms::calibrate(Queue& queue,
                                                                 HGCalDigiHost const& host_digis,
                                                                 HGCalCalibParamDevice const& device_calib,
                                                                 HGCalConfigParamDevice const& device_config) const {
