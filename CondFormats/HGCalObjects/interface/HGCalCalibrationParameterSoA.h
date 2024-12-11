@@ -12,10 +12,6 @@
 
 namespace hgcalrechit {
 
-  // human-readable data type to replace bool for memcpy of vector<>::.data()
-  // NOTE: bool and byte have the same memory size
-  using mybool = std::byte;
-
   // Generate structure of channel-level arrays (SoA) layout with RecHit dataformat
   GENERATE_SOA_LAYOUT(HGCalCalibParamSoALayout,
                       SOA_COLUMN(float, ADC_ped),     // ADC pedestals, O(91)
@@ -31,15 +27,9 @@ namespace hgcalrechit {
                       SOA_COLUMN(float, TOT_P2),      // coefficient pol2 in nonlinear region, O(0.004)
                       SOA_COLUMN(float, TOAtops),     // TOA conversion to time (ps)
                       SOA_COLUMN(float, MIPS_scale),  // MIPS scale
-                      SOA_COLUMN(mybool, valid)       // if false: mask dead channel
+                      SOA_COLUMN(unsigned char, valid)      // only 1 bit used: if false = mask dead channel
   )
   using HGCalCalibParamSoA = HGCalCalibParamSoALayout<>;
-
-  // Generate structure of ROC-level arrays (SoA) layout with RecHit dataformat
-  GENERATE_SOA_LAYOUT(HGCalConfigParamSoALayout,
-                      SOA_COLUMN(uint8_t, gain)  // for ADC to charge (fC) conversion (80, 160, 320 fC)
-  )
-  using HGCalConfigParamSoA = HGCalConfigParamSoALayout<>;
 
 }  // namespace hgcalrechit
 

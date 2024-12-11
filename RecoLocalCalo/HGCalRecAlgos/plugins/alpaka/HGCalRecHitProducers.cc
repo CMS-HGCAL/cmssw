@@ -74,7 +74,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   }
 
   void HGCalRecHitsProducer::produce(device::Event& iEvent, device::EventSetup const& iSetup) {
-    auto queue = iEvent.queue();
+    auto &queue = iEvent.queue();
 
     // Read digis
     auto const& deviceCalibParamProvider = iSetup.getData(calibToken_);
@@ -100,7 +100,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto hostDigis = HGCalDigiHost(newSize, queue);
     // TODO: replace with memcp ?
     for (int i = 0; i < newSize; i++) {
-      //hostDigis.view()[i].electronicsId() = hostDigisIn.view()[i%oldSize].electronicsId();
       hostDigis.view()[i].tctp() = hostDigisIn.view()[i % oldSize].tctp();
       hostDigis.view()[i].adcm1() = hostDigisIn.view()[i % oldSize].adcm1();
       hostDigis.view()[i].adc() = hostDigisIn.view()[i % oldSize].adc();
@@ -108,9 +107,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       hostDigis.view()[i].toa() = hostDigisIn.view()[i % oldSize].toa();
       hostDigis.view()[i].cm() = hostDigisIn.view()[i % oldSize].cm();
       hostDigis.view()[i].flags() = hostDigisIn.view()[i % oldSize].flags();
-      //LogDebug("HGCalCalibrationParameter")
-      //  << "idx=" << i << ", elecId=" << hostDigis.view()[i].electronicsId()
-      //  << ", cm=" << hostDigis.view()[i].cm() << std::endl;
     }
     LogDebug("HGCalRecHitsProducer") << "Loaded host digis: " << hostDigis.view().metadata().size();  //<< std::endl;
 
@@ -122,16 +118,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 #endif
 
     auto recHits = calibrator_.calibrate(queue, hostDigis, deviceCalibParamProvider, deviceConfigParamProvider);
-    alpaka::wait(queue);
 
 #ifdef EDM_ML_DEBUG
+    alpaka::wait(queue);
     auto stop = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> elapsed = stop - start;
     LogDebug("HGCalRecHitsProducer") << "Time spent calibrating: " << elapsed.count();  //<< std::endl;
 #endif
 
     LogDebug("HGCalRecHitsProducer") << "\n\nINFO -- storing rec hits in the event";  //<< std::endl;
-    iEvent.emplace(recHitsToken_, std::move(*recHits));
+    iEvent.emplace(recHitsToken_, std::move(recHits));
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE

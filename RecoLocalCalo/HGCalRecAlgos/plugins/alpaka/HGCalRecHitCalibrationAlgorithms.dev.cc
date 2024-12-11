@@ -24,12 +24,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   HGCalCalibParamDevice::ConstView calibs) const {
       for (auto idx : uniform_elements(acc, digis.metadata().size())) {
         auto calib = calibs[idx];
-        int calibvalid = std::to_integer<int>(calib.valid());
+        bool calibvalid = calib.valid();
         auto digi = digis[idx];
         auto digiflags = digi.flags();
         //recHits[idx].flags() = digiflags;
         bool isAvailable((digiflags != hgcal::DIGI_FLAG::Invalid) && (digiflags != hgcal::DIGI_FLAG::NotAvailable) &&
-                         (calibvalid > 0));
+                         calibvalid);
         bool isToAavailable((digiflags != hgcal::DIGI_FLAG::ZS_ToA) && (digiflags != hgcal::DIGI_FLAG::ZS_ToA_ADCm1));
         recHits[idx].flags() = (!isAvailable) * hgcalrechit::HGCalRecHitFlags::EnergyInvalid +
                                (!isToAavailable) * hgcalrechit::HGCalRecHitFlags::TimeInvalid;
@@ -58,11 +58,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       for (auto idx : uniform_elements(acc, digis.metadata().size())) {
         auto calib = calibs[idx];
-        int calibvalid = std::to_integer<int>(calib.valid());
+        bool calibvalid = calib.valid();
         auto digi = digis[idx];
         auto digiflags = digi.flags();
         bool isAvailable((digiflags != hgcal::DIGI_FLAG::Invalid) && (digiflags != hgcal::DIGI_FLAG::NotAvailable) &&
-                         (calibvalid > 0));
+                         calibvalid);
         bool useTOT((digi.tctp() == 3) && isAvailable);
         bool useADC(!useTOT && isAvailable);
         recHits[idx].energy() = useADC * adc_denoise(digi.adc(),
@@ -96,11 +96,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       for (auto idx : uniform_elements(acc, digis.metadata().size())) {
         auto calib = calibs[idx];
-        int calibvalid = std::to_integer<int>(calib.valid());
+        bool calibvalid = calib.valid();
         auto digi = digis[idx];
         auto digiflags = digi.flags();
         bool isAvailable((digiflags != hgcal::DIGI_FLAG::Invalid) && (digiflags != hgcal::DIGI_FLAG::NotAvailable) &&
-                         (calibvalid > 0));
+                         calibvalid);
         bool isToAavailable((digiflags != hgcal::DIGI_FLAG::ZS_ToA) && (digiflags != hgcal::DIGI_FLAG::ZS_ToA_ADCm1));
         bool isGood(isAvailable && isToAavailable);
         recHits[idx].time() = isGood * toa_to_ps(digi.toa(), calib.TOAtops());
@@ -117,11 +117,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
-  std::unique_ptr<HGCalRecHitDevice> HGCalRecHitCalibrationAlgorithms::calibrate(
-      Queue& queue,
-      HGCalDigiHost const& host_digis,
-      HGCalCalibParamDevice const& device_calib,
-      HGCalConfigParamDevice const& device_config) const {
+  HGCalRecHitDevice HGCalRecHitCalibrationAlgorithms::calibrate(
+                                                                Queue& queue,
+                                                                HGCalDigiHost const& host_digis,
+                                                                HGCalCalibParamDevice const& device_calib,
+                                                                HGCalConfigParamDevice const& device_config) const {
     LogDebug("HGCalRecHitCalibrationAlgorithms") << "\n\nINFO -- Start of calibrate\n\n" << std::endl;
     LogDebug("HGCalRecHitCalibrationAlgorithms")
         << "N blocks: " << n_blocks_ << "\tN threads: " << n_threads_ << std::endl;
@@ -160,7 +160,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     print_recHit_device(queue, *device_recHits, n_hits_to_print);
 #endif
 
-    return device_recHits;
+    return std::move(*device_recHits);
   }
 
   void HGCalRecHitCalibrationAlgorithms::print(HGCalDigiHost const& digis, int max) const {
