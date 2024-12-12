@@ -117,7 +117,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
-  std::unique_ptr<HGCalRecHitDevice> HGCalRecHitCalibrationAlgorithms::calibrate(Queue& queue,
+  HGCalRecHitDevice HGCalRecHitCalibrationAlgorithms::calibrate(Queue& queue,
                                                                 HGCalDigiHost const& host_digis,
                                                                 HGCalCalibParamDevice const& device_calib,
                                                                 HGCalConfigParamDevice const& device_config) const {
@@ -132,25 +132,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     LogDebug("HGCalRecHitCalibrationAlgorithms")
         << "\n\nINFO -- Allocating rechits buffer and initiating values" << std::endl;
-    auto device_recHits = std::make_unique<HGCalRecHitDevice>(device_digis.view().metadata().size(), queue);
+    HGCalRecHitDevice device_recHits(device_digis.view().metadata().size(), queue);
 
     alpaka::exec<Acc1D>(queue,
                         grid,
                         HGCalRecHitCalibrationKernel_flagRecHits{},
                         device_digis.view(),
-                        device_recHits->view(),
+                        device_recHits.view(),
                         device_calib.view());
     alpaka::exec<Acc1D>(queue,
                         grid,
                         HGCalRecHitCalibrationKernel_adcToCharge{},
                         device_digis.view(),
-                        device_recHits->view(),
+                        device_recHits.view(),
                         device_calib.view());
     alpaka::exec<Acc1D>(queue,
                         grid,
                         HGCalRecHitCalibrationKernel_toaToTime{},
                         device_digis.view(),
-                        device_recHits->view(),
+                        device_recHits.view(),
                         device_calib.view());
 
     LogDebug("HGCalRecHitCalibrationAlgorithms") << "Input recHits: " << std::endl;

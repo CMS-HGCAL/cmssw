@@ -127,7 +127,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 #endif
 
     LogDebug("HGCalRecHitsProducer") << "\n\nINFO -- storing rec hits in the event";  //<< std::endl;
-    iEvent.emplace(recHitsToken_, std::move(*recHits));
+    iEvent.emplace(recHitsToken_, std::move(recHits));
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
