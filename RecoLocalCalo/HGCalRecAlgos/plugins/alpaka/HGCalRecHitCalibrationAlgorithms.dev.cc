@@ -117,7 +117,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
-  HGCalRecHitDevice HGCalRecHitCalibrationAlgorithms::calibrate(Queue& queue,
+  std::unique_ptr<HGCalRecHitDevice> HGCalRecHitCalibrationAlgorithms::calibrate(Queue& queue,
                                                                 HGCalDigiHost const& host_digis,
                                                                 HGCalCalibParamDevice const& device_calib,
                                                                 HGCalConfigParamDevice const& device_config) const {
@@ -159,7 +159,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     print_recHit_device(queue, *device_recHits, n_hits_to_print);
 #endif
 
-    return std::move(*device_recHits);
+    return device_recHits;
   }
 
   void HGCalRecHitCalibrationAlgorithms::print(HGCalDigiHost const& digis, int max) const {
