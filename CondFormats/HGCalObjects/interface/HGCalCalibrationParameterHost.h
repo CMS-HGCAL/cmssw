@@ -2,8 +2,8 @@
 #define CondFormats_HGCalObjects_interface_HGCalCalibrationParameterHost_h
 
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
-#include "CondFormats/HGCalObjects/interface/HGCalCalibrationParameterSoA.h"
-#include "CondFormats/HGCalObjects/interface/HGCalConfigParameterSoA.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCalibParamSoA.h"
+#include "CondFormats/HGCalObjects/interface/HGCalConfigParamSoA.h"
 
 namespace hgcalrechit {
 

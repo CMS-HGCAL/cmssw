@@ -1,5 +1,5 @@
-#ifndef CondFormats_HGCalObjects_interface_HGCalCalibrationParameterSoA_h
-#define CondFormats_HGCalObjects_interface_HGCalCalibrationParameterSoA_h
+#ifndef CondFormats_HGCalObjects_interface_HGCalCalibParamSoA_h
+#define CondFormats_HGCalObjects_interface_HGCalCalibParamSoA_h
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -33,4 +33,4 @@ namespace hgcalrechit {
 
 }  // namespace hgcalrechit
 
-#endif  // CondFormats_HGCalObjects_interface_HGCalCalibrationParameterSoA_h
+#endif  // CondFormats_HGCalObjects_interface_HGCalCalibParamSoA_h

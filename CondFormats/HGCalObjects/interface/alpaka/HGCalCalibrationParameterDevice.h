@@ -4,8 +4,8 @@
 #include "DataFormats/Portable/interface/alpaka/PortableCollection.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
-#include "CondFormats/HGCalObjects/interface/HGCalCalibrationParameterSoA.h"
-#include "CondFormats/HGCalObjects/interface/HGCalConfigParameterSoA.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCalibParamSoA.h"
+#include "CondFormats/HGCalObjects/interface/HGCalConfigParamSoA.h"
 #include "CondFormats/HGCalObjects/interface/HGCalCalibrationParameterHost.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
