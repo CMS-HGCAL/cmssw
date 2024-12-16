@@ -16,7 +16,7 @@
 
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
-#include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
+//#include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
 #include "CondFormats/DataRecord/interface/HGCalModuleConfigurationRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalConfiguration.h"
 
@@ -45,7 +45,8 @@ private:
   // what else do we want to output?
 
   // config tokens
-  edm::ESGetToken<HGCalMappingCellIndexer, HGCalElectronicsMappingRcd> cellIndexToken_;
+  // COMMENT @pfs : Cell indexer is for the moment commented as it may be used in the future for Si calib and SiPM-on-tile cells
+  //edm::ESGetToken<HGCalMappingCellIndexer, HGCalElectronicsMappingRcd> cellIndexToken_;
   edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIndexToken_;
   edm::ESGetToken<HGCalConfiguration, HGCalModuleConfigurationRcd> configToken_;
 
@@ -63,7 +64,7 @@ HGCalRawToDigi::HGCalRawToDigi(const edm::ParameterSet& iConfig)
     : fedRawToken_(consumes<FEDRawDataCollection>(iConfig.getParameter<edm::InputTag>("src"))),
       digisToken_(produces<hgcaldigi::HGCalDigiHost>()),
       econdPacketInfoToken_(produces<hgcaldigi::HGCalECONDPacketInfoHost>()),
-      cellIndexToken_(esConsumes()),
+      //cellIndexToken_(esConsumes()),
       moduleIndexToken_(esConsumes()),
       configToken_(esConsumes()),
       doSerial_(iConfig.getParameter<bool>("doSerial")) {}
@@ -76,7 +77,7 @@ void HGCalRawToDigi::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetu
 void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
   // retrieve logical mapping
   const auto& moduleIndexer = iSetup.getData(moduleIndexToken_);
-  const auto& cellIndexer = iSetup.getData(cellIndexToken_);
+  //const auto& cellIndexer = iSetup.getData(cellIndexToken_);
   const auto& config = iSetup.getData(configToken_);
 
   hgcaldigi::HGCalDigiHost digis(moduleIndexer.getMaxDataSize(), cms::alpakatools::host());
