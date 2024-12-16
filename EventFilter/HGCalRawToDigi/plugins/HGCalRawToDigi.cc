@@ -68,7 +68,6 @@ HGCalRawToDigi::HGCalRawToDigi(const edm::ParameterSet& iConfig)
       configToken_(esConsumes()),
       doSerial_(iConfig.getParameter<bool>("doSerial")) {}
 
-
 void HGCalRawToDigi::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup) {
   // TODO @hqucms
   // init unpacker with proper configs
@@ -91,7 +90,7 @@ void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
   }
 
   //serial unpacking calls
-  if(doSerial_) {
+  if (doSerial_) {
     for (unsigned fedId = 0; fedId < moduleIndexer.fedCount(); ++fedId) {
       const auto& fed_data = raw_data.FEDData(fedId);
       if (fed_data.size() == 0)
@@ -106,12 +105,13 @@ void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
         const auto& fed_data = raw_data.FEDData(fedId);
         if (fed_data.size() == 0)
           return;
-        unpacker_.parseFEDData(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo, /*headerOnlyMode*/ false);
+        unpacker_.parseFEDData(
+            fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo, /*headerOnlyMode*/ false);
         return;
       });
     });
   }
-  
+
   // put information to the event
   iEvent.emplace(digisToken_, std::move(digis));
   iEvent.emplace(econdPacketInfoToken_, std::move(econdPacketInfo));
@@ -122,7 +122,7 @@ void HGCalRawToDigi::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("src", edm::InputTag("rawDataCollector"));
   desc.add<std::vector<unsigned int> >("fedIds", {});
-  desc.add<bool>("doSerial",true)->setComment("do not attempt to paralleize unpacking of different FEDs");
+  desc.add<bool>("doSerial", true)->setComment("do not attempt to paralleize unpacking of different FEDs");
   descriptions.add("hgcalDigis", desc);
 }
 
