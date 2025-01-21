@@ -48,9 +48,9 @@ private:
 
 //
 HGCalDigiSoAFiller::HGCalDigiSoAFiller(const edm::ParameterSet& iConfig) :
-  phase1DigisCEETkn_( consumes<HGCalDigiCollection>( iConfig.getParameter<edm::InputTag>("PhaseIDigisCEE") ) ),
-  phase1DigisCEHTkn_( consumes<HGCalDigiCollection>( iConfig.getParameter<edm::InputTag>("PhaseIDigisCEHSi") ) ),
-  phase1DigisCEHSciTkn_( consumes<HGCalDigiCollection>( iConfig.getParameter<edm::InputTag>("PhaseIDigisCEHSci") ) ),
+  phase1DigisCEETkn_( consumes<HGCalDigiCollection>( iConfig.getUntrackedParameter<edm::InputTag>("PhaseIDigisCEE") ) ),
+  phase1DigisCEHTkn_( consumes<HGCalDigiCollection>( iConfig.getUntrackedParameter<edm::InputTag>("PhaseIDigisCEHSi") ) ),
+  phase1DigisCEHSciTkn_( consumes<HGCalDigiCollection>( iConfig.getUntrackedParameter<edm::InputTag>("PhaseIDigisCEHSci") ) ),
   moduleIndexToken_(esConsumes()),
   configToken_(esConsumes()),
   denseIndexInfoTkn_(esConsumes()),
@@ -90,10 +90,10 @@ void HGCalDigiSoAFiller::produce(edm::Event& iEvent, const edm::EventSetup& iSet
 // fill descriptions
 void HGCalDigiSoAFiller::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
-  desc.add<edm::InputTag>("PhaseIDigisCEE",    edm::InputTag("simHGCalUnsuppressedDigis","EE"));
-  desc.add<edm::InputTag>("PhaseIDigisCEHSi",  edm::InputTag("simHGCalUnsuppressedDigis","HEfront"));
-  desc.add<edm::InputTag>("PhaseIDigisCEHSci", edm::InputTag("simHGCalUnsuppressedDigis","HEback"));
-  descriptions.add("hgcalDigis", desc);
+  desc.addUntracked<edm::InputTag>("PhaseIDigisCEE",    edm::InputTag("simHGCalUnsuppressedDigis","EE"));
+  desc.addUntracked<edm::InputTag>("PhaseIDigisCEHSi",  edm::InputTag("simHGCalUnsuppressedDigis","HEfront"));
+  desc.addUntracked<edm::InputTag>("PhaseIDigisCEHSci", edm::InputTag("simHGCalUnsuppressedDigis","HEback"));
+  descriptions.addWithDefaultLabel(desc);
 }
 
 // define this as a plug-in
