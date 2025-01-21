@@ -30,8 +30,7 @@ import os
 os.system(f'cp -v {options.modules} ${{CMSSW_BASE}}/src/modulelocator.txt')
 process = customise_hgcalmapper(process, modules = 'modulelocator.txt')
 
-#converter
-process.load('SimCalorimetry.HGCalSimProducers.hgCalDigiSoAFiller_cfi')
+process.digi2soa = cms.EDProducer('HGCalDigiSoAFiller')
 
 # timing
 process.Timing = cms.Service(
@@ -40,7 +39,7 @@ process.Timing = cms.Service(
     useJobReport=cms.untracked.bool(True)
 )
                                 
-process.t = cms.Task( process.hgCalDigiSoAFiller )
+process.t = cms.Task( process.digi2soa )
 process.p = cms.Path( process.t ) 
 
 #output
@@ -49,8 +48,13 @@ process.output = cms.OutputModule(
   fileName=cms.untracked.string(options.output),
   outputCommands=cms.untracked.vstring(
     'drop *',
-    'keep *SoA*_hgcalDigis_*_*',
+    'keep *' #SoA*_hgcalDigis_*_*',
   ),
   SelectEvents=cms.untracked.PSet(SelectEvents=cms.vstring('p'))
 )
 process.outpath = cms.EndPath(process.output)
+
+
+# Add early deletion of temporary data products to reduce peak memory need
+from Configuration.StandardSequences.earlyDeleteSettings_cff import customiseEarlyDelete
+process = customiseEarlyDelete(process)

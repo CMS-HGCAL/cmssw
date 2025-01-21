@@ -22,6 +22,11 @@
 #include "CondFormats/HGCalObjects/interface/HGCalConfiguration.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHost.h"
 
+#include "Geometry/Records/interface/CaloGeometryRecord.h"
+#include "Geometry/CaloGeometry/interface/CaloGeometry.h"
+#include "Geometry/CaloGeometry/interface/CaloSubdetectorGeometry.h"
+#include "Geometry/HGCalGeometry/interface/HGCalGeometry.h"
+
 #include <unordered_map>
 
 class HGCalDigiSoAFiller : public edm::stream::EDProducer<> {
@@ -33,9 +38,16 @@ public:
   static void fillDescriptions(edm::ConfigurationDescriptions&);
   
 private:
+  void beginStream(edm::StreamID) override {}
   void produce(edm::Event&, const edm::EventSetup&) override;
+  void endStream() override {}
   void beginRun(edm::Run const&, edm::EventSetup const&) override;
-  void fillDetIdToIndexMaps(const hgcal::HGCalDenseIndexInfoHost &);
+
+  /**
+     @short this function takes care of building the map: DetId -> DenseIndex
+     PhaseI Digis are ordered by DetId so they need to be mapped to the dense index in the SoA     
+   */
+  void fillDetIdToIndexMaps(const hgcal::HGCalDenseIndexInfoHost &, const CaloGeometry &);
 
   //input tokens
   edm::EDGetTokenT<HGCalDigiCollection> phase1DigisCEETkn_,phase1DigisCEHTkn_,phase1DigisCEHSciTkn_;
@@ -45,6 +57,7 @@ private:
   edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIndexToken_;
   edm::ESGetToken<HGCalConfiguration, HGCalModuleConfigurationRcd> configToken_;
   edm::ESGetToken<hgcal::HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexInfoTkn_;
+  edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
   
   // output tokens
   const edm::EDPutTokenT<hgcaldigi::HGCalDigiHost> digisToken_;
@@ -60,48 +73,76 @@ HGCalDigiSoAFiller::HGCalDigiSoAFiller(const edm::ParameterSet& iConfig) :
   phase1DigisCEHSciTkn_( consumes<HGCalDigiCollection>( iConfig.getUntrackedParameter<edm::InputTag>("PhaseIDigisCEHSci") ) ),
   moduleIndexToken_(esConsumes()),
   configToken_(esConsumes()),
-  denseIndexInfoTkn_(esConsumes()),
+  denseIndexInfoTkn_(esConsumes<edm::Transition::BeginRun>()),
+  caloGeomToken_(esConsumes<edm::Transition::BeginRun>()),
   digisToken_(produces<hgcaldigi::HGCalDigiHost>())
 {
-  std::cout << " [HGCalDigiSoAFiller]" << std::endl; 
 }
 
 //
 void HGCalDigiSoAFiller::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup) {
-  std::cout << " [HGCalDigiSoAFiller] beginRun" << std::endl; 
+  const auto& denseIndexInfo = iSetup.getData(denseIndexInfoTkn_);
+  auto const& geo = iSetup.getData(caloGeomToken_);
+  fillDetIdToIndexMaps(denseIndexInfo, geo);
 }
 
 //
-void HGCalDigiSoAFiller::fillDetIdToIndexMaps(const hgcal::HGCalDenseIndexInfoHost &denseIndexInfo) {
-
-  std::cout << " [HGCalDigiSoAFiller] fillDetIdToIndexMaps" << std::endl; 
-  
-  //skip if this has been done already
-  if(detId2IdxCEE_.size()>0) return;
-  
+void HGCalDigiSoAFiller::fillDetIdToIndexMaps(const hgcal::HGCalDenseIndexInfoHost &denseIndexInfo, const CaloGeometry &geo) {
+    
   //loop over dense indices
   auto denseIndexInfo_view = denseIndexInfo.const_view();
   int32_t ndii = denseIndexInfo_view.metadata().size();
   int32_t nunknown = 0;
-  std::cout << "[HGCalDigiSoAFiller::fillDetIdToIndexMaps] fill the DetId to dense index inverse map with " << ndii << " entries" << std::endl;
+  int32_t ninvalid = 0;
   for(int32_t i=0; i<ndii; i++) {
+
     auto indexinfo = denseIndexInfo_view[i];
     uint32_t detIdVal = indexinfo.detid();
-    DetId detId(detIdVal);
-    if (detId.det() == DetId::HGCalEE) {
+    if(detIdVal==0) continue;
+    
+    //rebuild the det id and check the validity in the geometry
+    DetId::Detector det = DetId::HGCalEE;
+    try {
+      DetId detId(detIdVal);
+      det = detId.det();
+      //int subdet = ForwardSubdetector::ForwardEmpty;
+      //const HGCalGeometry* hgcal_geom = static_cast<const HGCalGeometry*>(geo.getSubdetectorGeometry(det, subdet));
+      //if(!hgcal_geom->valid(detId))
+      //  throw cms::Exception("HGCalDigiSoAFiller :: invalid DetId") << detIdVal;
+    }catch(cms::Exception &e) {
+      ninvalid++;
+      continue;
+    }
+
+    //assign in the appropriate map
+    if (det == DetId::HGCalEE) {
       detId2IdxCEE_[i] = detIdVal;
     }
-    else if(detId.det() == DetId::HGCalHSi) {
+    else if(det == DetId::HGCalHSi) {
       detId2IdxCEH_[i] = detIdVal;
     }
-    else if(detId.det() == DetId::HGCalHSc) {
+    else if(det == DetId::HGCalHSc) {
       detId2IdxCEHSci_[i] = detIdVal;
     }
     else {
       nunknown++;
     }
   }
-  std::cout << "\t caught " << nunknown << " detids" << std::endl;
+
+  //report result of the mapping
+  size_t nvalid(detId2IdxCEE_.size()+detId2IdxCEH_.size()+detId2IdxCEHSci_.size());
+  std::cout << "DetId count after building inverse mapping " << std::endl
+            << "| Type        | Counts |" << std::endl
+            << "| ----------- | -------- |" << std::endl
+            << "| unknown     | " << nunknown << " | " << std::endl
+            << "| invalid     | " << ninvalid << " | " << std::endl
+            << "| CE-E        | " << detId2IdxCEE_.size() << " | " << std::endl
+            << "| CE-HSi      | " << detId2IdxCEH_.size() << " | " << std::endl
+            << "| CE-HSci     | " << detId2IdxCEHSci_.size() << " | " << std::endl
+            << "| ----------- | -------- |" << std::endl
+            << "| Total valid | " << nvalid << " | " << std::endl
+            << "| Total idxs  | " << ndii << " | " << std::endl
+            << "| ----------- | -------- |" << std::endl;
 }
 
 //
@@ -113,9 +154,7 @@ void HGCalDigiSoAFiller::produce(edm::Event& iEvent, const edm::EventSetup& iSet
   const auto& moduleIndexer = iSetup.getData(moduleIndexToken_);
   //const auto& cellIndexer = iSetup.getData(cellIndexToken_);
   const auto& config = iSetup.getData(configToken_);
-  const auto& denseIndexInfo = iSetup.getData(denseIndexInfoTkn_);
-  fillDetIdToIndexMaps(denseIndexInfo);
-    
+      
   //book space needed for SoA DIGIs
   hgcaldigi::HGCalDigiHost digis(moduleIndexer.getMaxDataSize(), cms::alpakatools::host());
 
