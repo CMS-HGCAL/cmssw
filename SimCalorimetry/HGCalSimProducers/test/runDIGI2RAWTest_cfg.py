@@ -42,3 +42,15 @@ process.Timing = cms.Service(
                                 
 process.t = cms.Task( process.hgCalDigiSoAFiller )
 process.p = cms.Path( process.t ) 
+
+#output
+process.output = cms.OutputModule(
+  "PoolOutputModule",
+  fileName=cms.untracked.string(options.output),
+  outputCommands=cms.untracked.vstring(
+    'drop *',
+    'keep *SoA*_hgcalDigis_*_*',
+  ),
+  SelectEvents=cms.untracked.PSet(SelectEvents=cms.vstring('p'))
+)
+process.outpath = cms.EndPath(process.output)
