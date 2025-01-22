@@ -9,7 +9,8 @@
 #include "FWCore/Utilities/interface/StreamID.h"
 
 #include "DataFormats/DetId/interface/DetId.h"
-#include "DataFormats/HGCDigi/interface/HGCDigiCollections.h"
+#include "DataFormats/HGCDigi/interface/HGCDigiCollections.h" //should we update? by the one below
+//#include "DataFormats/HGCalDigi/interface/HGCalDigiCollections.h" 
 #include "DataFormats/HGCalDigi/interface/HGCalElectronicsId.h"
 #include "DataFormats/HGCalDigi/interface/HGCalDigiHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalRawDataDefinitions.h"
@@ -48,14 +49,14 @@ private:
      PhaseI Digis are ordered by DetId so they need to be mapped to the dense index in the SoA     
    */
   void fillDetIdToIndexMaps(const hgcal::HGCalDenseIndexInfoHost &, const CaloGeometry &);
-
+  void analyzeDigis(edm::Handle<HGCalDigiCollection> &digiColl, const std::unordered_map<uint32_t, uint32_t> detmap, hgcaldigi::HGCalDigiHost& digis);
   //input tokens
   edm::EDGetTokenT<HGCalDigiCollection> phase1DigisCEETkn_,phase1DigisCEHTkn_,phase1DigisCEHSciTkn_;
 
   // config tokens
   //edm::ESGetToken<HGCalMappingCellIndexer, HGCalElectronicsMappingRcd> cellIndexToken_;
   edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIndexToken_;
-  edm::ESGetToken<HGCalConfiguration, HGCalModuleConfigurationRcd> configToken_;
+  //edm::ESGetToken<HGCalConfiguration, HGCalModuleConfigurationRcd> configToken_;
   edm::ESGetToken<hgcal::HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexInfoTkn_;
   edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
   
@@ -72,7 +73,7 @@ HGCalDigiSoAFiller::HGCalDigiSoAFiller(const edm::ParameterSet& iConfig) :
   phase1DigisCEHTkn_( consumes<HGCalDigiCollection>( iConfig.getUntrackedParameter<edm::InputTag>("PhaseIDigisCEHSi") ) ),
   phase1DigisCEHSciTkn_( consumes<HGCalDigiCollection>( iConfig.getUntrackedParameter<edm::InputTag>("PhaseIDigisCEHSci") ) ),
   moduleIndexToken_(esConsumes()),
-  configToken_(esConsumes()),
+  //configToken_(esConsumes()),
   denseIndexInfoTkn_(esConsumes<edm::Transition::BeginRun>()),
   caloGeomToken_(esConsumes<edm::Transition::BeginRun>()),
   digisToken_(produces<hgcaldigi::HGCalDigiHost>())
@@ -144,6 +145,50 @@ void HGCalDigiSoAFiller::fillDetIdToIndexMaps(const hgcal::HGCalDenseIndexInfoHo
             << "| Total idxs  | " << ndii << " | " << std::endl
             << "| ----------- | -------- |" << std::endl;
 }
+//
+void HGCalDigiSoAFiller::analyzeDigis(edm::Handle<HGCalDigiCollection> &digiColl, const std::unordered_map<uint32_t, uint32_t> detmap, hgcaldigi::HGCalDigiHost& digis)
+{
+  //these are the maps: std::unordered_map<uint32_t, uint32_t> detId2IdxCEE_, detId2IdxCEH_, detId2IdxCEHSci_;
+  const int itSample(2); //in-time sample
+  for(auto &hit : *digiColl)
+    {
+      if(hit.size()==0) continue;
+
+      //uint32_t detmap_key(hit.rawId()); //for HGCal
+      uint32_t detmap_key(hit.id()); //for HGC check the dataformat you put as a header
+
+      //if(detmap.zside()<0) continue; // GF address this and un-do
+
+      //wafer id
+      //int layer=detId.layer();
+      //std::pair<int,int> waferUV=detId.waferUV();
+
+      // if (fold_) remapUV(subdet, waferUV);   //GFGF
+      //HGCalWafer::WaferKey_t key(std::make_tuple(subdet,layer,waferUV.first,waferUV.second));
+
+      //re-compute the thresholds
+      //HGCalSiNoiseMap<HGCSiliconDetId>::SiCellOpCharacteristics siop=noiseMaps_[subdet]->getSiCellOpCharacteristics(detId);
+      //int mipADC=siop.mipADC;
+      //in-time BX info
+      uint32_t rawData(hit.sample(itSample).data() );
+      bool isTOA( hit.sample(itSample).getToAValid() );
+      bool isTDC( hit.sample(itSample).mode() );
+      //bool isBusy( isTDC && rawData==0 );
+      //uint32_t thr( std::floor(mipADC*adcThrMIP_) );
+      //bool passThr(isTDC || rawData>thr);
+
+      //BX-1 info
+      uint32_t rawDatabxm1(hit.sample(itSample-1).data() );
+
+      digis.view()[denseIdx].tctp() = tctp_[code];
+      digis.view()[denseIdx].adcm1() = (temp >> adcm1Shift_[code]) & adcm1Mask_[code];
+      digis.view()[denseIdx].adc() = (temp >> adcShift_[code]) & adcMask_[code];
+      digis.view()[denseIdx].tot() = (temp >> totShift_[code]) & totMask_[code];
+      digis.view()[denseIdx].toa() = (temp >> toaShift_[code] & toaMask_[code]);
+      digis.view()[denseIdx].cm() = cmSum;
+      digis.view()[denseIdx].flags() = 0;
+}
+
 
 //
 void HGCalDigiSoAFiller::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
@@ -153,7 +198,7 @@ void HGCalDigiSoAFiller::produce(edm::Event& iEvent, const edm::EventSetup& iSet
   // retrieve logical mapping and dense indexing
   const auto& moduleIndexer = iSetup.getData(moduleIndexToken_);
   //const auto& cellIndexer = iSetup.getData(cellIndexToken_);
-  const auto& config = iSetup.getData(configToken_);
+  //const auto& config = iSetup.getData(configToken_);
       
   //book space needed for SoA DIGIs
   hgcaldigi::HGCalDigiHost digis(moduleIndexer.getMaxDataSize(), cms::alpakatools::host());
@@ -171,6 +216,7 @@ void HGCalDigiSoAFiller::produce(edm::Event& iEvent, const edm::EventSetup& iSet
   
   //loop and fill in the corresponding SoA index
   //FIXME
+
 
   // put information to the event
   iEvent.emplace(digisToken_, std::move(digis));
