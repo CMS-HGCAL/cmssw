@@ -154,7 +154,9 @@ void HGCalDigiSoAFiller::analyzeDigis(edm::Handle<HGCalDigiCollection> &digiColl
 
       //uint32_t detmap_key(hit.rawId()); //for HGCal
       uint32_t detmap_key(hit.id()); //for HGC check the dataformat you put as a header
-
+      if (detmap.count(detmap_key) == 0) {
+        continue;
+      }
       uint32_t rawData(hit.sample(itSample).data() );
       bool isTOA( hit.sample(itSample).getToAValid() );
       bool isTDC( hit.sample(itSample).mode() );
