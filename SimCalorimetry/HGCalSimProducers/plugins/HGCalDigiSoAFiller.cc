@@ -216,18 +216,10 @@ void HGCalDigiSoAFiller::produce(edm::Event& iEvent, const edm::EventSetup& iSet
   iEvent.getByToken(phase1DigisCEETkn_,phase1DigisCEE);
   iEvent.getByToken(phase1DigisCEHTkn_,phase1DigisCEH);
   iEvent.getByToken(phase1DigisCEHSciTkn_,phase1DigisCEHSci);
-
-  std::cout << " Event digis" << std::endl;
-  std::cout << phase1DigisCEE->size() << std::endl;
-  std::cout << phase1DigisCEH->size() << std::endl;
-  std::cout << phase1DigisCEHSci->size() << std::endl;
   
   //loop and fill in the corresponding SoA index
-  std::cout << " analyzeDigis(phase1DigisCEE starts" << std::endl;
   analyzeDigis(phase1DigisCEE, detId2IdxCEE_, digis);
-  std::cout << " analyzeDigis(phase1DigisCEH starts" << std::endl;
   analyzeDigis(phase1DigisCEH, detId2IdxCEH_, digis);
-  std::cout << " analyzeDigis(phase1DigisCEHSci starts" << std::endl;
   analyzeDigis(phase1DigisCEHSci, detId2IdxCEHSci_, digis);
 
   // put information to the event

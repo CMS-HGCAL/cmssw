@@ -39,7 +39,7 @@ process = customise_hgcalmapper(process, modules = 'modulelocator.txt')
 del df
 print(f'Module locator @ {outmoduleloc}')
 
-process.digi2soa = cms.EDProducer('HGCalDigiSoAFiller')
+process.hgcalDigis = cms.EDProducer('HGCalDigiSoAFiller')
 
 # timing
 process.Timing = cms.Service(
@@ -48,7 +48,7 @@ process.Timing = cms.Service(
     useJobReport=cms.untracked.bool(True)
 )
                                 
-process.t = cms.Task( process.digi2soa )
+process.t = cms.Task( process.hgcalDigis )
 process.p = cms.Path( process.t ) 
 
 #output
@@ -57,7 +57,7 @@ process.output = cms.OutputModule(
   fileName=cms.untracked.string(options.output),
   outputCommands=cms.untracked.vstring(
     'drop *',
-    'keep *_digi2soa_*_*' #SoA*_hgcalDigis_*_*',
+    'keep *_hgcalDigis_*_*'
   ),
   SelectEvents=cms.untracked.PSet(SelectEvents=cms.vstring('p'))
 )
