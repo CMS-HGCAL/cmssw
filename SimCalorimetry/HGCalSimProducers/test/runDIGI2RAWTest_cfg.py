@@ -57,7 +57,7 @@ process.output = cms.OutputModule(
   fileName=cms.untracked.string(options.output),
   outputCommands=cms.untracked.vstring(
     'drop *',
-    'keep *' #SoA*_hgcalDigis_*_*',
+    'keep *_digi2soa_*_*' #SoA*_hgcalDigis_*_*',
   ),
   SelectEvents=cms.untracked.PSet(SelectEvents=cms.vstring('p'))
 )

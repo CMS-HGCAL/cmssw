@@ -147,6 +147,7 @@ void HGCalDigiSoAFiller::fillDetIdToIndexMaps(const hgcal::HGCalDenseIndexInfoHo
 }
 //
 void HGCalDigiSoAFiller::analyzeDigis(edm::Handle<HGCalDigiCollection> &digiColl, const std::unordered_map<uint32_t, uint32_t> detmap, hgcaldigi::HGCalDigiHost& digis) {
+  //std::cout << "************HGCalDigiSoAFiller::analyzeDigis method started ************" << std::endl;
   const int itSample(2); //in-time sample
   for(auto &hit : *digiColl)
     {
@@ -154,7 +155,9 @@ void HGCalDigiSoAFiller::analyzeDigis(edm::Handle<HGCalDigiCollection> &digiColl
 
       //uint32_t detmap_key(hit.rawId()); //for HGCal
       uint32_t detmap_key(hit.id()); //for HGC check the dataformat you put as a header
+      //std::cout << "checking if we find the hit in the map or not" << std::endl;
       if (detmap.count(detmap_key) == 0) {
+        //std::cout << "skipping hit" << detmap_key << std::endl;
         continue;
       }
       uint32_t rawData(hit.sample(itSample).data() );
@@ -224,7 +227,9 @@ void HGCalDigiSoAFiller::produce(edm::Event& iEvent, const edm::EventSetup& iSet
   std::cout << phase1DigisCEHSci->size() << std::endl;
   
   //loop and fill in the corresponding SoA index
+  std::cout << " analyzeDigis(phase1DigisCEE starts" << std::endl;
   analyzeDigis(phase1DigisCEE, detId2IdxCEE_, digis);
+  std::cout << " analyzeDigis(phase1DigisCEH starts" << std::endl;
   analyzeDigis(phase1DigisCEH, detId2IdxCEH_, digis);
   analyzeDigis(phase1DigisCEHSci, detId2IdxCEHSci_, digis);
 
