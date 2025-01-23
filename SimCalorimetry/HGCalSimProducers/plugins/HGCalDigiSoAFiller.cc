@@ -117,13 +117,13 @@ void HGCalDigiSoAFiller::fillDetIdToIndexMaps(const hgcal::HGCalDenseIndexInfoHo
 
     //assign in the appropriate map
     if (det == DetId::HGCalEE) {
-      detId2IdxCEE_[i] = detIdVal;
+      detId2IdxCEE_[detIdVal] = i;
     }
     else if(det == DetId::HGCalHSi) {
-      detId2IdxCEH_[i] = detIdVal;
+      detId2IdxCEH_[detIdVal] = i;
     }
     else if(det == DetId::HGCalHSc) {
-      detId2IdxCEHSci_[i] = detIdVal;
+      detId2IdxCEHSci_[detIdVal] = i;
     }
     else {
       nunknown++;
@@ -147,52 +147,42 @@ void HGCalDigiSoAFiller::fillDetIdToIndexMaps(const hgcal::HGCalDenseIndexInfoHo
 }
 //
 void HGCalDigiSoAFiller::analyzeDigis(edm::Handle<HGCalDigiCollection> &digiColl, const std::unordered_map<uint32_t, uint32_t> detmap, hgcaldigi::HGCalDigiHost& digis) {
+
   const int itSample(2); //in-time sample
   for(auto &hit : *digiColl)
     {
       if(hit.size()==0) continue;
 
-      uint32_t detmap_key(hit.id()); //for HGC check the dataformat you put as a header
-      if (detmap.count(detmap_key) == 0) {
-        continue;
-      }
+      //check detid is in the map
+      uint32_t detmap_key(hit.id());
+
+      auto detmapit = detmap.find(detmap_key);
+      if (detmapit == detmap.end()) continue;
+      uint32_t denseIdx = detmapit->second;
+      
+      //get the necessary info from the legacy digi collection
       uint32_t rawData(hit.sample(itSample).data() );
       bool isTOA( hit.sample(itSample).getToAValid() );
       bool isTDC( hit.sample(itSample).mode() );
       bool isBusy( isTDC && rawData==0 );
-      uint32_t tctb = 0;
+      uint32_t rawDatabxm1(hit.sample(itSample-1).data() );
+      uint32_t toa(hit.sample(itSample).toa());
+      
+      //convert to the realistic digi info
+      uint32_t tctp = 0;
       if (isBusy) {
-        tctb = 1;
+        tctp = 1;
       }
       else if (isTDC) {
-        tctb = 2;
+        tctp = 3;
       }
-
-      uint32_t rawDatabxm1(hit.sample(itSample-1).data() );
-      //uint32_t denseIdx(detmap[detmap_key]);
-      uint32_t denseIdx = detmap.at(detmap_key);
-      //TCTB and ACD-1 values
-      digis.view()[denseIdx].tctp() = tctb;
-      digis.view()[denseIdx].adcm1() = rawDatabxm1;
-
-      //ADC value
-      if (isTDC) {
-        digis.view()[denseIdx].adc() = 0.;
-        digis.view()[denseIdx].tot() = rawData;
-      }
-      else {
-        digis.view()[denseIdx].adc() = rawData;
-        digis.view()[denseIdx].tot() = 0.;
-      }
-
-      if (isTOA) {
-        digis.view()[denseIdx].toa() =  hit.sample(itSample).toa();
-      }
-      else digis.view()[denseIdx].toa() = 0.;
-
-      //digis.view()[denseIdx].cm() = cmSum;
-      digis.view()[denseIdx].cm() = 0; // we do not simulate it
-      digis.view()[denseIdx].flags() = 0;
+      digis.view()[denseIdx].tctp() = tctp;
+      digis.view()[denseIdx].adcm1() = tctp==0 ? rawDatabxm1 :0;
+      digis.view()[denseIdx].adc() = tctp==0 ? rawData : 0;
+      digis.view()[denseIdx].tot() = tctp==3 ? rawData : 0;
+      digis.view()[denseIdx].toa() = isTOA ? toa : 0;
+      digis.view()[denseIdx].cm() = 0;
+      digis.view()[denseIdx].flags() = hgcal::DIGI_FLAG::Normal;
     }
 
 }
@@ -208,8 +198,18 @@ void HGCalDigiSoAFiller::produce(edm::Event& iEvent, const edm::EventSetup& iSet
   //const auto& cellIndexer = iSetup.getData(cellIndexToken_);
   //const auto& config = iSetup.getData(configToken_);
       
-  //book space needed for SoA DIGIs
-  hgcaldigi::HGCalDigiHost digis(moduleIndexer.getMaxDataSize(), cms::alpakatools::host());
+  //book space needed for SoA DIGIs and reset values
+  auto ndigis(moduleIndexer.getMaxDataSize());
+  hgcaldigi::HGCalDigiHost digis(ndigis, cms::alpakatools::host());
+  for (int32_t i = 0; i < digis.view().metadata().size(); i++) {
+    digis.view()[i].tctp() = 0;
+    digis.view()[i].adcm1() = 0;
+    digis.view()[i].adc() = 0;
+    digis.view()[i].tot() = 0;
+    digis.view()[i].toa() = 0;
+    digis.view()[i].cm() = 0;
+    digis.view()[i].flags() = hgcal::DIGI_FLAG::NotAvailable;
+  }
 
   //retrieve Phase I type of digis
   edm::Handle<HGCalDigiCollection> phase1DigisCEE,phase1DigisCEH,phase1DigisCEHSci;
@@ -219,8 +219,8 @@ void HGCalDigiSoAFiller::produce(edm::Event& iEvent, const edm::EventSetup& iSet
   
   //loop and fill in the corresponding SoA index
   analyzeDigis(phase1DigisCEE, detId2IdxCEE_, digis);
-  analyzeDigis(phase1DigisCEH, detId2IdxCEH_, digis);
-  analyzeDigis(phase1DigisCEHSci, detId2IdxCEHSci_, digis);
+  //analyzeDigis(phase1DigisCEH, detId2IdxCEH_, digis);
+  //analyzeDigis(phase1DigisCEHSci, detId2IdxCEHSci_, digis);
 
   // put information to the event
   iEvent.emplace(digisToken_, std::move(digis));
