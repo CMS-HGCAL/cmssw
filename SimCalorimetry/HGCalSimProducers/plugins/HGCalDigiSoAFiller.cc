@@ -9,8 +9,8 @@
 #include "FWCore/Utilities/interface/StreamID.h"
 
 #include "DataFormats/DetId/interface/DetId.h"
-#include "DataFormats/HGCDigi/interface/HGCDigiCollections.h" //should we update? by the one below
-//#include "DataFormats/HGCalDigi/interface/HGCalDigiCollections.h" 
+#include "DataFormats/HGCDigi/interface/HGCDigiCollections.h" //This is temporary, we would have to update it to the one below.
+//#include "DataFormats/HGCalDigi/interface/HGCalDigiCollections.h"
 #include "DataFormats/HGCalDigi/interface/HGCalElectronicsId.h"
 #include "DataFormats/HGCalDigi/interface/HGCalDigiHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalRawDataDefinitions.h"
@@ -146,9 +146,7 @@ void HGCalDigiSoAFiller::fillDetIdToIndexMaps(const hgcal::HGCalDenseIndexInfoHo
             << "| ----------- | -------- |" << std::endl;
 }
 //
-void HGCalDigiSoAFiller::analyzeDigis(edm::Handle<HGCalDigiCollection> &digiColl, const std::unordered_map<uint32_t, uint32_t> detmap, hgcaldigi::HGCalDigiHost& digis)
-{
-  //these are the maps: std::unordered_map<uint32_t, uint32_t> detId2IdxCEE_, detId2IdxCEH_, detId2IdxCEHSci_;
+void HGCalDigiSoAFiller::analyzeDigis(edm::Handle<HGCalDigiCollection> &digiColl, const std::unordered_map<uint32_t, uint32_t> detmap, hgcaldigi::HGCalDigiHost& digis) {
   const int itSample(2); //in-time sample
   for(auto &hit : *digiColl)
     {
@@ -157,36 +155,45 @@ void HGCalDigiSoAFiller::analyzeDigis(edm::Handle<HGCalDigiCollection> &digiColl
       //uint32_t detmap_key(hit.rawId()); //for HGCal
       uint32_t detmap_key(hit.id()); //for HGC check the dataformat you put as a header
 
-      //if(detmap.zside()<0) continue; // GF address this and un-do
-
-      //wafer id
-      //int layer=detId.layer();
-      //std::pair<int,int> waferUV=detId.waferUV();
-
-      // if (fold_) remapUV(subdet, waferUV);   //GFGF
-      //HGCalWafer::WaferKey_t key(std::make_tuple(subdet,layer,waferUV.first,waferUV.second));
-
-      //re-compute the thresholds
-      //HGCalSiNoiseMap<HGCSiliconDetId>::SiCellOpCharacteristics siop=noiseMaps_[subdet]->getSiCellOpCharacteristics(detId);
-      //int mipADC=siop.mipADC;
-      //in-time BX info
       uint32_t rawData(hit.sample(itSample).data() );
       bool isTOA( hit.sample(itSample).getToAValid() );
       bool isTDC( hit.sample(itSample).mode() );
-      //bool isBusy( isTDC && rawData==0 );
-      //uint32_t thr( std::floor(mipADC*adcThrMIP_) );
-      //bool passThr(isTDC || rawData>thr);
+      bool isBusy( isTDC && rawData==0 );
+      uint32_t tctb = 0;
+      if (isBusy) {
+        tctb = 1;
+      }
+      else if (isTDC) {
+        tctb = 2;
+      }
 
-      //BX-1 info
       uint32_t rawDatabxm1(hit.sample(itSample-1).data() );
+      //uint32_t denseIdx(detmap[detmap_key]);
+      uint32_t denseIdx = detmap.at(detmap_key);
+      //TCTB and ACD-1 values
+      digis.view()[denseIdx].tctp() = tctb;
+      digis.view()[denseIdx].adcm1() = rawDatabxm1;
 
-      digis.view()[denseIdx].tctp() = tctp_[code];
-      digis.view()[denseIdx].adcm1() = (temp >> adcm1Shift_[code]) & adcm1Mask_[code];
-      digis.view()[denseIdx].adc() = (temp >> adcShift_[code]) & adcMask_[code];
-      digis.view()[denseIdx].tot() = (temp >> totShift_[code]) & totMask_[code];
-      digis.view()[denseIdx].toa() = (temp >> toaShift_[code] & toaMask_[code]);
-      digis.view()[denseIdx].cm() = cmSum;
+      //ADC value
+      if (isTDC) {
+        digis.view()[denseIdx].adc() = 0.;
+        digis.view()[denseIdx].tot() = rawData;
+      }
+      else {
+        digis.view()[denseIdx].adc() = rawData;
+        digis.view()[denseIdx].tot() = 0.;
+      }
+
+      if (isTOA) {
+        digis.view()[denseIdx].toa() =  hit.sample(itSample).toa();
+      }
+      else digis.view()[denseIdx].toa() = 0.;
+
+      //digis.view()[denseIdx].cm() = cmSum;
+      digis.view()[denseIdx].cm() = 0; // we do not simulate it
       digis.view()[denseIdx].flags() = 0;
+    }
+
 }
 
 
@@ -215,8 +222,9 @@ void HGCalDigiSoAFiller::produce(edm::Event& iEvent, const edm::EventSetup& iSet
   std::cout << phase1DigisCEHSci->size() << std::endl;
   
   //loop and fill in the corresponding SoA index
-  //FIXME
-
+  analyzeDigis(phase1DigisCEE, detId2IdxCEE_, digis);
+  analyzeDigis(phase1DigisCEH, detId2IdxCEH_, digis);
+  analyzeDigis(phase1DigisCEHSci, detId2IdxCEHSci_, digis);
 
   // put information to the event
   iEvent.emplace(digisToken_, std::move(digis));
