@@ -32,14 +32,14 @@ public:
   // define what is needed as `config`
   // HGCalUnpacker(HGCalUnpackerConfig config);
 
-  uint8_t parseFEDData(unsigned fedId,
-                       const FEDRawData& fed_data,
-                       const HGCalMappingModuleIndexer& moduleIndexer,
-                       const HGCalConfiguration& config,
-                       hgcaldigi::HGCalDigiHost& digis,
-                       hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo,
-                       bool headerOnlyMode = false);
-
+  uint16_t parseFEDData(unsigned fedId,
+			const FEDRawData& fed_data,
+			const HGCalMappingModuleIndexer& moduleIndexer,
+			const HGCalConfiguration& config,
+			hgcaldigi::HGCalDigiHost& digis,
+			hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo,
+			bool headerOnlyMode = false);
+  
 private:
   constexpr static uint8_t tctp_[16] = {
       0b00, 0b00, 0b01, 0b00, 0b00, 0b00, 0b00, 0b00, 0b10, 0b10, 0b10, 0b10, 0b11, 0b11, 0b11, 0b11};

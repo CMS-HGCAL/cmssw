@@ -12,6 +12,7 @@
 #include "DataFormats/HGCalDigi/interface/HGCalElectronicsId.h"
 #include "DataFormats/HGCalDigi/interface/HGCalDigiHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalECONDPacketInfoHost.h"
+#include "DataFormats/HGCalDigi/interface/HGCalFEDPacketInfoHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalRawDataDefinitions.h"
 
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
@@ -27,7 +28,7 @@
 class HGCalRawToDigi : public edm::stream::EDProducer<> {
 public:
   explicit HGCalRawToDigi(const edm::ParameterSet&);
-
+  uint16_t callUnpacker(unsigned fedId, const FEDRawData &fed_data, const HGCalMappingModuleIndexer& moduleIndexer, const HGCalConfiguration &config, hgcaldigi::HGCalDigiHost &digis, hgcaldigi::HGCalECONDPacketInfoHost & econdPacketInfo);
   static void fillDescriptions(edm::ConfigurationDescriptions&);
 
 private:
@@ -40,6 +41,7 @@ private:
   // output tokens
   const edm::EDPutTokenT<hgcaldigi::HGCalDigiHost> digisToken_;
   const edm::EDPutTokenT<hgcaldigi::HGCalECONDPacketInfoHost> econdPacketInfoToken_;
+  const edm::EDPutTokenT<hgcaldigi::HGCalFEDPacketInfoHost> fedPacketInfoToken_;
 
   // TODO @hqucms
   // what else do we want to output?
@@ -58,16 +60,19 @@ private:
   HGCalUnpacker unpacker_;
 
   const bool doSerial_;
+  bool headersOnly_;
 };
 
 HGCalRawToDigi::HGCalRawToDigi(const edm::ParameterSet& iConfig)
     : fedRawToken_(consumes<FEDRawDataCollection>(iConfig.getParameter<edm::InputTag>("src"))),
       digisToken_(produces<hgcaldigi::HGCalDigiHost>()),
       econdPacketInfoToken_(produces<hgcaldigi::HGCalECONDPacketInfoHost>()),
+      fedPacketInfoToken_(produces<hgcaldigi::HGCalFEDPacketInfoHost>()),
       //cellIndexToken_(esConsumes()),
       moduleIndexToken_(esConsumes()),
       configToken_(esConsumes()),
-      doSerial_(iConfig.getParameter<bool>("doSerial")) {}
+      doSerial_(iConfig.getParameter<bool>("doSerial")),
+      headersOnly_(iConfig.getParameter<bool>("headersOnly")) {}
 
 void HGCalRawToDigi::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup) {
   // TODO @hqucms
@@ -82,21 +87,22 @@ void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
 
   hgcaldigi::HGCalDigiHost digis(moduleIndexer.getMaxDataSize(), cms::alpakatools::host());
   hgcaldigi::HGCalECONDPacketInfoHost econdPacketInfo(moduleIndexer.getMaxModuleSize(), cms::alpakatools::host());
-
+  hgcaldigi::HGCalFEDPacketInfoHost fedPacketInfo(moduleIndexer.fedCount(), cms::alpakatools::host());
+				
   // retrieve the FED raw data
   const auto& raw_data = iEvent.get(fedRawToken_);
 
   for (int32_t i = 0; i < digis.view().metadata().size(); i++) {
     digis.view()[i].flags() = hgcal::DIGI_FLAG::NotAvailable;
   }
-
+  
   //serial unpacking calls
   if (doSerial_) {
     for (unsigned fedId = 0; fedId < moduleIndexer.fedCount(); ++fedId) {
       const auto& fed_data = raw_data.FEDData(fedId);
-      if (fed_data.size() == 0)
-        continue;
-      unpacker_.parseFEDData(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo, /*headerOnlyMode*/ false);
+      fedPacketInfo.view()[fedId].FEDPayload() = fed_data.size();
+      if (fed_data.size() == 0) continue;
+      fedPacketInfo.view()[fedId].FEDUnpackingFlag() = callUnpacker(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo);
     }
   }
   //parallel unpacking calls
@@ -104,19 +110,37 @@ void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
     oneapi::tbb::this_task_arena::isolate([&]() {
       oneapi::tbb::parallel_for(0U, moduleIndexer.fedCount(), [&](unsigned fedId) {
         const auto& fed_data = raw_data.FEDData(fedId);
-        if (fed_data.size() == 0)
+	fedPacketInfo.view()[fedId].FEDPayload() = fed_data.size();
+	if (fed_data.size() == 0)
           return;
-        unpacker_.parseFEDData(
-            fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo, /*headerOnlyMode*/ false);
+	fedPacketInfo.view()[fedId].FEDUnpackingFlag() = callUnpacker(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo);
         return;
       });
     });
   }
-
+  
   // put information to the event
   iEvent.emplace(digisToken_, std::move(digis));
   iEvent.emplace(econdPacketInfoToken_, std::move(econdPacketInfo));
+  iEvent.emplace(fedPacketInfoToken_, std::move(fedPacketInfo));
 }
+
+//
+uint16_t HGCalRawToDigi::callUnpacker(unsigned fedId, const FEDRawData &fed_data, const HGCalMappingModuleIndexer& moduleIndexer, const HGCalConfiguration &config, hgcaldigi::HGCalDigiHost &digis, hgcaldigi::HGCalECONDPacketInfoHost & econdPacketInfo) {
+
+  uint16_t status(0);
+  try {
+    status = unpacker_.parseFEDData(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo, headersOnly_);
+  } catch(std::exception &e) {
+    status &= ~((0x1<<hgcaldigi::FEDUnpackingFlags::NormalUnpacking)); //if it was normal it no longer is
+    status |= (0x1<<hgcaldigi::FEDUnpackingFlags::GenericUnpackError);
+    if(headersOnly_) status |=  (0x1<<hgcaldigi::FEDUnpackingFlags::ErrorSLinkHeader);
+    else status |=  (0x1<<hgcaldigi::FEDUnpackingFlags::ErrorPayload);
+    LogDebug("[HGCalRawToDigi]") << "Error unpacking first attempt of FED=" << fedId << " payload=" << fed_data.size() << " : " << e.what();
+  }
+  return status;
+}
+
 
 // fill descriptions
 void HGCalRawToDigi::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -124,6 +148,7 @@ void HGCalRawToDigi::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<edm::InputTag>("src", edm::InputTag("rawDataCollector"));
   desc.add<std::vector<unsigned int> >("fedIds", {});
   desc.add<bool>("doSerial", true)->setComment("do not attempt to paralleize unpacking of different FEDs");
+  desc.add<bool>("headersOnly", false)->setComment("unpack only headers");
   descriptions.add("hgcalDigis", desc);
 }
 
