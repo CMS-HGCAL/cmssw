@@ -14,12 +14,12 @@
 using namespace hgcal;
 
 uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
-                                    const FEDRawData& fed_data,
-                                    const HGCalMappingModuleIndexer& moduleIndexer,
-                                    const HGCalConfiguration& config,
-                                    hgcaldigi::HGCalDigiHost& digis,
-                                    hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo,
-                                    bool headerOnlyMode) {
+                                     const FEDRawData& fed_data,
+                                     const HGCalMappingModuleIndexer& moduleIndexer,
+                                     const HGCalConfiguration& config,
+                                     hgcaldigi::HGCalDigiHost& digis,
+                                     hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo,
+                                     bool headerOnlyMode) {
   // ReadoutSequence object for this FED
   const auto& fedReadoutSequence = moduleIndexer.getFEDReadoutSequences()[fedId];
   // Configuration object for this FED
@@ -128,7 +128,8 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
         // always increment the global ECON-D index (unless inactive/unconnected)
         globalECONDIdx++;
       }
-      hasActiveCBFlags = (econd_pkt_status != backend::ECONDPacketStatus::Normal) && (econd_pkt_status != backend::ECONDPacketStatus::InactiveECOND);
+      hasActiveCBFlags = (econd_pkt_status != backend::ECONDPacketStatus::Normal) &&
+                         (econd_pkt_status != backend::ECONDPacketStatus::InactiveECOND);
       bool pkt_exists =
           (econd_pkt_status == backend::ECONDPacketStatus::Normal) ||
           (econd_pkt_status == backend::ECONDPacketStatus::PayloadCRCError) ||
@@ -152,7 +153,8 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
             << "Expected a ECON-D header at word " << std::dec << (uint32_t)(ptr - header) << "/0x" << std::hex
             << (uint32_t)(ptr - header) << " (marker: 0x" << fedConfig.econds[globalECONDIdx].headerMarker
             << "), got 0x" << econd_headers[0] << ".";
-        return (0x1 << hgcaldigi::FEDUnpackingFlags::ErrorECONDHeader) | (hasActiveCBFlags<<hgcaldigi::FEDUnpackingFlags::ActiveCaptureBlockFlags);
+        return (0x1 << hgcaldigi::FEDUnpackingFlags::ErrorECONDHeader) |
+               (hasActiveCBFlags << hgcaldigi::FEDUnpackingFlags::ActiveCaptureBlockFlags);
       }
 
       const auto econd_payload_length = ((econd_headers[0] >> ECOND_FRAME::PAYLOAD_POS) & ECOND_FRAME::PAYLOAD_MASK);
@@ -163,7 +165,7 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
       ++ptr;
 
       if (!crcvalid) {
-	hasActiveCBFlags = true;
+        hasActiveCBFlags = true;
         econd_pkt_status |=
             backend::ECONDPacketStatus::OfflinePayloadCRCError;  //If CRC errors in the trailer, update the pkt status
       }
@@ -175,7 +177,8 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
         econdPacketInfo.view()[ECONDdenseIdx].exception() = 4;
         edm::LogWarning("[HGCalUnpacker]")
             << "Unpacked payload length=" << econd_payload_length << " exceeds the maximal length=469";
-        return (0x1 << hgcaldigi::FEDUnpackingFlags::ECONDPayloadLengthOverflow) | (hasActiveCBFlags<<hgcaldigi::FEDUnpackingFlags::ActiveCaptureBlockFlags);
+        return (0x1 << hgcaldigi::FEDUnpackingFlags::ECONDPayloadLengthOverflow) |
+               (hasActiveCBFlags << hgcaldigi::FEDUnpackingFlags::ActiveCaptureBlockFlags);
       }
       const auto econdFlag = ((econd_headers[0] >> ECOND_FRAME::BITT_POS) & 0b1111111) +
                              (((econd_headers[1] >> ECOND_FRAME::BITS_POS) & 0b1) << hgcaldigi::ECONDFlag::BITS_POS);
@@ -346,7 +349,8 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
             << "Mismatch between unpacked and expected ECON-D #" << (int)globalECONDIdx << " payload length\n"
             << "  unpacked payload length=" << iword + 1 << "\n"
             << "  expected payload length=" << econd_payload_length;
-        return (0x1 << hgcaldigi::FEDUnpackingFlags::ECONDPayloadLengthMismatch) | (hasActiveCBFlags<<hgcaldigi::FEDUnpackingFlags::ActiveCaptureBlockFlags);
+        return (0x1 << hgcaldigi::FEDUnpackingFlags::ECONDPayloadLengthMismatch) |
+               (hasActiveCBFlags << hgcaldigi::FEDUnpackingFlags::ActiveCaptureBlockFlags);
       }
     }
   }
@@ -364,8 +368,10 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
                                        << (uint32_t)(trailer - header) << "Unpacked trailer at" << std::dec
                                        << (uint32_t)(trailer - header + 2) << "/0x" << std::hex
                                        << (uint32_t)(ptr - header + 2);
-    return (0x1 << hgcaldigi::FEDUnpackingFlags::ErrorSLinkTrailer) | (hasActiveCBFlags<<hgcaldigi::FEDUnpackingFlags::ActiveCaptureBlockFlags);
+    return (0x1 << hgcaldigi::FEDUnpackingFlags::ErrorSLinkTrailer) |
+           (hasActiveCBFlags << hgcaldigi::FEDUnpackingFlags::ActiveCaptureBlockFlags);
   }
-  
-  return (0x1 << hgcaldigi::FEDUnpackingFlags::NormalUnpacking) | (hasActiveCBFlags<<hgcaldigi::FEDUnpackingFlags::ActiveCaptureBlockFlags);
+
+  return (0x1 << hgcaldigi::FEDUnpackingFlags::NormalUnpacking) |
+         (hasActiveCBFlags << hgcaldigi::FEDUnpackingFlags::ActiveCaptureBlockFlags);
 }

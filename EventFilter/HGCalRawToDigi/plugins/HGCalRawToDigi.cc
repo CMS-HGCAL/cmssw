@@ -28,7 +28,12 @@
 class HGCalRawToDigi : public edm::stream::EDProducer<> {
 public:
   explicit HGCalRawToDigi(const edm::ParameterSet&);
-  uint16_t callUnpacker(unsigned fedId, const FEDRawData &fed_data, const HGCalMappingModuleIndexer& moduleIndexer, const HGCalConfiguration &config, hgcaldigi::HGCalDigiHost &digis, hgcaldigi::HGCalECONDPacketInfoHost & econdPacketInfo);
+  uint16_t callUnpacker(unsigned fedId,
+                        const FEDRawData& fed_data,
+                        const HGCalMappingModuleIndexer& moduleIndexer,
+                        const HGCalConfiguration& config,
+                        hgcaldigi::HGCalDigiHost& digis,
+                        hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo);
   static void fillDescriptions(edm::ConfigurationDescriptions&);
 
 private:
@@ -88,21 +93,23 @@ void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
   hgcaldigi::HGCalDigiHost digis(moduleIndexer.getMaxDataSize(), cms::alpakatools::host());
   hgcaldigi::HGCalECONDPacketInfoHost econdPacketInfo(moduleIndexer.getMaxModuleSize(), cms::alpakatools::host());
   hgcaldigi::HGCalFEDPacketInfoHost fedPacketInfo(moduleIndexer.fedCount(), cms::alpakatools::host());
-				
+
   // retrieve the FED raw data
   const auto& raw_data = iEvent.get(fedRawToken_);
 
   for (int32_t i = 0; i < digis.view().metadata().size(); i++) {
     digis.view()[i].flags() = hgcal::DIGI_FLAG::NotAvailable;
   }
-  
+
   //serial unpacking calls
   if (doSerial_) {
     for (unsigned fedId = 0; fedId < moduleIndexer.fedCount(); ++fedId) {
       const auto& fed_data = raw_data.FEDData(fedId);
       fedPacketInfo.view()[fedId].FEDPayload() = fed_data.size();
-      if (fed_data.size() == 0) continue;
-      fedPacketInfo.view()[fedId].FEDUnpackingFlag() = callUnpacker(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo);
+      if (fed_data.size() == 0)
+        continue;
+      fedPacketInfo.view()[fedId].FEDUnpackingFlag() =
+          callUnpacker(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo);
     }
   }
   //parallel unpacking calls
@@ -110,15 +117,16 @@ void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
     oneapi::tbb::this_task_arena::isolate([&]() {
       oneapi::tbb::parallel_for(0U, moduleIndexer.fedCount(), [&](unsigned fedId) {
         const auto& fed_data = raw_data.FEDData(fedId);
-	fedPacketInfo.view()[fedId].FEDPayload() = fed_data.size();
-	if (fed_data.size() == 0)
+        fedPacketInfo.view()[fedId].FEDPayload() = fed_data.size();
+        if (fed_data.size() == 0)
           return;
-	fedPacketInfo.view()[fedId].FEDUnpackingFlag() = callUnpacker(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo);
+        fedPacketInfo.view()[fedId].FEDUnpackingFlag() =
+            callUnpacker(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo);
         return;
       });
     });
   }
-  
+
   // put information to the event
   iEvent.emplace(digisToken_, std::move(digis));
   iEvent.emplace(econdPacketInfoToken_, std::move(econdPacketInfo));
@@ -126,21 +134,27 @@ void HGCalRawToDigi::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
 }
 
 //
-uint16_t HGCalRawToDigi::callUnpacker(unsigned fedId, const FEDRawData &fed_data, const HGCalMappingModuleIndexer& moduleIndexer, const HGCalConfiguration &config, hgcaldigi::HGCalDigiHost &digis, hgcaldigi::HGCalECONDPacketInfoHost & econdPacketInfo) {
-
+uint16_t HGCalRawToDigi::callUnpacker(unsigned fedId,
+                                      const FEDRawData& fed_data,
+                                      const HGCalMappingModuleIndexer& moduleIndexer,
+                                      const HGCalConfiguration& config,
+                                      hgcaldigi::HGCalDigiHost& digis,
+                                      hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo) {
   uint16_t status(0);
   try {
     status = unpacker_.parseFEDData(fedId, fed_data, moduleIndexer, config, digis, econdPacketInfo, headersOnly_);
-  } catch(std::exception &e) {
-    status &= ~((0x1<<hgcaldigi::FEDUnpackingFlags::NormalUnpacking)); //if it was normal it no longer is
-    status |= (0x1<<hgcaldigi::FEDUnpackingFlags::GenericUnpackError);
-    if(headersOnly_) status |=  (0x1<<hgcaldigi::FEDUnpackingFlags::ErrorSLinkHeader);
-    else status |=  (0x1<<hgcaldigi::FEDUnpackingFlags::ErrorPayload);
-    LogDebug("[HGCalRawToDigi]") << "Error unpacking first attempt of FED=" << fedId << " payload=" << fed_data.size() << " : " << e.what();
+  } catch (std::exception& e) {
+    status &= ~((0x1 << hgcaldigi::FEDUnpackingFlags::NormalUnpacking));  //if it was normal it no longer is
+    status |= (0x1 << hgcaldigi::FEDUnpackingFlags::GenericUnpackError);
+    if (headersOnly_)
+      status |= (0x1 << hgcaldigi::FEDUnpackingFlags::ErrorSLinkHeader);
+    else
+      status |= (0x1 << hgcaldigi::FEDUnpackingFlags::ErrorPayload);
+    LogDebug("[HGCalRawToDigi]") << "Error unpacking first attempt of FED=" << fedId << " payload=" << fed_data.size()
+                                 << " : " << e.what();
   }
   return status;
 }
-
 
 // fill descriptions
 void HGCalRawToDigi::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
