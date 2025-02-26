@@ -18,37 +18,37 @@ namespace hgcaldigi {
                       EarlySLinkEnd = 10;
   }  // namespace FEDUnpackingFlags
 
-  inline bool isNotNormalFED(uint16_t fedUnpackingFlag) {
+  inline constexpr bool isNotNormalFED(uint16_t fedUnpackingFlag) {
     return !((fedUnpackingFlag >> FEDUnpackingFlags::NormalUnpacking) & 0x1);
   }
-  inline bool hasGenericUnpackError(uint16_t fedUnpackingFlag) {
+  inline constexpr bool hasGenericUnpackError(uint16_t fedUnpackingFlag) {
     return ((fedUnpackingFlag >> FEDUnpackingFlags::GenericUnpackError) & 0x1);
   }
-  inline bool hasHeaderUnpackError(uint16_t fedUnpackingFlag) {
+  inline constexpr bool hasHeaderUnpackError(uint16_t fedUnpackingFlag) {
     return ((fedUnpackingFlag >> FEDUnpackingFlags::ErrorSLinkHeader) & 0x1);
   }
-  inline bool hasPayloadUnpackError(uint16_t fedUnpackingFlag) {
+  inline constexpr bool hasPayloadUnpackError(uint16_t fedUnpackingFlag) {
     return ((fedUnpackingFlag >> FEDUnpackingFlags::ErrorPayload) & 0x1);
   }
-  inline bool hasCBHeaderError(uint16_t fedUnpackingFlag) {
+  inline constexpr bool hasCBHeaderError(uint16_t fedUnpackingFlag) {
     return ((fedUnpackingFlag >> FEDUnpackingFlags::ErrorCaptureBlockHeader) & 0x1);
   }
-  inline bool hasCBActiveFlags(uint16_t fedUnpackingFlag) {
+  inline constexpr bool hasCBActiveFlags(uint16_t fedUnpackingFlag) {
     return ((fedUnpackingFlag >> FEDUnpackingFlags::ActiveCaptureBlockFlags) & 0x1);
   }
-  inline bool hasErrorECONDHeader(uint16_t fedUnpackingFlag) {
+  inline constexpr bool hasErrorECONDHeader(uint16_t fedUnpackingFlag) {
     return ((fedUnpackingFlag >> FEDUnpackingFlags::ErrorECONDHeader) & 0x1);
   }
-  inline bool hasECONDPayloadLengthOverflow(uint16_t fedUnpackingFlag) {
+  inline constexpr bool hasECONDPayloadLengthOverflow(uint16_t fedUnpackingFlag) {
     return ((fedUnpackingFlag >> FEDUnpackingFlags::ECONDPayloadLengthOverflow) & 0x1);
   }
-  inline bool hasECONDPayloadLengthMismatch(uint16_t fedUnpackingFlag) {
+  inline constexpr bool hasECONDPayloadLengthMismatch(uint16_t fedUnpackingFlag) {
     return ((fedUnpackingFlag >> FEDUnpackingFlags::ECONDPayloadLengthMismatch) & 0x1);
   }
-  inline bool hasErrorSLinkTrailer(uint16_t fedUnpackingFlag) {
+  inline constexpr bool hasErrorSLinkTrailer(uint16_t fedUnpackingFlag) {
     return ((fedUnpackingFlag >> FEDUnpackingFlags::ErrorSLinkTrailer) & 0x1);
   }
-  inline bool hasEarlySLinkEnd(uint16_t fedUnpackingFlag) {
+  inline constexpr bool hasEarlySLinkEnd(uint16_t fedUnpackingFlag) {
     return ((fedUnpackingFlag >> FEDUnpackingFlags::EarlySLinkEnd) & 0x1);
   }
 
