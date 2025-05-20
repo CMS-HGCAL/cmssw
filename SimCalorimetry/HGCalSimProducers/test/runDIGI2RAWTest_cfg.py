@@ -40,6 +40,7 @@ del df
 print(f'Module locator @ {outmoduleloc}')
 
 process.hgcalDigis = cms.EDProducer('HGCalDigiSoAFiller')
+process.hgcalRealisticDigis = cms.EDProducer('HGCalRealisticDigisProducer')
 
 # timing
 process.Timing = cms.Service(
@@ -47,9 +48,10 @@ process.Timing = cms.Service(
     summaryOnly=cms.untracked.bool(True),
     useJobReport=cms.untracked.bool(True)
 )
-                                
-process.t = cms.Task( process.hgcalDigis )
-process.p = cms.Path( process.t ) 
+
+process.seq = cms.Sequence( process.hgcalDigis*process.hgcalRealisticDigis)
+#process.t = cms.Task( process.seq )
+process.p = cms.Path( process.seq ) 
 
 #output
 process.output = cms.OutputModule(
