@@ -98,6 +98,7 @@ public:
     // HGCalConfiguration = container class holding FED structs of ECON-D structs of eRx structs
     std::unique_ptr<HGCalConfiguration> config_ = std::make_unique<HGCalConfiguration>();
     for (std::size_t fedid = 0; fedid < moduleMap.getMaxFEDSize(); ++fedid) {
+
       // sanity checks
       if (moduleMap.getFEDReadoutSequences()[fedid].readoutTypes_.empty())         // check if FED exists (non-empty)
         continue;                                                                  // skip non-existent FED
