@@ -81,6 +81,7 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
   std::cout << rocDigis_.isValid() << std::endl;
 
   //loop over FEDs
+  auto nerxPerType = moduleIndexer.getGlobalTypesNErx();
   for(const auto &fed : moduleIndexer.getFEDReadoutSequences() ) {
 
     //loop over readout sequence of this FED
@@ -88,8 +89,11 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
     if(nmodules==0) continue;
 
     std::cout << "FED id: " << fed.id << " has " << nmodules << " modules" << std::endl;
-    for(size_t i=0; i<nmodules; i++) { 
-      std::cout << "\t " << i << " : " << fed.chDataOffsets_[i] << " -> " << fed.chDataOffsets_[i] + fed.enabledErx_[i] << std::endl;
+    for(size_t i=0; i<nmodules; i++) {
+      
+      auto readoutType = fed.readoutTypes_[i];
+      auto nerx = nerxPerType[readoutType];
+      std::cout << "\t " << i << " : " << fed.chDataOffsets_[i] << " -> i+" << 37*nerx << std::endl;
     }//end loop over readout sequence
     
   } //end loop over FEDs
