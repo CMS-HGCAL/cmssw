@@ -52,7 +52,7 @@ private:
   std::vector<uint16_t> buildCommonModeWords(hgcaldigi::HGCalDigiHost::ConstView &, size_t , size_t ); //common mode words
 
   //ECON-D related variables and methods
-  std::vector<uint32_t> packInECONDframes(uint32_t , std::vector<uint32_t> &,std::vector<uint16_t> &); //ROC frames -> ECON-D
+  std::vector<uint32_t> packInECONDframes(uint32_t , std::vector<uint32_t> &, std::vector<uint16_t> &, uint32_t bx, uint32_t l1a, uint32_t orb); //ROC frames -> ECON-D
     
   //ROC digis to consume
   edm::EDGetTokenT<hgcaldigi::HGCalDigiHost> rocDigisToken_;
@@ -81,7 +81,10 @@ void HGCalRealisticDigisProducer::beginRun(edm::Run const& iRun, edm::EventSetup
 void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
 
   std::cout << " [HGCalRealisticDigisProducer] produce" << std::endl;
-  
+  //BX, event number and orbit
+  uint32_t bx  = iEvent.bunchCrossing();
+  uint32_t l1a = iEvent.id().event();
+  uint32_t orb = iEvent.orbitNumber(); 
   // retrieve logical mapping and dense indexing
   const auto& moduleIndexer = iSetup.getData(moduleIndexToken_);
   
@@ -112,7 +115,7 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
       std::vector<uint16_t> cm = buildCommonModeWords(digis_view, idx_i, idx_f);
 
       //pack in ECON-data
-      std::vector<uint32_t> econdFrame = packInECONDframes(nerx, rocFrames, cm);
+      std::vector<uint32_t> econdFrame = packInECONDframes(nerx, rocFrames, cm, bx, l1a, orb);
 
       std::cout << std::dec << i << " " << rocFrames.size() << " 0x" << std::hex << rocFrames[0] << std::endl;
 
@@ -144,7 +147,7 @@ std::vector<uint32_t> HGCalRealisticDigisProducer::packInROCframes(hgcaldigi::HG
 }
 
 //
-std::vector<uint16_t> extractCommonMode(hgcaldigi::HGCalDigiHost::ConstView &digis_view, size_t idx_i, size_t nErx) {
+std::vector<uint16_t> HGCalRealisticDigisProducer::buildCommonModeWords(hgcaldigi::HGCalDigiHost::ConstView &digis_view, size_t idx_i, size_t nErx) {
   
   std::vector<uint16_t> cmWords(nErx);
   for(size_t i=0; i<nErx; i++) {
@@ -154,8 +157,10 @@ std::vector<uint16_t> extractCommonMode(hgcaldigi::HGCalDigiHost::ConstView &dig
   return cmWords;
 }
 
+
+
 //
-std::vector<uint32_t> HGCalRealisticDigisProducer::packInECONDframes(uint32_t nErx, std::vector<uint32_t> &rocFrames,std::vector<uint16_t> &cm) {
+std::vector<uint32_t> HGCalRealisticDigisProducer::packInECONDframes(uint32_t nErx, std::vector<uint32_t> &rocFrames,std::vector<uint16_t> &cm, uint32_t bx, uint32_t l1a, uint32_t orb) {
 
   assert(rocFrames.size()==nErx*37);
 
