@@ -1,6 +1,7 @@
 #ifndef SimCalorimetry_HGCalSimAlgos_HGCalRawDataPackingTools_h
 #define SimCalorimetry_HGCalSimAlgos_HGCalRawDataPackingTools_h
 
+#include <boost/crc.hpp>
 #include "SimCalorimetry/HGCalSimAlgos/interface/SlinkTypes.h"
 
 namespace hgcal {
@@ -43,6 +44,10 @@ namespace hgcal {
                                             uint8_t orb,
                                             bool bitS,
                                             uint8_t RR);
+
+    //builds the final ECON-D CRC word
+    uint32_t computeCRC(std::vector<uint32_t> &);
+
     /// builds a trailing idle word
     /// \note based on Fig. 33 of the ECON-D specs
     /// \return a 32b word with the idle word

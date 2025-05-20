@@ -156,6 +156,26 @@ std::vector<uint32_t> hgcal::econd::eventPacketHeader(uint16_t header,
   return words;
 }
 
+//
+uint32_t hgcal::econd::computeCRC(std::vector<uint32_t> &data32b) {
+  //Compute CRC using all eRx subpackets but not the event paket header (two first words)
+  std::vector<uint32_t> crcvec(data32b.begin() + 2, data32b.end() - 1);
+  std::transform(crcvec.begin(), crcvec.end(), crcvec.begin(), [](uint32_t w) {
+    return ((w << 24) & 0xFF000000) | ((w << 8) & 0x00FF0000) | ((w >> 8) & 0x0000FF00) |
+           ((w >> 24) & 0x000000FF);  //swapping endianness
+  });
+
+  auto array = &(crcvec[0]);
+  auto bytes = reinterpret_cast<const unsigned char *>(array);
+  auto crc32 = boost::crc<32,
+                          hgcal::ECOND_FRAME::CRC_POL,
+                          hgcal::ECOND_FRAME::CRC_INITREM,
+                          hgcal::ECOND_FRAME::CRC_FINALXOR,
+                          false,
+                          false>(bytes, (payloadLength - 1) * 4);  //32-bit words, hence need to parse 4 bytes
+
+}
+
 uint32_t hgcal::econd::buildIdleWord(uint8_t bufStat, uint8_t err, uint8_t rr, uint32_t progPattern) {
   return (progPattern & 0xffffff) << 8 | (rr & 0x3) << 6 | (err & 0x7) << 3 | (bufStat & 0x7) << 0;
 }

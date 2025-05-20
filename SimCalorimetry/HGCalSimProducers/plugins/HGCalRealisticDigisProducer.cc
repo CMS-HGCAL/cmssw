@@ -8,6 +8,9 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 
+#include "SimCalorimetry/HGCalSimAlgos/interface/HGCalRawDataPackingTools.h"
+
+
 #include "DataFormats/DetId/interface/DetId.h"
 #include "DataFormats/HGCalDigi/interface/HGCROCChannelDataFrame.h"
 #include "DataFormats/HGCalDigi/interface/HGCalElectronicsId.h"
@@ -46,6 +49,10 @@ private:
   bool rocCharMode_; //characterization mode
   HGCROCChannelDataFrame<uint32_t> rocPacker_; //helper class
   std::vector<uint32_t> packInROCframes(hgcaldigi::HGCalDigiHost::ConstView &, size_t , size_t ); //SoA -> ROC format wrapper
+  std::vector<uint16_t> buildCommonModeWords(hgcaldigi::HGCalDigiHost::ConstView &, size_t , size_t ); //common mode words
+
+  //ECON-D related variables and methods
+  std::vector<uint32_t> packInECONDframes(uint32_t , std::vector<uint32_t> &,std::vector<uint16_t> &); //ROC frames -> ECON-D
     
   //ROC digis to consume
   edm::EDGetTokenT<hgcaldigi::HGCalDigiHost> rocDigisToken_;
@@ -101,10 +108,14 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
       auto idx_f = idx_i + 37*nerx;
 
       //pack DIGIs as ROC words
-      std::vector<uint32_t> rocData = packInROCframes(digis_view, idx_i, idx_f);
+      std::vector<uint32_t> rocFrames = packInROCframes(digis_view, idx_i, idx_f);
+      std::vector<uint16_t> cm = buildCommonModeWords(digis_view, idx_i, idx_f);
 
       //pack in ECON-data
-      std::cout << std::dec << i << " " << rocData.size() << " 0x" << std::hex << rocData[0] << std::endl;
+      auto enabledErx = fed.enabledErx_[i];
+      std::vector<uint32_t> econdFrame = packInECONDframes(nerx, rocFrames, cm);
+
+      std::cout << std::dec << i << " " << rocFrames.size() << " 0x" << std::hex << rocFrames[0] << std::endl;
 
     }//end loop over readout sequence
     
@@ -133,6 +144,41 @@ std::vector<uint32_t> HGCalRealisticDigisProducer::packInROCframes(hgcaldigi::HG
   return rocData;
 }
 
+//
+std::vector<uint16_t> extractCommonMode(hgcaldigi::HGCalDigiHost::ConstView &digis_view, size_t idx_i, size_t nErx) {
+  
+  std::vector<uint16_t> cmWords(nErx);
+  for(size_t i=0; i<nErx; i++) {
+    cmWords[i] = digis_view.cmsum()[idx_i+i*37]/2;
+  }
+  
+  return cmWords;
+}
+
+//
+std::vector<uint32_t> HGCalRealisticDigisProducer::packInECONDframes(uint32_t nErx, std::vector<uint32_t> &rocFrames,std::vector<uint16_t> &cm) {
+
+  assert(rocFrames.size()==nErx*37);
+
+  std::vector<uint32_t> econdFrame = hgcal::econd::eventPacketHeader(0x154, nErx*2+rocFrames.size(), true, false, 0, 0, false, false, 0, bx, l1a, orb, false, 0);
+
+  uint64_t chenable(0x1fffffffff); //37 enabled channels
+  for(size_t i=0; i<nErx; i++) {
+
+    //start a new erx
+    auto cmval = cm[i];
+    std::vector<uint32_t> eRxHeader = hgcal::econd::eRxSubPacketHeader(0,0,false,cmval, cmval, chenable);
+    econdFrame.insert(econdFrame.end(),eRxHeader.begin(),eRxHeader.end());
+
+    //add data from 37 channels
+    auto idx_i = i*37;
+    econdFrame.insert(econdFrame.end(),eRxHeader.begin()+idx_i,eRxHeader.begin()+idx_i+37);
+  }
+
+  econdFrame.push_back( hgcal::econd::computeCRC(econdFrame) );
+
+  return econdFrame;
+}
 
 // fill descriptions
 void HGCalRealisticDigisProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
