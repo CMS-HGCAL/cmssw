@@ -81,10 +81,12 @@ void HGCalRealisticDigisProducer::beginRun(edm::Run const& iRun, edm::EventSetup
 void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
 
   std::cout << " [HGCalRealisticDigisProducer] produce" << std::endl;
+  
   //BX, event number and orbit
   uint32_t bx  = iEvent.bunchCrossing();
   uint32_t l1a = iEvent.id().event();
   uint32_t orb = iEvent.orbitNumber(); 
+
   // retrieve logical mapping and dense indexing
   const auto& moduleIndexer = iSetup.getData(moduleIndexToken_);
   
@@ -101,8 +103,11 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
     size_t nmodules = fed.readoutTypes_.size();
     if(nmodules==0) continue;
 
-    
-    for(size_t i=0; i<nmodules; i++) {
+    uint32_t cur_cb(0xffffffff);
+    for(uint32_t i=0; i<nmodules; i++) {
+
+      uint32_t dense_idx = fed.moduleLUT_[i];
+      assert(i==dense_idx); //if fails something is fishy in module locator file
 
       //compute the starting and ending indices
       auto readoutType = fed.readoutTypes_[i];
@@ -112,14 +117,26 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
 
       //pack DIGIs as ROC words
       std::vector<uint32_t> rocFrames = packInROCframes(digis_view, idx_i, idx_f);
-      std::vector<uint16_t> cm = buildCommonModeWords(digis_view, idx_i, idx_f);
+      assert(rocFrames.size()==37*nerx);
+
+      std::vector<uint16_t> cm = buildCommonModeWords(digis_view, idx_i, nerx);
+      assert(cm.size()==nerx);
 
       //pack in ECON-data
       std::vector<uint32_t> econdFrame = packInECONDframes(nerx, rocFrames, cm, bx, l1a, orb);
+      assert(econdFrame.size()==2+39*nerx+1);
 
-      std::cout << std::dec << i << " " << rocFrames.size() << " 0x" << std::hex << rocFrames[0] << std::endl;
+      uint32_t cb_idx = moduleIndexer.getFEDIndexer().unpackDenseIndex(dense_idx)[0];
+      //generate capture block header
+      if(cb_idx!=cur_cb) {
+        std::cout << cb_idx << " " << std::endl;
+        cur_cb = cb_idx;
+      }      
 
     }//end loop over readout sequence
+
+
+
     
   } //end loop over FEDs
 
