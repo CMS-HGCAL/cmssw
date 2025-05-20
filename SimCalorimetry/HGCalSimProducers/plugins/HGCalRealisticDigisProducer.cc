@@ -112,7 +112,6 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
       std::vector<uint16_t> cm = buildCommonModeWords(digis_view, idx_i, idx_f);
 
       //pack in ECON-data
-      auto enabledErx = fed.enabledErx_[i];
       std::vector<uint32_t> econdFrame = packInECONDframes(nerx, rocFrames, cm);
 
       std::cout << std::dec << i << " " << rocFrames.size() << " 0x" << std::hex << rocFrames[0] << std::endl;
@@ -149,7 +148,7 @@ std::vector<uint16_t> extractCommonMode(hgcaldigi::HGCalDigiHost::ConstView &dig
   
   std::vector<uint16_t> cmWords(nErx);
   for(size_t i=0; i<nErx; i++) {
-    cmWords[i] = digis_view.cmsum()[idx_i+i*37]/2;
+    cmWords[i] = digis_view.cm()[idx_i+i*37]/2;
   }
   
   return cmWords;
@@ -174,8 +173,9 @@ std::vector<uint32_t> HGCalRealisticDigisProducer::packInECONDframes(uint32_t nE
     auto idx_i = i*37;
     econdFrame.insert(econdFrame.end(),eRxHeader.begin()+idx_i,eRxHeader.begin()+idx_i+37);
   }
-
-  econdFrame.push_back( hgcal::econd::computeCRC(econdFrame) );
+  
+  econdFrame.push_back(0);
+  econdFrame.back() = hgcal::econd::computeCRC(econdFrame);
 
   return econdFrame;
 }
