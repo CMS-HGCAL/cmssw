@@ -1,15 +1,5 @@
 import FWCore.ParameterSet.Config as cms
 
-from Configuration.Eras.Era_Phase2C17I13M9_cff import Phase2C17I13M9
-process = cms.Process('LOCALDIGI2RAW', Phase2C17I13M9)
-
-process.load('Configuration.StandardSequences.Services_cff')
-process.load('FWCore.MessageService.MessageLogger_cfi')
-process.load('Configuration.Geometry.GeometryExtendedRun4D104Reco_cff')
-process.load('Configuration.Geometry.GeometryExtendedRun4D104_cff')
-process.load('Configuration.StandardSequences.EndOfProcess_cff')
-process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
-
 # parse command line arguments
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing('standard')
@@ -19,15 +9,7 @@ options.register('filter', 'fedid==0', VarParsing.multiplicity.singleton, VarPar
                  "filter condition to apply (pandas/sql syntax)")
 options.parseArguments()
 
-# input configuration
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(options.maxEvents) )
-process.source = cms.Source(
-    "PoolSource",
-    fileNames=cms.untracked.vstring(*options.files)
-)
-
-# mapping
-from Geometry.HGCalMapping.hgcalmapping_cff import customise_hgcalmapper
+#adapt module locator
 import pandas as pd
 df = pd.read_csv(options.modules, sep='\s+')
 filt_df = df.query(options.filter)
@@ -35,12 +17,58 @@ import os
 cmssw_base = os.environ['CMSSW_BASE']
 outmoduleloc = f'{cmssw_base}/src/modulelocator.txt'
 filt_df.to_csv(outmoduleloc, sep=' ', header=True, index=False)
-process = customise_hgcalmapper(process, modules = 'modulelocator.txt')
+fedlist = set(filt_df['fedid'].values.tolist())
+modlist = set(filt_df['typecode'].values.tolist())
 del df
-print(f'Module locator @ {outmoduleloc}')
 
-process.hgcalDigis = cms.EDProducer('HGCalDigiSoAFiller')
+eraConfig = {
+  'modulemapper':outmoduleloc,
+  'fedconfig':None,
+  'modconfig':None,
+  'modcalib':None
+}
+
+#filter out config files
+import json
+
+# FED
+for cfg_key, url in [
+  ('fedconfig','/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025Jan/fedconfig.json'),
+  ('modconfig','/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025Jan/module_config.json'),
+  ('modcalib','/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025Jan/level0_calib_v2.json'),
+]:
+  with open(url) as stream:
+    cfg = json.load(stream)
+  sel_cfg = {}
+  iter_list = fedlist if 'fed' in cfg_key else modlist
+  for v in iter_list:
+    key = str(v)
+    sel_cfg[key] = cfg[key]
+  outputurl = f'{cmssw_base}/src/{cfg_key}.json'
+  with open(outputurl,'w') as stream:
+    json.dump(sel_cfg, stream)
+  eraConfig[cfg_key] = outputurl
+
+print('Configuration is:')
+import rich
+rich.print(eraConfig)
+
+#init process
+from HGCalCommissioning.Configuration.SimulationEras_cff import initSimulationCMSProcess
+process = initSimulationCMSProcess('LOCALDIGI2RAW', options.maxEvents, eraConfig)
+
+# input configuration
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(options.maxEvents) )
+process.source = cms.Source(
+    "PoolSource",
+    fileNames=cms.untracked.vstring(*options.files)
+)
+
+
+process.hgcalTranslatedDigis = cms.EDProducer('HGCalDigiSoAFiller')
 process.hgcalRealisticDigis = cms.EDProducer('HGCalRealisticDigisProducer')
+process.hgcalRealisticDigis.ROCDigis = cms.untracked.InputTag('hgcalTranslatedDigis')
+process.hgcalUnpackedDigis = cms.EDProducer('HGCalRawToDigi')
 
 # timing
 process.Timing = cms.Service(
@@ -49,8 +77,8 @@ process.Timing = cms.Service(
     useJobReport=cms.untracked.bool(True)
 )
 
-process.seq = cms.Sequence( process.hgcalDigis*process.hgcalRealisticDigis)
-#process.t = cms.Task( process.seq )
+# define the sequence
+process.seq = cms.Sequence( process.hgcalTranslatedDigis*process.hgcalRealisticDigis*process.hgcalUnpackedDigis)
 process.p = cms.Path( process.seq ) 
 
 #output
