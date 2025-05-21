@@ -33,7 +33,6 @@
 #include <iomanip>  // for std::setw
 
 // standard includes
-//#include <future>
 #include <string>
 #include <vector>
 #include <iomanip>  // for std::setw
