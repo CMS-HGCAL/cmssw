@@ -64,10 +64,10 @@ public:
      @short decodes silicon or sipm type and cell type for the detector id 
      from the typecode string
    */
-  static std::pair<bool, int> convertTypeCode(std::string_view typecode) {
+  static std::pair<bool, int> convertTypeCode(std::string_view typecode, bool isSiPM) {
     if (typecode.size() < 5)
       throw cms::Exception("InvalidHGCALTypeCode") << typecode << " is invalid for decoding readout cell type";
-    bool isSiPM = {typecode.find("TM") != std::string::npos ? true : false};
+    // bool isSiPM = {typecode.find("TB") != std::string::npos ? true : false};
     int celltype;
     if (isSiPM) {
       celltype = 0;  // Assign SiPM type coarse or molded with next version of modulelocator
@@ -82,7 +82,7 @@ public:
      if the index in the readout sequence is unknown alternative methods which take the (capture block, econd idx) are provided
      which will find first what should be the internal dense index (index in the readout sequence)
    */
-  uint32_t getIndexForModule(uint32_t fedid, uint32_t modid) const {
+  uint32_t getIndexForModule(uint32_t fedid, uint32_t modid) const {    
     return fedReadoutSequences_[fedid].modOffsets_[modid];
   };
   uint32_t getIndexForModule(uint32_t fedid, uint16_t captureblockIdx, uint16_t econdIdx) const {

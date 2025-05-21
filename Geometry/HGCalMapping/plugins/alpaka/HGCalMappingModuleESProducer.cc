@@ -29,7 +29,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     public:
       //
       HGCalMappingModuleESProducer(const edm::ParameterSet& iConfig)
-          : ESProducer(iConfig), filename_(iConfig.getParameter<edm::FileInPath>("filename")) {
+          : ESProducer(iConfig), 
+            filename_(iConfig.getParameter<edm::FileInPath>("filename")),
+            sipmTypecodeFormat_(iConfig.getParameter<std::string>("sipmtypecodeformat")) {
         auto cc = setWhatProduced(this);
         moduleIndexTkn_ = cc.consumes(iConfig.getParameter<edm::ESInputTag>("moduleindexer"));
       }
@@ -39,6 +41,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         edm::ParameterSetDescription desc;
         desc.add<edm::FileInPath>("filename")->setComment("module locator file");
         desc.add<edm::ESInputTag>("moduleindexer", edm::ESInputTag(""))->setComment("Dense module index tool");
+        desc.add<std::string>("sipmtypecodeformat", "TB-L.*-S.*")->setComment(
+            "typecode  format for SiPM-on-tile modules regex");
         descriptions.addWithDefaultLabel(desc);
       }
 
@@ -63,9 +67,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           int idx = modIndexer.getIndexForModule(fedid, captureblockidx, econdidx);
           int typeidx = modIndexer.getTypeForModule(fedid, captureblockidx, econdidx);
           std::string typecode = pmap.getAttr("typecode", row);
-
-          auto celltypes = modIndexer.convertTypeCode(typecode);
-          bool isSiPM = celltypes.first;
+          
+          bool isSiPM = typecode.find(sipmTypecodeFormat_.substr(0,2)) != std::string::npos;
+          auto celltypes = modIndexer.convertTypeCode(typecode, isSiPM);
+          // bool isSiPM = celltypes.first;
           int celltype = celltypes.second;
           int zside = pmap.getIntAttr("zside", row);
           int plane = pmap.getIntAttr("plane", row);
@@ -107,6 +112,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     private:
       edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIndexTkn_;
       const edm::FileInPath filename_;
+      std::string sipmTypecodeFormat_;
     };
 
   }  // namespace hgcal

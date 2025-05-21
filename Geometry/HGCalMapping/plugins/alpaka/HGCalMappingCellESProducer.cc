@@ -35,7 +35,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       HGCalMappingCellESProducer(const edm::ParameterSet& iConfig)
           : ESProducer(iConfig),
             filelist_(iConfig.getParameter<std::vector<std::string> >("filelist")),
-            offsetfile_(iConfig.getParameter<edm::FileInPath>("offsetfile")) {
+            offsetfile_(iConfig.getParameter<edm::FileInPath>("offsetfile")),
+            sipmTypecodeFormat_(iConfig.getParameter<std::string>("sipmtypecodeformat")) {
         auto cc = setWhatProduced(this);
         cellIndexTkn_ = cc.consumes(iConfig.getParameter<edm::ESInputTag>("cellindexer"));
         moduleIndexTkn_ = cc.consumes(iConfig.getParameter<edm::ESInputTag>("moduleindexer"));
@@ -50,8 +51,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         desc.add<edm::ESInputTag>("moduleindexer", edm::ESInputTag(""))->setComment("Module index tool");
         desc.add<edm::FileInPath>(
                 "offsetfile",
-                edm::FileInPath("Geometry/HGCalMapping/data/CellMaps/calibration_to_surrounding_offsetMap.txt"))
+                edm::FileInPath("calibrations/ECONDFragments/channels_sipmontile_KITv1.txt"))
             ->setComment("file containing the offsets between calibration and surrounding cells");
+          // edm::FileInPath("Geometry/HGCalMapping/data/CellMaps/calibration_to_surrounding_offsetMap.txt"))
+        desc.add<std::string>("sipmtypecodeformat", "TB-L.*-S.*")->setComment(
+            "typecode  format for SiPM-on-tile modules regex");
         descriptions.addWithDefaultLabel(desc);
       }
 
@@ -110,7 +114,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             //identify special cases (Si vs SiPM, calib vs normal)
             std::string typecode = pmap.getAttr("Typecode", row);
             auto typeidx = cellIndexer.getEnumFromTypecode(typecode);
-            bool isSiPM = typecode.find("TM") != std::string::npos;
+            bool isSiPM = typecode.find(sipmTypecodeFormat_.substr(0,2)) != std::string::npos;
             int rocpin = pmap.getIntAttr("ROCpin", row);
             int celltype = pmap.getIntAttr("t", row);
             int i1(0), i2(0), sensorcell(0);
@@ -175,6 +179,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIndexTkn_;
       const std::vector<std::string> filelist_;
       edm::FileInPath offsetfile_;
+      std::string sipmTypecodeFormat_;
     };
 
   }  // namespace hgcal

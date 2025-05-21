@@ -11,7 +11,10 @@ options.register('sipmcells','Geometry/HGCalMapping/data/CellMaps/channels_sipmo
                  info="Path to SiPM-on-tile cell mapper. Absolute, or relative to CMSSW src directory")
 options.register('offsetfile','Geometry/HGCalMapping/data/CellMaps/calibration_to_surrounding_offsetMap.txt',mytype=VarParsing.varType.cms.FileInPath,
                  info="Path to calibration-to-surrounding cell offset file. Absolute, or relative to CMSSW src directory")
-
+options.register('sitypecodeformat','(([MX])([LH])-([FTBLR5])).*',mytype=VarParsing.varType.string,
+                 info="typecode format for Si modules regex")
+options.register('sipmtypecodeformat','TB-L.*-S.*',mytype=VarParsing.varType.string,
+                 info="typecode format for SiPM-on-tile modules regex")
 options.parseArguments()
 
 process.source = cms.Source('EmptySource')
@@ -26,7 +29,10 @@ process = customise_hgcalmapper(process,
                                 modules=options.modules,
                                 sicells=options.sicells,
                                 sipmcells=options.sipmcells,
-                                offsetfile=options.offsetfile)
+                                offsetfile=options.offsetfile,
+                                sitypecodeformat=options.sitypecodeformat,
+                                sipmtypecodeformat=options.sipmtypecodeformat
+                                )
 
 #Geometry
 process.load('Configuration.Geometry.GeometryExtended2026D99Reco_cff')

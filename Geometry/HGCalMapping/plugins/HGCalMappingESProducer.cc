@@ -22,7 +22,9 @@
  */
 class HGCalMappingESProducer : public edm::ESProducer, public edm::EventSetupRecordIntervalFinder {
 public:
-  explicit HGCalMappingESProducer(const edm::ParameterSet& iConfig) {
+  explicit HGCalMappingESProducer(const edm::ParameterSet& iConfig) 
+    : siTypecodeFormat_(iConfig.getParameter<std::string>("sitypecodeformat")),
+      sipmTypecodeFormat_(iConfig.getParameter<std::string>("sipmtypecodeformat")) {
     //parse the files and hold the list of entities in memory
     for (auto v : {"modules", "si", "sipm"}) {
       edm::FileInPath fip = iConfig.getParameter<edm::FileInPath>(v);
@@ -54,6 +56,10 @@ public:
     desc.add<edm::FileInPath>("si")->setComment("file containing the mapping of the readout cells in Si modules");
     desc.add<edm::FileInPath>("sipm")->setComment(
         "file containing the mapping of the readout cells in SiPM-on-tile modules");
+    desc.add<std::string>("sitypecodeformat", "(([MX])([LH])-([FTBLR5])).*")->setComment(
+        "typecode format for Si modules regex");
+    desc.add<std::string>("sipmtypecodeformat", "TB-L.*-S.*")->setComment(
+        "typecode  format for SiPM-on-tile modules regex");
     descriptions.addWithDefaultLabel(desc);
   }
 
@@ -70,6 +76,8 @@ private:
   std::map<std::string, hgcal::mappingtools::HGCalEntityList> parsedMaps_;
   HGCalMappingCellIndexer cellIndexer_;
   HGCalMappingModuleIndexer modIndexer_;
+  std::string siTypecodeFormat_;
+  std::string sipmTypecodeFormat_;
 };
 
 //
@@ -109,14 +117,21 @@ void HGCalMappingESProducer::prepareModuleMapperIndexer() {
     // match module type code to regular expression pattern (MM-TTTT-LL-NNNN)
     // see https://edms.cern.ch/ui/#!master/navigator/document?D:101059405:101148061:subDocs
     //const std::regex typecode_regex("([MX])([LH])-([FTBLR5])([123])([WPC])-([A-Z]{2})-([0-9]{3,4})"); // MM-TTTT-LL-NNNN
-    const std::regex typecode_regex("(([MX])([LH])-([FTBLR5])).*");  // MM-T*
+    const std::regex typecode_regex(siTypecodeFormat_);  // MM-T*
     std::smatch typecode_match;                                      // match object for string objects
     bool matched = std::regex_match(typecode, typecode_match, typecode_regex);
     if (matched) {
       wtypecode = typecode_match[1].str();  // wafer type following MM-T pattern, e.g. "MH-F"
     } else {
-      edm::LogWarning("HGCalMappingIndexESSource")
-          << "Could not match module type code to expected pattern: " << typecode;
+      const std::regex simp_typecode_regex(sipmTypecodeFormat_); // TB-L*-S*
+      std::smatch sipm_typecode_match; 
+      matched = std::regex_match(typecode, sipm_typecode_match, simp_typecode_regex);
+      if (matched) {
+        wtypecode = sipm_typecode_match[0].str();  // sipm type following TB-L* pattern, e.g. "TB-L*"
+      } else {
+        edm::LogWarning("HGCalMappingIndexESSource")
+            << "Could not match module type code to expected pattern: " << typecode;
+      }
     }
 
     try {
