@@ -18,6 +18,7 @@
 
 // includes for HGCal, calibration, and configuration parameters
 #include "FWCore/Framework/interface/ESWatcher.h"
+#include "CondFormats/HGCalObjects/interface/HGCalESProducerTools.h"  // for json, search_fedkey
 #include "CondFormats/HGCalObjects/interface/HGCalConfiguration.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
@@ -27,6 +28,12 @@
 #include "RecoLocalCalo/HGCalRecAlgos/interface/HGCalESProducerTools.h"  // for json, search_fedkey
 
 // standard includes
+#include <string>
+#include <vector>
+#include <iomanip>  // for std::setw
+
+// standard includes
+//#include <future>
 #include <string>
 #include <vector>
 #include <iomanip>  // for std::setw

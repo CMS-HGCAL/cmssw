@@ -12,6 +12,7 @@
 
 #include "CondFormats/HGCalObjects/interface/HGCalConfiguration.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
+#include "CondFormats/HGCalObjects/interface/HGCalESProducerTools.h"  // for json, search_modkey, search_fedkey
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalModuleConfigurationRcd.h"  // depends on HGCalElectronicsMappingRcd
 #include "RecoLocalCalo/HGCalRecAlgos/interface/HGCalESProducerTools.h"    // for json, search_modkey, search_fedkey
@@ -98,7 +99,6 @@ public:
     // HGCalConfiguration = container class holding FED structs of ECON-D structs of eRx structs
     std::unique_ptr<HGCalConfiguration> config_ = std::make_unique<HGCalConfiguration>();
     for (std::size_t fedid = 0; fedid < moduleMap.getMaxFEDSize(); ++fedid) {
-
       // sanity checks
       if (moduleMap.getFEDReadoutSequences()[fedid].readoutTypes_.empty())         // check if FED exists (non-empty)
         continue;                                                                  // skip non-existent FED
