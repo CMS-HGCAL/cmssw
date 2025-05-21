@@ -96,7 +96,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         bool useADC(!useTOT && isAvailable);
         auto cellIndex = index[idx].cellInfoIdx();
         bool useSiPM(maps[cellIndex].isSiPM());
-        printf("useSiPM: %d ",useSiPM);
+        // printf("useSiPM: %d ",useSiPM);
         recHits[idx].energy() = useADC * adc_denoise(digi.adc(),
                                                      digi.cm(),
                                                      digi.adcm1(),

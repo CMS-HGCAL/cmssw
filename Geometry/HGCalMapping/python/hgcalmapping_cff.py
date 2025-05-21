@@ -11,11 +11,7 @@ def customise_hgcalmapper(process,
     NOTE: for production-targetted configs should be avoided as it checks if the process as 
     already the Accelerators sequence loaded, if not it loads it to the process"""
 
-    print("CUSTOMIZE")
-    print("sipmcells: ", sipmcells)
-    print("offsetfile: ", offsetfile)
     offsetfilepath = cms.FileInPath(offsetfile)
-    print("DONE")
     process.load('Geometry.HGCalMapping.hgCalMappingESProducer_cfi')
     process.hgCalMappingESProducer.modules = cms.FileInPath(modules)
     process.hgCalMappingESProducer.si = cms.FileInPath(sicells)
@@ -26,7 +22,6 @@ def customise_hgcalmapper(process,
     if not hasattr(process, 'ProcessAcceleratorCUDA'):
         process.load('Configuration.StandardSequences.Accelerators_cff')
 
-    print("offsetfilepath: ", offsetfilepath)
         
     process.hgCalMappingCellESProducer = cms.ESProducer('hgcal::HGCalMappingCellESProducer@alpaka',
                                                         filelist=cms.vstring(sicells, sipmcells),
