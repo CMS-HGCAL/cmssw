@@ -75,17 +75,18 @@ HGCalRealisticDigisProducer::HGCalRealisticDigisProducer(const edm::ParameterSet
   rocCharMode_( iConfig.getUntrackedParameter<bool>("ROCCharMode") ),
   rocDigisToken_( consumes<hgcaldigi::HGCalDigiHost>( iConfig.getUntrackedParameter<edm::InputTag>("ROCDigis") ) ),
   moduleIndexToken_(esConsumes()),
-  fedDataToken_(produces<FEDRawDataCollection>("hgcalFEDRawData")) {
+  fedDataToken_(produces<FEDRawDataCollection>()) {
 }
 
 //
 void HGCalRealisticDigisProducer::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup) {
 }
 
+//
 void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
 
-  auto buffers = std::make_unique<FEDRawDataCollection>();
-
+  FEDRawDataCollection buffers;
+  
   //BX, event number and orbit
   uint32_t bx  = iEvent.bunchCrossing();
   uint32_t l1a = iEvent.id().event();
@@ -107,19 +108,20 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
     if (nmodules == 0) continue;
 
     //build the dataframe
+    auto fedid = moduleIndexer.getFEDReadoutSequences()[ifed].id;
     std::vector<uint32_t> fed_frame = buildFEDframe(digis_view, moduleIndexer,ifed,bx,l1a,orb);
     auto fed_frame_size = fed_frame.size()*sizeof(uint32_t)/sizeof(char);
-
-    //store in FED data : FIXME these lines make the code crash
-    //FEDRawData& fed_data = buffers->FEDData(moduleIndexer.getFEDReadoutSequences()[ifed].id);
-    //std::cout << fed_data.size() << std::endl;
-    //auto* ptr = fed_data.data();
-    //std::memcpy(ptr, fed_data.data(), fed_data_size);
+    
+    //store in FED data
+    auto& fed_data = buffers.FEDData(fedid);
+    fed_data.resize(fed_frame_size);
+    auto* ptr = fed_data.data();
+    std::memcpy(ptr, fed_data.data(), fed_frame_size);
   
   } // end FED loop
 
   //put data in event
-  iEvent.emplace(fedDataToken_, std::move(*buffers));
+  iEvent.emplace(fedDataToken_, std::move(buffers));
 }
 
 //
