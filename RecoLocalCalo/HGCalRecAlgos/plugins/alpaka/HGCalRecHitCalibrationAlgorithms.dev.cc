@@ -43,7 +43,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   HGCalDigiDevice::View digis,
                                   HGCalRecHitDevice::View recHits,
-                                  HGCalCalibParamDevice::ConstView calibs) const {
+                                  HGCalCalibParamDevice::ConstView calibs,
+                                  HGCalMappingCellParamDevice::ConstView maps,
+                                  HGCalDenseIndexInfoDevice::ConstView index) const {
       auto adc_denoise =
           [&](uint32_t adc, uint32_t cm, uint32_t adcm1, float adc_ped, float cm_slope, float cm_ped, float bxm1_slope) {
             float cmf = cm_slope * (0.5 * float(cm) - cm_ped);
@@ -56,6 +58,32 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             bool isNotLin(!isLin);
             return isLin * (tot2adc * (tot - tot_ped)) + isNotLin * (tot_p0 + tot_p1 * tot + tot_p2 * tot * tot);
           };
+      
+      auto desaturate = 
+          [&](float signal, float _effNpix, float lin_threshhold) {
+            if (signal <= 0) return signal;
+            if (signal < lin_threshhold * _effNpix) 
+              return - _effNpix * std::log(1 - signal / _effNpix);
+            return 1 / (1 - lin_threshhold) * (signal - lin_threshhold * _effNpix) - _effNpix * std::log( 1 - lin_threshhold );
+          };
+
+      auto sipm_calib_test =
+          [&](uint32_t adc) {
+            // ADC -> saturated signal
+              // ADC->pixel: nPEperMIP = 21 
+            float nPEperMIP = 21;
+              // gain
+            // float gain = 16.3; // we will not use gain
+            float signal = adc * nPEperMIP;
+            // saturated signal -> ideal signal - desaturate
+            float _effNpix = 2533.0;
+            float lin_threshhold = 0.95;
+            auto desaturated_signal = desaturate(signal, _effNpix, lin_threshhold);
+            // ideal signal -> MIP
+            float LY = 13.8;
+            float radiation_damage = 1.0;
+            return desaturated_signal * LY / radiation_damage;
+          };
 
       for (auto idx : uniform_elements(acc, digis.metadata().size())) {
         auto calib = calibs[idx];
@@ -66,6 +94,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                          (digiflags != ::hgcal::DIGI_FLAG::NotAvailable) && calibvalid);
         bool useTOT((digi.tctp() == 3) && isAvailable);
         bool useADC(!useTOT && isAvailable);
+        auto cellIndex = index[idx].cellInfoIdx();
+        bool useSiPM(maps[cellIndex].isSiPM());
+        printf("useSiPM: %d",useSiPM);
         recHits[idx].energy() = useADC * adc_denoise(digi.adc(),
                                                      digi.cm(),
                                                      digi.adcm1(),
@@ -79,7 +110,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                            calib.TOT_ped(),
                                                            calib.TOT_P0(),
                                                            calib.TOT_P1(),
-                                                           calib.TOT_P2());
+                                                           calib.TOT_P2()) +
+                                useSiPM * sipm_calib_test(digi.adc());
 
         //after denoising/linearization apply the MIP scale
         recHits[idx].energy() *= calib.MIPS_scale();
@@ -226,7 +258,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         HGCalRecHitCalibrationKernel_adcToCharge{},
                         device_digis.view(),
                         device_recHits.view(),
-                        device_calib.view());
+                        device_calib.view(),
+                        device_mapping.view(),
+                        device_index.view());
     alpaka::exec<Acc1D>(queue,
                         grid,
                         HGCalRecHitCalibrationKernel_toaToTime{},
