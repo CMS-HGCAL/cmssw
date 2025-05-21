@@ -112,9 +112,8 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
     //store in FED data
     auto& fed_data = raw_data->FEDData(moduleIndexer.getFEDReadoutSequences()[ifed].id);
     auto fed_data_size = fedData.size()*4;
-    fed_data.resize(fed_data_size);
     auto* ptr = fed_data.data();
-    std::memcpy(ptr, fed_data.data(), fed_data_size);
+    //std::memcpy(ptr, fed_data.data(), fed_data_size);
   
   } // end FED loop
 
