@@ -10,7 +10,7 @@
 
 #include "SimCalorimetry/HGCalSimAlgos/interface/HGCalRawDataPackingTools.h"
 
-
+#include "DataFormats/FEDRawData/interface/FEDRawDataCollection.h"
 #include "DataFormats/DetId/interface/DetId.h"
 #include "DataFormats/HGCalDigi/interface/HGCROCChannelDataFrame.h"
 #include "DataFormats/HGCalDigi/interface/HGCalElectronicsId.h"
@@ -52,9 +52,13 @@ private:
   std::vector<uint16_t> buildCommonModeWords(hgcaldigi::HGCalDigiHost::ConstView &, size_t , size_t ); //common mode words
 
   //ECON-D related variables and methods
-  std::vector<uint32_t> packInECONDframes(uint32_t , std::vector<uint32_t> &, std::vector<uint16_t> &, uint32_t bx, uint32_t l1a, uint32_t orb); //ROC frames -> ECON-D
-  //CBheader+econd payload
-  std::vector<uint32_t> buildMiniDAQ(std::vector<uint32_t>& econdpayload, uint32_t econs, uint32_t bx, uint32_t l1a, uint32_t orb);
+  std::vector<uint32_t> packInECONDframes(uint32_t , std::vector<uint32_t> &, std::vector<uint16_t> &, uint32_t , uint32_t , uint32_t ); //ROC frames -> ECON-D
+  
+  //Capture Block (miniDAQ) related methods
+  std::vector<uint32_t> buildMiniDAQframe(std::vector<uint32_t>& , uint32_t , uint32_t , uint32_t , uint32_t ); //MiniDAQ frames
+
+  //FED-level related method
+  std::vector<uint32_t> buildFEDframe(hgcaldigi::HGCalDigiHost::ConstView &, const HGCalMappingModuleIndexer &, uint32_t , uint32_t , uint32_t , uint32_t ); //FED frame
     
   //ROC digis to consume
   edm::EDGetTokenT<hgcaldigi::HGCalDigiHost> rocDigisToken_;
@@ -63,7 +67,7 @@ private:
   edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIndexToken_;
   
   //FED Raw data
-  const edm::EDPutTokenT< std::vector<uint32_t> > fedDataToken_;  
+  const edm::EDPutTokenT<FEDRawDataCollection> fedDataToken_;
 };
 
 //
@@ -71,8 +75,7 @@ HGCalRealisticDigisProducer::HGCalRealisticDigisProducer(const edm::ParameterSet
   rocCharMode_( iConfig.getUntrackedParameter<bool>("ROCCharMode") ),
   rocDigisToken_( consumes<hgcaldigi::HGCalDigiHost>( iConfig.getUntrackedParameter<edm::InputTag>("ROCDigis") ) ),
   moduleIndexToken_(esConsumes()),
-  fedDataToken_(produces< std::vector<uint32_t> >())
-{
+  fedDataToken_(produces<FEDRawDataCollection>("hgcalFEDRawData")) {
 }
 
 //
@@ -81,13 +84,14 @@ void HGCalRealisticDigisProducer::beginRun(edm::Run const& iRun, edm::EventSetup
 
 void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
 
-  std::cout << " [HGCalRealisticDigisProducer] produce" << std::endl;
-  
+  std::unique_ptr<FEDRawDataCollection> raw_data;
+
   //BX, event number and orbit
   uint32_t bx  = iEvent.bunchCrossing();
   uint32_t l1a = iEvent.id().event();
   uint32_t orb = iEvent.orbitNumber(); 
-
+  std::cout << " [HGCalRealisticDigisProducer] produce L1A=" << l1a << " BX=" << bx << " Orbit=" << orb << std::endl;
+  
   // retrieve logical mapping and dense indexing
   const auto& moduleIndexer = iSetup.getData(moduleIndexToken_);
 
@@ -95,70 +99,143 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
   edm::Handle<hgcaldigi::HGCalDigiHost> rocDigis;
   iEvent.getByToken(rocDigisToken_, rocDigis);
   auto digis_view = rocDigis->const_view();
-
-  std::vector<uint32_t> fedData;
-
-  uint32_t cur_cb = 0xffffffff;
-  std::vector<uint32_t> econdpayload;
-  uint32_t necons = 0;
-
-  auto nerxPerType = moduleIndexer.getGlobalTypesNErx();
   
   //loop over FEDs
-  for (const auto &fed : moduleIndexer.getFEDReadoutSequences()) {
-
-    //loop over readout sequence of this FED
-    size_t nmodules = fed.readoutTypes_.size();
+  for (uint32_t ifed=0; ifed<moduleIndexer.fedCount(); ++ifed) {
+    
+    const size_t nmodules = moduleIndexer.getFEDReadoutSequences()[ifed].readoutTypes_.size();
     if (nmodules == 0) continue;
 
-    for (uint32_t i = 0; i < nmodules; i++) {
+    //build the dataframe
+    std::vector<uint32_t> fedData = buildFEDframe(digis_view, moduleIndexer,ifed,bx,l1a,orb);
 
-      uint32_t dense_idx = fed.moduleLUT_[i];
-      assert(i == dense_idx); //if fails something is fishy in module locator file
+    //store in FED data
+    auto& fed_data = raw_data->FEDData(moduleIndexer.getFEDReadoutSequences()[ifed].id);
+    auto fed_data_size = fedData.size()*4;
+    fed_data.resize(fed_data_size);
+    auto* ptr = fed_data.data();
+    std::memcpy(ptr, fed_data.data(), fed_data_size);
+  
+  } // end FED loop
 
-      //compute the starting and ending indices
-      auto readoutType = fed.readoutTypes_[i];
-      auto nerx = nerxPerType[readoutType];
-      auto idx_i = fed.chDataOffsets_[i];
-      auto idx_f = idx_i + 37 * nerx;
+  //put data in event
+  iEvent.emplace(fedDataToken_, std::move(*raw_data));
+}
 
-      //pack DIGIs as ROC words
-      std::vector<uint32_t> rocFrames = packInROCframes(digis_view, idx_i, idx_f);
-      assert(rocFrames.size() == 37 * nerx);
+//
+std::vector<uint32_t> HGCalRealisticDigisProducer::buildFEDframe(hgcaldigi::HGCalDigiHost::ConstView &digis_view,const HGCalMappingModuleIndexer &moduleIndexer, uint32_t ifed, uint32_t bx, uint32_t l1a, uint32_t orb) {
 
-      std::vector<uint16_t> cm = buildCommonModeWords(digis_view, idx_i, nerx);
-      assert(cm.size() == nerx);
+  //raw data at different levels that needs to be packed to fedData
+  std::vector<uint32_t> fedData, cbPayload, econdFrame, rocFrames;
+  std::vector<uint16_t> cm;
 
-      //pack in ECON-data
-      std::vector<uint32_t> econdFrame = packInECONDframes(nerx, rocFrames, cm, bx, l1a, orb);
-      assert(econdFrame.size() == 2 + 39 * nerx + 1);
-
-      uint32_t cb_idx = moduleIndexer.getFEDIndexer().unpackDenseIndex(dense_idx)[0];
-
-      //generate capture block header
-      if (cb_idx != cur_cb) {
-        if (necons > 0) {
-          std::vector<uint32_t> miniDAQData = buildMiniDAQ(econdpayload, necons, bx, l1a, orb);
-
-          fedData.insert(fedData.end(), miniDAQData.begin(), miniDAQData.end());
-
-          necons = 0;
-          econdpayload.clear();
-        }
-        cur_cb = cb_idx;
-      }
-
-      econdpayload.insert(econdpayload.end(), econdFrame.begin(), econdFrame.end());
-      necons++;
-    }//end loop over readout sequence
-  } //end loop over FEDs
-
-  if (necons > 0) {
-    std::vector<uint32_t> miniDAQData = buildMiniDAQ(econdpayload, necons, bx, l1a, orb);
+  //factorize the operation of adding another miniDAQ to this FED data
+  uint32_t cur_cb = 0xffffffff;
+  uint32_t cb_idx = cur_cb;
+  uint32_t necons = 0;
+  auto _flushCaptureBlock = [&]() {
+    if(cur_cb==cb_idx) return cur_cb;
+    cur_cb = cb_idx;
+    if(necons==0) return cur_cb;
+    
+    const auto miniDAQData = buildMiniDAQframe(cbPayload, necons, bx, l1a, orb);
     fedData.insert(fedData.end(), miniDAQData.begin(), miniDAQData.end());
+
+    necons = 0;
+    cbPayload.clear();
+
+    return cur_cb;
+  };
+
+  //loop over readout sequence in FED
+  auto fed = moduleIndexer.getFEDReadoutSequences()[ifed];
+  auto nerxPerType = moduleIndexer.getGlobalTypesNErx();
+  uint32_t nmodules = fed.readoutTypes_.size();
+  for (uint32_t i = 0; i < nmodules; ++i) {
+
+    //check capture block and try to flush
+    const uint32_t dense_idx = fed.moduleLUT_[i];
+    assert(i == dense_idx);
+    cb_idx = moduleIndexer.getFEDIndexer().unpackDenseIndex(dense_idx)[0];
+    _flushCaptureBlock();
+    
+    //determine dense index range to read channel data from
+    const auto readoutType = fed.readoutTypes_[i];
+    const auto nerx = nerxPerType[readoutType];
+    const auto idx_i = fed.chDataOffsets_[i];
+    const auto idx_f = idx_i + 37 * nerx;
+    rocFrames = packInROCframes(digis_view, idx_i, idx_f);
+    assert(rocFrames.size() == 37 * nerx);
+    cm = buildCommonModeWords(digis_view, idx_i, nerx);
+    assert(cm.size() == nerx);
+
+    //pack the ROC frames in  the ECON-D
+    econdFrame = packInECONDframes(nerx, rocFrames, cm, bx, l1a, orb);
+    assert(econdFrame.size() == 2 + 39 * nerx + 1);
+
+    //add to the miniDAQ
+    cbPayload.insert(cbPayload.end(), econdFrame.begin(), econdFrame.end());
+    ++necons;
   }
-  // put information to the event
-  iEvent.emplace(fedDataToken_, std::move(fedData));
+
+  _flushCaptureBlock();  // Final block per FED
+
+  //finalise the fed data
+  uint32_t slink_content = hgcal::backend::buildSlinkContentId(hgcal::backend::SlinkEmulationFlag::Subsystem,0,0);
+  std::vector<uint32_t> fed_header = hgcal::backend::buildSlinkHeader(0, 0, l1a, slink_content, fed.id);
+  fedData.insert(fedData.end(), fed_header.begin(), fed_header.end());
+  uint16_t slink_status = hgcal::backend::buildSlinkRocketStatus(false, false, false, false, false);
+  std::vector<uint32_t> fed_trailer = hgcal::backend::buildSlinkTrailer(0, 0, fedData.size()/8, bx, orb, 0, slink_status);
+  fedData.insert(fedData.end(), fed_trailer.begin(), fed_trailer.end());
+
+  return fedData;
+}
+
+//
+std::vector<uint32_t> HGCalRealisticDigisProducer::buildMiniDAQframe(std::vector<uint32_t>& econdpayload, uint32_t econs, uint32_t bx, uint32_t l1a, uint32_t orb) {
+
+    std::vector<uint8_t> econd_statuses(econs, 0);
+    std::vector<uint32_t> cbheader = hgcal::backend::buildCaptureBlockHeader(bx, l1a, orb, econd_statuses);
+
+    size_t total_size = cbheader.size() + econdpayload.size();
+    size_t remainder = total_size % 4;
+    if (remainder != 0) {
+        size_t padding_needed = 4 - remainder;
+        econdpayload.insert(econdpayload.end(), padding_needed, 0);
+    }
+
+    std::vector<uint32_t> output;
+    output.reserve(cbheader.size() + econdpayload.size());
+    output.insert(output.end(), cbheader.begin(), cbheader.end());
+    output.insert(output.end(), econdpayload.begin(), econdpayload.end());
+
+    return output;
+}
+
+//
+std::vector<uint32_t> HGCalRealisticDigisProducer::packInECONDframes(uint32_t nErx, std::vector<uint32_t> &rocFrames,std::vector<uint16_t> &cm, uint32_t bx, uint32_t l1a, uint32_t orb) {
+
+  assert(rocFrames.size()==nErx*37);
+
+  std::vector<uint32_t> econdFrame = hgcal::econd::eventPacketHeader(0x154, nErx*2+rocFrames.size(), true, false, 0, 0, false, false, 0, bx, l1a, orb, false, 0);
+
+  uint64_t chenable(0x1fffffffff); //37 enabled channels
+  for(size_t i=0; i<nErx; i++) {
+
+    //start a new erx
+    auto cmval = cm[i];
+    std::vector<uint32_t> eRxHeader = hgcal::econd::eRxSubPacketHeader(0,0,false,cmval, cmval, chenable);
+    econdFrame.insert(econdFrame.end(),eRxHeader.begin(),eRxHeader.end());
+
+    //add data from 37 channels
+    auto idx_i = i*37;
+    econdFrame.insert(econdFrame.end(),eRxHeader.begin()+idx_i,eRxHeader.begin()+idx_i+37);
+  }
+  
+  econdFrame.push_back(0);
+  econdFrame.back() = hgcal::econd::computeCRC(econdFrame);
+
+  return econdFrame;
 }
 
 //
@@ -188,53 +265,6 @@ std::vector<uint16_t> HGCalRealisticDigisProducer::buildCommonModeWords(hgcaldig
   return cmWords;
 }
 
-std::vector<uint32_t> HGCalRealisticDigisProducer::buildMiniDAQ(std::vector<uint32_t>& econdpayload, uint32_t econs, uint32_t bx, uint32_t l1a, uint32_t orb) {
-
-    std::vector<uint8_t> econd_statuses(econs, 0);
-    std::vector<uint32_t> cbheader = hgcal::backend::buildCaptureBlockHeader(bx, l1a, orb, econd_statuses);
-
-    size_t total_size = cbheader.size() + econdpayload.size();
-    size_t remainder = total_size % 4;
-    if (remainder != 0) {
-        size_t padding_needed = 4 - remainder;
-        econdpayload.insert(econdpayload.end(), padding_needed, 0);
-    }
-
-    std::vector<uint32_t> output;
-    output.reserve(cbheader.size() + econdpayload.size());
-    output.insert(output.end(), cbheader.begin(), cbheader.end());
-    output.insert(output.end(), econdpayload.begin(), econdpayload.end());
-
-    return output;
-}
-
-
-
-//
-std::vector<uint32_t> HGCalRealisticDigisProducer::packInECONDframes(uint32_t nErx, std::vector<uint32_t> &rocFrames,std::vector<uint16_t> &cm, uint32_t bx, uint32_t l1a, uint32_t orb) {
-
-  assert(rocFrames.size()==nErx*37);
-
-  std::vector<uint32_t> econdFrame = hgcal::econd::eventPacketHeader(0x154, nErx*2+rocFrames.size(), true, false, 0, 0, false, false, 0, bx, l1a, orb, false, 0);
-
-  uint64_t chenable(0x1fffffffff); //37 enabled channels
-  for(size_t i=0; i<nErx; i++) {
-
-    //start a new erx
-    auto cmval = cm[i];
-    std::vector<uint32_t> eRxHeader = hgcal::econd::eRxSubPacketHeader(0,0,false,cmval, cmval, chenable);
-    econdFrame.insert(econdFrame.end(),eRxHeader.begin(),eRxHeader.end());
-
-    //add data from 37 channels
-    auto idx_i = i*37;
-    econdFrame.insert(econdFrame.end(),eRxHeader.begin()+idx_i,eRxHeader.begin()+idx_i+37);
-  }
-  
-  econdFrame.push_back(0);
-  econdFrame.back() = hgcal::econd::computeCRC(econdFrame);
-
-  return econdFrame;
-}
 
 // fill descriptions
 void HGCalRealisticDigisProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {

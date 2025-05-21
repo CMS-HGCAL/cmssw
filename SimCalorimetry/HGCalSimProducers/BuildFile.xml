@@ -1,6 +1,7 @@
 <use name="FWCore/Framework"/>
 <use name="FWCore/ParameterSet"/>
 <use name="FWCore/Utilities"/>
+<use name="DataFormats/FEDRawData"/>
 <use name="DataFormats/ForwardDetId"/>
 <use name="Geometry/HGCalGeometry"/>
 <use name="Geometry/HcalTowerAlgo"/>
