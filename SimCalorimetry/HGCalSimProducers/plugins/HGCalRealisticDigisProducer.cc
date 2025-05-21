@@ -84,7 +84,7 @@ void HGCalRealisticDigisProducer::beginRun(edm::Run const& iRun, edm::EventSetup
 
 void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
 
-  std::unique_ptr<FEDRawDataCollection> raw_data;
+  auto buffers = std::make_unique<FEDRawDataCollection>();
 
   //BX, event number and orbit
   uint32_t bx  = iEvent.bunchCrossing();
@@ -107,18 +107,19 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
     if (nmodules == 0) continue;
 
     //build the dataframe
-    std::vector<uint32_t> fedData = buildFEDframe(digis_view, moduleIndexer,ifed,bx,l1a,orb);
+    std::vector<uint32_t> fed_frame = buildFEDframe(digis_view, moduleIndexer,ifed,bx,l1a,orb);
+    auto fed_frame_size = fed_frame.size()*sizeof(uint32_t)/sizeof(char);
 
-    //store in FED data
-    auto& fed_data = raw_data->FEDData(moduleIndexer.getFEDReadoutSequences()[ifed].id);
-    auto fed_data_size = fedData.size()*4;
-    auto* ptr = fed_data.data();
+    //store in FED data : FIXME these lines make the code crash
+    //FEDRawData& fed_data = buffers->FEDData(moduleIndexer.getFEDReadoutSequences()[ifed].id);
+    //std::cout << fed_data.size() << std::endl;
+    //auto* ptr = fed_data.data();
     //std::memcpy(ptr, fed_data.data(), fed_data_size);
   
   } // end FED loop
 
   //put data in event
-  iEvent.emplace(fedDataToken_, std::move(*raw_data));
+  iEvent.emplace(fedDataToken_, std::move(*buffers));
 }
 
 //
