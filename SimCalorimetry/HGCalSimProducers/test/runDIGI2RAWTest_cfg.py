@@ -59,7 +59,7 @@ process.output = cms.OutputModule(
   fileName=cms.untracked.string(options.output),
   outputCommands=cms.untracked.vstring(
     'drop *',
-    'keep *_hgcalDigis_*_*'
+    'keep *_hgcalDigis_*_*',
     'keep *_hgcalFEDRawData_*_*'
   ),
   SelectEvents=cms.untracked.PSet(SelectEvents=cms.vstring('p'))
