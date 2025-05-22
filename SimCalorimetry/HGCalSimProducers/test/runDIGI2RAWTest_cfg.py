@@ -45,7 +45,6 @@ def buildTemplatedCalib(modloc : str, wafmap : str, calibout : str):
   calib_dict = {}
   for waf, group in df.groupby('Typecode'):
     calib_dict[waf+'*'] = _getCalibTemplate(nch=group.shape[0])
-    print(waf,group.shape[0]/37)
 
   saveAsJson(calibout, calib_dict)
 
