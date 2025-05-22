@@ -33,7 +33,12 @@ namespace hgcalrechit {
                       SOA_EIGEN_COLUMN(Vector8f, TOA_FTDC),   // TOA fine TDC correction
                       SOA_EIGEN_COLUMN(Vector3f, TOA_TW),     // TOA timewalk correction
                       SOA_COLUMN(float, MIPS_scale),          // MIPS scale
-                      SOA_COLUMN(unsigned char, valid)        // only 1 bit used: if false = mask dead channel
+                      SOA_COLUMN(unsigned char, valid),       // only 1 bit used: if false = mask dead channel
+                      SOA_COLUMN(int, nPEperMIP),           // SiPM: pixels per MIP
+                      SOA_COLUMN(float, effNpx),              // SiPM: efficiency of pixels per MIP
+                      SOA_COLUMN(float, lin_threshold),      // SiPM: linear threshhold
+                      SOA_COLUMN(float, LY),                  // SiPM: Light Yield
+                      SOA_COLUMN(float, RadDam)               // SiPM: radiation damage
   )
   using HGCalCalibParamSoA = HGCalCalibParamSoALayout<>;
 

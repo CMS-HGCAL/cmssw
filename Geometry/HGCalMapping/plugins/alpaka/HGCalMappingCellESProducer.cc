@@ -53,7 +53,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                 "offsetfile",
                 edm::FileInPath("calibrations/ECONDFragments/channels_sipmontile_KITv1.txt"))
             ->setComment("file containing the offsets between calibration and surrounding cells");
-          // edm::FileInPath("Geometry/HGCalMapping/data/CellMaps/calibration_to_surrounding_offsetMap.txt"))
+          // edm::FileInPath("Geometry/HGCalMapping/data/CellMaps/calibration_to_surrounding_offsetMap.txt")) not merged in cms-data yet..
         desc.add<std::string>("sipmtypecodeformat", "TB-L.*-S.*")->setComment(
             "typecode  format for SiPM-on-tile modules regex");
         descriptions.addWithDefaultLabel(desc);

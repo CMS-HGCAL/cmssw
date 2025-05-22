@@ -154,6 +154,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             fill_SoA_eigen_row<float>(vi.TOA_FTDC(), calib_data[module]["TOA_FTDC"], n);
             fill_SoA_eigen_row<float>(vi.TOA_TW(), calib_data[module]["TOA_TW"], n);
           }
+
+          // fill SiPM specific calibration parameters
+          if (calib_data[module].find("nPEperMIP") == calib_data[module].end())
+            calib_data[module]["nPEperMIP"] = std::vector<int>(nrows, 1);
+          if (calib_data[module].find("effNpx") == calib_data[module].end())
+            calib_data[module]["effNpx"] = std::vector<float>(nrows, 1.0);
+          if (calib_data[module].find("lin_threshold") == calib_data[module].end())
+            calib_data[module]["lin_threshold"] = std::vector<float>(nrows, 1.0);
+          if (calib_data[module].find("LY") == calib_data[module].end())
+            calib_data[module]["LY"] = std::vector<float>(nrows, 1.0);
+          if (calib_data[module].find("RadDam") == calib_data[module].end())
+            calib_data[module]["RadDam"] = std::vector<float>(nrows, 1.0);
+
+          fill_SoA_column<int>(product.view().nPEperMIP(), calib_data[module]["nPEperMIP"], offset, nrows);
+          fill_SoA_column<float>(product.view().effNpx(), calib_data[module]["effNpx"], offset, nrows);
+          fill_SoA_column<float>(product.view().lin_threshold(), calib_data[module]["lin_threshold"], offset, nrows);
+          fill_SoA_column<float>(product.view().LY(), calib_data[module]["LY"], offset, nrows);
+          fill_SoA_column<float>(product.view().RadDam(), calib_data[module]["RadDam"], offset, nrows);
+
         }
 
         return product;

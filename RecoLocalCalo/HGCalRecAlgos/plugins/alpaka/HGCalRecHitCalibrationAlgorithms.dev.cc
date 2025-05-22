@@ -60,28 +60,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           };
       
       auto desaturate = 
-          [&](float signal, float _effNpix, float lin_threshhold) {
+          [&](float signal, float effNpx, float lin_threshold) {
             if (signal <= 0) return signal;
-            if (signal < lin_threshhold * _effNpix) 
-              return - _effNpix * std::log(1 - signal / _effNpix);
-            return 1 / (1 - lin_threshhold) * (signal - lin_threshhold * _effNpix) - _effNpix * std::log( 1 - lin_threshhold );
+            if (signal < lin_threshold * effNpx) 
+              return - effNpx * std::log(1 - signal / effNpx);
+            return 1 / (1 - lin_threshold) * (signal - lin_threshold * effNpx) - effNpx * std::log( 1 - lin_threshold );
           };
 
       auto sipm_calib_test =
-          [&](uint32_t adc) {
+          [&](uint32_t adc, float nPEperMIP, float effNpx, float lin_threshold, float LY, float radiation_damage) {
             // ADC -> saturated signal
-              // ADC->pixel: nPEperMIP = 21 
-            float nPEperMIP = 21;
-              // gain
-            // float gain = 16.3; // we will not use gain
             float signal = adc * nPEperMIP;
             // saturated signal -> ideal signal - desaturate
-            float _effNpix = 2533.0;
-            float lin_threshhold = 0.95;
-            auto desaturated_signal = desaturate(signal, _effNpix, lin_threshhold);
+            auto desaturated_signal = desaturate(signal, effNpx, lin_threshold);
             // ideal signal -> MIP
-            float LY = 13.8;
-            float radiation_damage = 1.0;
             return desaturated_signal * LY / radiation_damage;
           };
 
@@ -92,11 +84,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         auto digiflags = digi.flags();
         bool isAvailable((digiflags != ::hgcal::DIGI_FLAG::Invalid) &&
                          (digiflags != ::hgcal::DIGI_FLAG::NotAvailable) && calibvalid);
-        bool useTOT((digi.tctp() == 3) && isAvailable);
-        bool useADC(!useTOT && isAvailable);
         auto cellIndex = index[idx].cellInfoIdx();
         bool useSiPM(maps[cellIndex].isSiPM());
-        // printf("useSiPM: %d ",useSiPM);
+        bool useTOT((digi.tctp() == 3) && isAvailable && !useSiPM);
+        bool useADC(!useTOT && isAvailable && !useSiPM);
+        digi.adc() = 1.0;
         recHits[idx].energy() = useADC * adc_denoise(digi.adc(),
                                                      digi.cm(),
                                                      digi.adcm1(),
@@ -111,7 +103,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                            calib.TOT_P0(),
                                                            calib.TOT_P1(),
                                                            calib.TOT_P2()) +
-                                useSiPM * sipm_calib_test(digi.adc());
+                                useSiPM * sipm_calib_test(digi.adc(),
+                                                          calib.nPEperMIP(),
+                                                          calib.effNpx(),
+                                                          calib.lin_threshold(),
+                                                          calib.LY(),
+                                                          calib.RadDam());
 
         //after denoising/linearization apply the MIP scale
         recHits[idx].energy() *= calib.MIPS_scale();
