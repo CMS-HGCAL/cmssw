@@ -1,6 +1,58 @@
 import FWCore.ParameterSet.Config as cms
 
+def buildTemplatedCalib(modloc : str, wafmap : str, calibout : str):
+
+  """this is temporary hack to generate on the file a 'passthrough' level0 calib file"""
+
+  import pandas as pd
+  import numpy as np
+  from HGCalCommissioning.LocalCalibration.JSONEncoder import saveAsJson
+  
+  def _getCalibTemplate(nch) :
+    z=np.zeros(nch).tolist()
+    o=np.ones(nch).tolist()
+    calib_templ_dict = {
+      'Channel': [i for i in range(nch)],
+      'ADC_ped': z,
+      'Noise': z,
+      'CM_ped': z,
+      'CM_slope': z,
+      'BXm1_slope': z,
+      'BXm1_ped': z,
+      'TOTtoADC': o,
+      'TOT_ped': z,
+      'TOT_lin': z,
+      'TOT_P0': z,
+      'TOT_P1': z,
+      'TOT_P2': z,
+      'TOA_CTDC': np.zeros((nch, 32)).tolist(),
+      'TOA_FTDC': np.zeros((nch, 8)).tolist(),
+      'TOA_TW': np.zeros((nch, 3)).tolist(),
+      'MIPS_scale': o,
+      'Valid': o
+    }
+    return calib_templ_dict
+
+
+  #get typecodes needed from module locator
+  df = pd.read_csv(modloc,sep='\\s+')
+  typecodes = df['typecode'].apply(lambda x : x[0:4]).unique()
+
+  #count the channels needed and generate calib constants accordingly
+  df = pd.read_csv(wafmap, sep='\\s+')
+  df = df[df['Typecode'].isin(typecodes)]
+
+  calib_dict = {}
+  for waf, group in df.groupby('Typecode'):
+    calib_dict[waf+'*'] = _getCalibTemplate(nch=group.shape[0])
+    print(waf,group.shape[0]/37)
+
+  saveAsJson(calibout, calib_dict)
+
+
+#
 # parse command line arguments
+#
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing('standard')
 options.register('modules', '/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025Jan/modulelocator_Si.txt', VarParsing.multiplicity.singleton, VarParsing.varType.string,
@@ -21,31 +73,19 @@ fedlist = set(filt_df['fedid'].values.tolist())
 modlist = set(filt_df['typecode'].values.tolist())
 del df
 
+#adapt rechit config
+outputlevel0calib = f'{cmssw_base}/src/level0_calib.json'
+buildTemplatedCalib(outmoduleloc,
+                    f'{cmssw_base}/src/Geometry/HGCalMapping/data/CellMaps/WaferCellMapTraces.txt',
+                    outputlevel0calib)
+
+#final configuration
 eraConfig = {
   'modulemapper':outmoduleloc,
   'fedconfig':'/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025May/fed_config.json',
   'modconfig':'/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025May/module_config.json',
-  'modcalib':None
+  'modcalib':outputlevel0calib
 }
-
-#filter out config files
-import json
-
-# FED
-for cfg_key, url in [
-  ('modcalib','/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025Jan/level0_calib_v2.json'),
-]:
-  with open(url) as stream:
-    cfg = json.load(stream)
-  sel_cfg = {}
-  iter_list = fedlist if 'fed' in cfg_key else modlist
-  for v in iter_list:
-    key = str(v)
-    sel_cfg[key] = cfg[key]
-  outputurl = f'{cmssw_base}/src/{cfg_key}.json'
-  with open(outputurl,'w') as stream:
-    json.dump(sel_cfg, stream)
-  eraConfig[cfg_key] = outputurl
 
 print('Configuration is:')
 import rich
