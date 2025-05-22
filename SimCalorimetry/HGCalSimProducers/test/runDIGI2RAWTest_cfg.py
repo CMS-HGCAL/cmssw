@@ -102,11 +102,11 @@ process.source = cms.Source(
     fileNames=cms.untracked.vstring(*options.files)
 )
 
-
 process.hgcalTranslatedDigis = cms.EDProducer('HGCalDigiSoAFiller')
 process.hgcalRealisticDigis = cms.EDProducer('HGCalRealisticDigisProducer')
 process.hgcalRealisticDigis.ROCDigis = cms.untracked.InputTag('hgcalTranslatedDigis')
 process.hgcalUnpackedDigis = cms.EDProducer('HGCalRawToDigi')
+process.hgcalUnpackedDigis.src = cms.InputTag('hgcalRealisticDigis')
 
 # timing
 process.Timing = cms.Service(
