@@ -23,8 +23,8 @@ del df
 
 eraConfig = {
   'modulemapper':outmoduleloc,
-  'fedconfig':None,
-  'modconfig':None,
+  'fedconfig':'/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025May/fed_config.json',
+  'modconfig':'/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025May/module_config.json',
   'modcalib':None
 }
 
@@ -33,8 +33,6 @@ import json
 
 # FED
 for cfg_key, url in [
-  ('fedconfig','/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025Jan/fedconfig.json'),
-  ('modconfig','/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025Jan/module_config.json'),
   ('modcalib','/eos/cms/store/group/dpg_hgcal/comm_hgcal/psilva/Hackathon_2025Jan/level0_calib_v2.json'),
 ]:
   with open(url) as stream:
