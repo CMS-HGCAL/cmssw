@@ -7,10 +7,13 @@
 #include "FWCore/Framework/interface/ESWatcher.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/StreamID.h"
+#include "FWCore/Utilities/interface/CRC16.h"
 
 #include "SimCalorimetry/HGCalSimAlgos/interface/HGCalRawDataPackingTools.h"
 
 #include "DataFormats/FEDRawData/interface/FEDRawDataCollection.h"
+#include "DataFormats/FEDRawData/interface/FEDHeader.h"
+#include "DataFormats/FEDRawData/interface/FEDTrailer.h"
 #include "DataFormats/DetId/interface/DetId.h"
 #include "DataFormats/HGCalDigi/interface/HGCROCChannelDataFrame.h"
 #include "DataFormats/HGCalDigi/interface/HGCalElectronicsId.h"
@@ -88,9 +91,9 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
   FEDRawDataCollection buffers;
   
   //BX, event number and orbit
-  uint32_t bx  = iEvent.bunchCrossing();
-  uint32_t l1a = iEvent.id().event();
-  uint32_t orb = iEvent.orbitNumber(); 
+  auto bx  = iEvent.bunchCrossing();
+  auto l1a = iEvent.id().event();
+  auto orb = iEvent.orbitNumber(); 
   std::cout << " [HGCalRealisticDigisProducer] produce L1A=" << l1a << " BX=" << bx << " Orbit=" << orb << std::endl;
   
   // retrieve logical mapping and dense indexing
@@ -112,12 +115,28 @@ void HGCalRealisticDigisProducer::produce(edm::Event& iEvent, const edm::EventSe
     std::vector<uint32_t> fed_frame = buildFEDframe(digis_view, moduleIndexer,ifed,bx,l1a,orb);
     auto fed_frame_size = fed_frame.size()*sizeof(uint32_t)/sizeof(char);
     
-    //store in FED data
+    //prepare final FED data
     auto& fed_data = buffers.FEDData(fedid);
-    fed_data.resize(fed_frame_size);
-    auto* ptr = fed_data.data();
-    std::memcpy(ptr, fed_data.data(), fed_frame_size);
-  
+    fed_data.resize(FEDHeader::length + fed_frame_size + FEDTrailer::length);
+    
+    //add header
+    FEDHeader::set(fed_data.data(),
+                   0, //trig type
+                   l1a,
+                   bx,
+                   fedid);
+
+    //add data
+    std::memcpy(fed_data.data()+FEDHeader::length,
+                reinterpret_cast<uint8_t*>(fed_frame.data()),
+                fed_frame_size);
+
+    //add trailer
+    FEDTrailer::set(fed_data.data()+FEDHeader::length+fed_frame_size,
+                    fed_frame_size+2,
+                    evf::compute_crc(reinterpret_cast<uint8_t*>(fed_frame.data()), fed_frame_size),
+                    0,   // Evt_stat
+                    0);  // TTS bits    
   } // end FED loop
 
   //put data in event
@@ -181,14 +200,6 @@ std::vector<uint32_t> HGCalRealisticDigisProducer::buildFEDframe(hgcaldigi::HGCa
   }
 
   _flushCaptureBlock();  // Final block per FED
-
-  //finalise the fed data
-  uint32_t slink_content = hgcal::backend::buildSlinkContentId(hgcal::backend::SlinkEmulationFlag::Subsystem,0,0);
-  std::vector<uint32_t> fed_header = hgcal::backend::buildSlinkHeader(0, 0, l1a, slink_content, fed.id);
-  fedData.insert(fedData.end(), fed_header.begin(), fed_header.end());
-  uint16_t slink_status = hgcal::backend::buildSlinkRocketStatus(false, false, false, false, false);
-  std::vector<uint32_t> fed_trailer = hgcal::backend::buildSlinkTrailer(0, 0, fedData.size()/8, bx, orb, 0, slink_status);
-  fedData.insert(fedData.end(), fed_trailer.begin(), fed_trailer.end());
 
   return fedData;
 }
