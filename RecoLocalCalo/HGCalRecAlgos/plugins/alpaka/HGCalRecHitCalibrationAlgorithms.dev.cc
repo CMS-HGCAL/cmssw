@@ -61,19 +61,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       
       auto desaturate = 
           [&](float signal, float effNpx, float lin_threshold) {
-            if (signal <= 0) return signal;
-            if (signal < lin_threshold * effNpx) 
-              return - effNpx * std::log(1 - signal / effNpx);
-            return 1 / (1 - lin_threshold) * (signal - lin_threshold * effNpx) - effNpx * std::log( 1 - lin_threshold );
+            bool neagitveSignal(signal <= 0);
+            bool positiveSignal(!neagitveSignal);
+            bool highSignal(!neagitveSignal && signal >= lin_threshold * effNpx);
+            return neagitveSignal * signal + positiveSignal * (- effNpx * std::log(1 - signal / effNpx)) + highSignal * (1 / (1 - lin_threshold) * (signal - lin_threshold * effNpx));
           };
 
+      // Should just be in MIP_scale????
       auto sipm_calib_test =
           [&](uint32_t adc, float nPEperMIP, float effNpx, float lin_threshold, float LY, float radiation_damage) {
+            // Electric signal -> ACD
+              // Pedestral subtraction
+              // TOT linearization -> tot_linearization for SiPM if it's different from Si?
+              // TOT -> ADC conversion
+            
             // ADC -> saturated signal
             float signal = adc * nPEperMIP;
-            // saturated signal -> ideal signal - desaturate
+            // saturated signal -> ideal signal - desaturate - This is not just a scale -> linearization?
             auto desaturated_signal = desaturate(signal, effNpx, lin_threshold);
-            // ideal signal -> MIP
+            // ideal signal -> MIP -> Should go to MIP scale in calib! 
             return desaturated_signal * LY / radiation_damage;
           };
 
@@ -86,23 +92,42 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                          (digiflags != ::hgcal::DIGI_FLAG::NotAvailable) && calibvalid);
         auto cellIndex = index[idx].cellInfoIdx();
         bool useSiPM(maps[cellIndex].isSiPM());
-        bool useTOT((digi.tctp() == 3) && isAvailable && !useSiPM);
-        bool useADC(!useTOT && isAvailable && !useSiPM);
-        digi.adc() = 1.0;
-        recHits[idx].energy() = useADC * adc_denoise(digi.adc(),
-                                                     digi.cm(),
-                                                     digi.adcm1(),
-                                                     calib.ADC_ped(),
-                                                     calib.CM_slope(),
-                                                     calib.CM_ped(),
-                                                     calib.BXm1_slope()) +
-                                useTOT * tot_linearization(digi.tot(),
-                                                           calib.TOT_lin(),
-                                                           calib.TOTtoADC(),
-                                                           calib.TOT_ped(),
-                                                           calib.TOT_P0(),
-                                                           calib.TOT_P1(),
-                                                           calib.TOT_P2()) +
+        bool useSiTOT((digi.tctp() == 3) && isAvailable && !useSiPM);
+        bool useSiPMTOT((digi.tctp() == 3) && isAvailable && useSiPM);
+        bool useSiADC(!useSiTOT && isAvailable && !useSiPM);
+        bool useSiPMADC(!useSiPMTOT && isAvailable && useSiPM);
+        // digi.adc() = 1.0;
+        recHits[idx].energy() = useSiADC * adc_denoise(digi.adc(),
+                                                       digi.cm(),
+                                                       digi.adcm1(),
+                                                       calib.ADC_ped(),
+                                                       calib.CM_slope(),
+                                                       calib.CM_ped(),
+                                                       calib.BXm1_slope()) +
+                                // Change to SiPM specific function if needed
+                                useSiPMADC * adc_denoise(digi.adc(), 
+                                                         digi.cm(),
+                                                         digi.adcm1(),
+                                                         calib.ADC_ped(),
+                                                         calib.CM_slope(),
+                                                         calib.CM_ped(),
+                                                         calib.BXm1_slope()) +
+                                useSiTOT * tot_linearization(digi.tot(),
+                                                             calib.TOT_lin(),
+                                                             calib.TOTtoADC(),
+                                                             calib.TOT_ped(),
+                                                             calib.TOT_P0(),
+                                                             calib.TOT_P1(),
+                                                             calib.TOT_P2()) +
+                                // Change to SiPM specific function if needed
+                                useSiPMTOT * tot_linearization(digi.tot(),
+                                                               calib.TOT_lin(),
+                                                               calib.TOTtoADC(),
+                                                               calib.TOT_ped(),
+                                                               calib.TOT_P0(),
+                                                               calib.TOT_P1(),
+                                                               calib.TOT_P2()) +
+                                // SiPM specific function if needed
                                 useSiPM * sipm_calib_test(digi.adc(),
                                                           calib.nPEperMIP(),
                                                           calib.effNpx(),
