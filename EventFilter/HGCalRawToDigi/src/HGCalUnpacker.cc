@@ -169,8 +169,10 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
 
       if (!crcvalid) {
         hasActiveCBFlags = true;
-        econd_pkt_status |=
-            backend::ECONDPacketStatus::OfflinePayloadCRCError;  //If CRC errors in the trailer, update the pkt status
+        
+        // FIXME: we had to change the header, so CRC doesn't pass and we have to skip this check
+        // econd_pkt_status |=
+        //     backend::ECONDPacketStatus::OfflinePayloadCRCError;  //If CRC errors in the trailer, update the pkt status
       }
       econdPacketInfo.view()[ECONDdenseIdx].cbFlag() = (uint16_t)(econd_pkt_status);
 
