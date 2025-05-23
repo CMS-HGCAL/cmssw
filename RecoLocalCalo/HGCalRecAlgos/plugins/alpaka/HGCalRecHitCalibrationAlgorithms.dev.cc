@@ -92,42 +92,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                          (digiflags != ::hgcal::DIGI_FLAG::NotAvailable) && calibvalid);
         auto cellIndex = index[idx].cellInfoIdx();
         bool useSiPM(maps[cellIndex].isSiPM());
-        bool useSiTOT((digi.tctp() == 3) && isAvailable && !useSiPM);
-        bool useSiPMTOT((digi.tctp() == 3) && isAvailable && useSiPM);
-        bool useSiADC(!useSiTOT && isAvailable && !useSiPM);
-        bool useSiPMADC(!useSiPMTOT && isAvailable && useSiPM);
-        // digi.adc() = 1.0;
-        recHits[idx].energy() = useSiADC * adc_denoise(digi.adc(),
-                                                       digi.cm(),
-                                                       digi.adcm1(),
-                                                       calib.ADC_ped(),
-                                                       calib.CM_slope(),
-                                                       calib.CM_ped(),
-                                                       calib.BXm1_slope()) +
-                                // Change to SiPM specific function if needed
-                                useSiPMADC * adc_denoise(digi.adc(), 
-                                                         digi.cm(),
-                                                         digi.adcm1(),
-                                                         calib.ADC_ped(),
-                                                         calib.CM_slope(),
-                                                         calib.CM_ped(),
-                                                         calib.BXm1_slope()) +
-                                useSiTOT * tot_linearization(digi.tot(),
-                                                             calib.TOT_lin(),
-                                                             calib.TOTtoADC(),
-                                                             calib.TOT_ped(),
-                                                             calib.TOT_P0(),
-                                                             calib.TOT_P1(),
-                                                             calib.TOT_P2()) +
-                                // Change to SiPM specific function if needed
-                                useSiPMTOT * tot_linearization(digi.tot(),
-                                                               calib.TOT_lin(),
-                                                               calib.TOTtoADC(),
-                                                               calib.TOT_ped(),
-                                                               calib.TOT_P0(),
-                                                               calib.TOT_P1(),
-                                                               calib.TOT_P2()) +
-                                // SiPM specific function if needed
+        bool useTOT((digi.tctp() == 3) && isAvailable);
+        bool useADC(!useSiTOT && isAvailable);
+        recHits[idx].energy() = useADC * adc_denoise(digi.adc(),
+                                                     digi.cm(),
+                                                     digi.adcm1(),
+                                                     calib.ADC_ped(),
+                                                     calib.CM_slope(),
+                                                     calib.CM_ped(),
+                                                     calib.BXm1_slope()) +
+                                useTOT * tot_linearization(digi.tot(),
+                                                           calib.TOT_lin(),
+                                                           calib.TOTtoADC(),
+                                                           calib.TOT_ped(),
+                                                           calib.TOT_P0(),
+                                                           calib.TOT_P1(),
+                                                           calib.TOT_P2()) +
                                 useSiPM * sipm_calib_test(digi.adc(),
                                                           calib.nPEperMIP(),
                                                           calib.effNpx(),
