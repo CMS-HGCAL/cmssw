@@ -47,41 +47,41 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   HGCalMappingCellParamDevice::ConstView maps,
                                   HGCalDenseIndexInfoDevice::ConstView index) const {
       auto adc_denoise =
-          [&](uint32_t adc, uint32_t cm, uint32_t adcm1, float adc_ped, float cm_slope, float cm_ped, float bxm1_slope) {
+          [&](uint16_t adc, uint32_t cm, uint32_t adcm1, float adc_ped, float cm_slope, float cm_ped, float bxm1_slope) {
             float cmf = cm_slope * (0.5 * float(cm) - cm_ped);
-            return ((adc - adc_ped) - cmf - bxm1_slope * (adcm1 - adc_ped - cmf));
+            return (float)((adc - adc_ped) - cmf - bxm1_slope * (adcm1 - adc_ped - cmf));
           };
 
       auto tot_linearization =
           [&](uint32_t tot, float tot_lin, float tot2adc, float tot_ped, float tot_p0, float tot_p1, float tot_p2) {
             bool isLin(tot > tot_lin);
             bool isNotLin(!isLin);
-            return isLin * (tot2adc * (tot - tot_ped)) + isNotLin * (tot_p0 + tot_p1 * tot + tot_p2 * tot * tot);
+            return (float)(isLin * (tot2adc * (tot - tot_ped)) + isNotLin * (tot_p0 + tot_p1 * tot + tot_p2 * tot * tot));
           };
       
       auto desaturate = 
-          [&](float signal, float effNpx, float lin_threshold) {
+          [&](uint16_t signal, float effNpx, float lin_threshold) {
             bool neagitveSignal(signal <= 0);
             bool positiveSignal(!neagitveSignal);
             bool highSignal(!neagitveSignal && signal >= lin_threshold * effNpx);
-            return neagitveSignal * signal + positiveSignal * (- effNpx * std::log(1 - signal / effNpx)) + highSignal * (1 / (1 - lin_threshold) * (signal - lin_threshold * effNpx));
+            return (float)(neagitveSignal * signal + positiveSignal * (- effNpx * std::log(1 - signal / effNpx)) + highSignal * (1 / (1 - lin_threshold) * (signal - lin_threshold * effNpx)));
           };
 
       // Should just be in MIP_scale????
-      auto sipm_calib_test =
-          [&](uint32_t adc, float nPEperMIP, float effNpx, float lin_threshold, float LY, float radiation_damage) {
-            // Electric signal -> ACD
-              // Pedestral subtraction
-              // TOT linearization -> tot_linearization for SiPM if it's different from Si?
-              // TOT -> ADC conversion
+      // auto sipm_calib_test =
+      //     [&](uint32_t adc, float nPEperMIP, float effNpx, float lin_threshold, float LY, float radiation_damage) {
+      //       // Electric signal -> ACD
+      //         // Pedestral subtraction
+      //         // TOT linearization -> tot_linearization for SiPM if it's different from Si?
+      //         // TOT -> ADC conversion
             
-            // ADC -> saturated signal
-            float signal = adc * nPEperMIP;
-            // saturated signal -> ideal signal - desaturate - This is not just a scale -> linearization?
-            auto desaturated_signal = desaturate(signal, effNpx, lin_threshold);
-            // ideal signal -> MIP -> Should go to MIP scale in calib! 
-            return desaturated_signal * LY / radiation_damage;
-          };
+      //       // ADC -> saturated signal
+      //       float signal = adc * nPEperMIP;
+      //       // saturated signal -> ideal signal - desaturate - This is not just a scale -> linearization?
+      //       auto desaturated_signal = desaturate(signal, effNpx, lin_threshold);
+      //       // ideal signal -> MIP -> Should go to MIP scale in calib! 
+      //       return desaturated_signal * LY / radiation_damage;
+      //     };
 
       for (auto idx : uniform_elements(acc, digis.metadata().size())) {
         auto calib = calibs[idx];
@@ -91,31 +91,37 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         bool isAvailable((digiflags != ::hgcal::DIGI_FLAG::Invalid) &&
                          (digiflags != ::hgcal::DIGI_FLAG::NotAvailable) && calibvalid);
         auto cellIndex = index[idx].cellInfoIdx();
-        bool useSiPM(maps[cellIndex].isSiPM());
+        
         bool useTOT((digi.tctp() == 3) && isAvailable);
-        bool useADC(!useSiTOT && isAvailable);
+        bool useADC(!useTOT && isAvailable);
+        bool useSiPM(maps[cellIndex].isSiPM());
+
+        useADC = true;
+        useTOT = false;
+        useSiPM = true;
+
         recHits[idx].energy() = useADC * adc_denoise(digi.adc(),
                                                      digi.cm(),
                                                      digi.adcm1(),
                                                      calib.ADC_ped(),
                                                      calib.CM_slope(),
                                                      calib.CM_ped(),
-                                                     calib.BXm1_slope()) +
+                                                     calib.BXm1_slope())
+                                                     +
                                 useTOT * tot_linearization(digi.tot(),
                                                            calib.TOT_lin(),
                                                            calib.TOTtoADC(),
                                                            calib.TOT_ped(),
                                                            calib.TOT_P0(),
                                                            calib.TOT_P1(),
-                                                           calib.TOT_P2()) +
-                                useSiPM * sipm_calib_test(digi.adc(),
-                                                          calib.nPEperMIP(),
-                                                          calib.effNpx(),
-                                                          calib.lin_threshold(),
-                                                          calib.LY(),
-                                                          calib.RadDam());
+                                                           calib.TOT_P2())
+                                                           +
+                                useSiPM * desaturate(digi.adc(), calib.effNpx(), calib.lin_threshold());
 
-        //after denoising/linearization apply the MIP scale
+        // print energy
+        // printf("energy: %f\n", recHits[idx].energy());
+
+        // //after denoising/linearization apply the MIP scale
         recHits[idx].energy() *= calib.MIPS_scale();
       }
     }
@@ -269,14 +275,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         device_digis.view(),
                         device_recHits.view(),
                         device_calib.view());
-    alpaka::exec<Acc1D>(queue,
-                        grid,
-                        HGCalRecHitCalibrationKernel_handleCalibCell{},
-                        device_digis.view(),
-                        device_recHits.view(),
-                        device_calib.view(),
-                        device_mapping.view(),
-                        device_index.view());
+    // alpaka::exec<Acc1D>(queue,
+    //                     grid,
+    //                     HGCalRecHitCalibrationKernel_handleCalibCell{},
+    //                     device_digis.view(),
+    //                     device_recHits.view(),
+    //                     device_calib.view(),
+    //                     device_mapping.view(),
+    //                     device_index.view());
 
     LogDebug("HGCalRecHitCalibrationAlgorithms") << "Input recHits: " << std::endl;
 #ifdef EDM_ML_DEBUG
