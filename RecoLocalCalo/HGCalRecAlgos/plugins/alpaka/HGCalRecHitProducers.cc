@@ -22,14 +22,17 @@
 // includes for data formats
 #include "DataFormats/HGCalDigi/interface/HGCalDigiHost.h"
 #include "DataFormats/HGCalDigi/interface/alpaka/HGCalDigiDevice.h"
-#include "DataFormats/HGCalRecHit/interface/HGCalRecHitHost.h"
-#include "DataFormats/HGCalRecHit/interface/alpaka/HGCalRecHitDevice.h"
+#include "DataFormats/HGCalReco/interface/HGCalSoARecHitsHostCollection.h"
+#include "DataFormats/HGCalReco/interface/alpaka/HGCalSoARecHitsDeviceCollection.h"
 
 // includes for size, calibration, and configuration parameters
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalModuleConfigurationRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalDenseIndexInfoRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/HGCalObjects/interface/HGCalCalibrationParameterHost.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHost.h"
 #include "CondFormats/HGCalObjects/interface/alpaka/HGCalCalibrationParameterDevice.h"
 #include "RecoLocalCalo/HGCalRecAlgos/interface/alpaka/HGCalRecHitCalibrationAlgorithms.h"
 
@@ -52,7 +55,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const edm::EDGetTokenT<hgcaldigi::HGCalDigiHost> digisToken_;
     edm::ESGetToken<hgcalrechit::HGCalCalibParamHost, HGCalModuleConfigurationRcd> calibToken_;
     device::ESGetToken<hgcalrechit::HGCalConfigParamDevice, HGCalModuleConfigurationRcd> configToken_;
-    const device::EDPutToken<hgcalrechit::HGCalRecHitDevice> recHitsToken_;
+    edm::ESGetToken<hgcal::HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexInfoToken_;
+    edm::ESGetToken<hgcal::HGCalMappingModuleParamHost, HGCalElectronicsMappingRcd> moduleToken_;
+    const device::EDPutToken<HGCalSoARecHitsDeviceCollection> recHitsToken_;
     const HGCalRecHitCalibrationAlgorithms calibrator_;
     const int n_hits_scale;
   };
@@ -62,6 +67,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         digisToken_{consumes<hgcaldigi::HGCalDigiHost>(iConfig.getParameter<edm::InputTag>("digis"))},
         calibToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("calibSource"))},
         configToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("configSource"))},
+        denseIndexInfoToken_{esConsumes()},
+        moduleToken_{esConsumes()},
         recHitsToken_{produces()},
         calibrator_{iConfig.getParameter<int>("n_blocks"), iConfig.getParameter<int>("n_threads")},
         n_hits_scale{iConfig.getParameter<int>("n_hits_scale")} {
@@ -89,6 +96,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Read digis
     auto const& hostCalibParamProvider = iSetup.getData(calibToken_);
     auto const& deviceConfigParamProvider = iSetup.getData(configToken_);
+    auto const& deviceDenseIndexProvider = iSetup.getData(denseIndexInfoToken_);
+    auto const& deviceModuleInfoProvider = iSetup.getData(moduleToken_);
     auto const& hostDigisIn = iEvent.get(digisToken_);
 
     //printout new conditions if available
@@ -157,11 +166,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::memcpy(queue, deviceCalibParam.buffer(), hostCalibParam.const_buffer());
 
 #ifdef HGCAL_PERF_TEST
-    auto tmpRecHits = calibrator_.calibrate(queue, hostDigis, deviceCalibParam, deviceConfigParamProvider);
-    HGCalRecHitDevice recHits(oldSize, queue);
+    auto tmpRecHits = calibrator_.calibrate(queue,
+                                            hostDigis,
+                                            deviceDenseIndexProvider,
+                                            deviceModuleInfoProvider,
+                                            deviceCalibParam,
+                                            deviceConfigParamProvider);
+    HGCalSoARecHitsDeviceCollection recHits(oldSize, queue);
     alpaka::memcpy(queue, recHits.buffer(), tmpRecHits.const_buffer(), oldSize);
 #else
-    auto recHits = calibrator_.calibrate(queue, hostDigis, deviceCalibParam, deviceConfigParamProvider);
+    auto recHits = calibrator_.calibrate(queue,
+                                         hostDigis,
+                                         deviceDenseIndexProvider,
+                                         deviceModuleInfoProvider,
+                                         deviceCalibParam,
+                                         deviceConfigParamProvider);
 #endif
 
 #ifdef EDM_ML_DEBUG
