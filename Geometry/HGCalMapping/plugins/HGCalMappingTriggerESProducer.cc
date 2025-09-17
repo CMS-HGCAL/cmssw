@@ -26,12 +26,9 @@ class HGCalMappingTriggerESProducer : public edm::ESProducer, public edm::EventS
 public:
   explicit HGCalMappingTriggerESProducer(const edm::ParameterSet& iConfig) {
     //parse the files and hold the list of entities in memory
-    for (const auto& v : {"modules", "si", "sipm"}) {
-      edm::FileInPath fip = iConfig.getParameter<edm::FileInPath>(v);
-      hgcal::mappingtools::HGCalEntityList pmap;
-      pmap.buildFrom(fip.fullPath());
-      parsedMaps_[v] = pmap;
-    }
+    modulesMap_.buildFrom(iConfig.getParameter<edm::FileInPath>("modules").fullPath());
+    sicellsMap_.buildFrom(iConfig.getParameter<edm::FileInPath>("si").fullPath());
+    sipmCellsMap_.buildFrom(iConfig.getParameter<edm::FileInPath>("sipm").fullPath());
 
     setWhatProduced(this, &HGCalMappingTriggerESProducer::produceCellMapIndexer);
     setWhatProduced(this, &HGCalMappingTriggerESProducer::produceModuleMapIndexer);
@@ -69,15 +66,15 @@ private:
   void prepareCellMapperIndexer();
   void prepareModuleMapperIndexer();
 
-  std::map<std::string, hgcal::mappingtools::HGCalEntityList> parsedMaps_;
+  hgcal::mappingtools::HGCalEntityList modulesMap_, sicellsMap_, sipmCellsMap_;
   HGCalMappingCellIndexerTrigger cellIndexer_;
   HGCalMappingModuleIndexerTrigger modIndexer_;
 };
 
 //
 void HGCalMappingTriggerESProducer::prepareCellMapperIndexer() {
-  for (const auto& v : {"si", "sipm"}) {
-    const auto& pmap = parsedMaps_[v];
+  for (size_t i = 0; i < 2; i++) {
+    const auto& pmap = i == 0 ? sicellsMap_ : sipmCellsMap_;
     const auto& entities = pmap.getEntries();
     for (const auto& row : entities) {
       auto typecode = pmap.getAttr("Typecode", row);
@@ -103,11 +100,10 @@ void HGCalMappingTriggerESProducer::prepareModuleMapperIndexer() {
   auto defaultTypeNTCs = cellIndexer_.getNWordsExpectedFor(defaultTypeCodeIdx);
   auto nwords = defaultTypeNTCs;
 
-  const auto& pmap = parsedMaps_["modules"];
-  const auto& entities = pmap.getEntries();
+  const auto& entities = modulesMap_.getEntries();
   for (const auto& row : entities) {
-    auto typecode = pmap.getAttr("typecode", row);  // module type code
-    std::string wtypecode;                          // wafer type code
+    auto typecode = modulesMap_.getAttr("typecode", row);  // module type code
+    std::string wtypecode;                                 // wafer type code
 
     // match module type code to regular expression pattern (MM-TTTT-LL-NNNN)
     // see https://edms.cern.ch/ui/#!master/navigator/document?D:101059405:101148061:subDocs
@@ -133,8 +129,8 @@ void HGCalMappingTriggerESProducer::prepareModuleMapperIndexer() {
     nTrLinks = cellIndexer_.getNTrLinkExpectedFor(wtypecode);
     nwords = cellIndexer_.getNWordsExpectedFor(wtypecode);
 
-    int fedid = pmap.getIntAttr("trig_fedid", row);
-    int econtidx = pmap.getIntAttr("econtidx", row);
+    int fedid = modulesMap_.getIntAttr("trig_fedid", row);
+    int econtidx = modulesMap_.getIntAttr("econtidx", row);
     modIndexer_.processNewModule(fedid, econtidx, typecodeidx, nTrLinks, nwords, typecode);
   }
 

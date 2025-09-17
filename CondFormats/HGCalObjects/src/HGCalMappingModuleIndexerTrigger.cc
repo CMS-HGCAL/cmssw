@@ -4,8 +4,8 @@
 #include "DataFormats/ForwardDetId/interface/HGCScintillatorDetId.h"  // for HGCScintillatorDetId::tileGranularity
 
 /**
- * @short for a new module it adds it's type to the readaout sequence vector
- * if the fed id is not yet existing in the mapping it's added
+ * @short for a new module it adds its type to the readout sequence vector
+ * if the fed id is not yet existing in the mapping it is added
  * a dense indexer is used to create the necessary indices for the new module
  * unused indices will be set with -1
  */
@@ -69,13 +69,10 @@ void HGCalMappingModuleIndexerTrigger::finalize() {
   offsetsTrLink_.resize(maxModulesIdx_, 0);
   offsetsTC_.resize(maxModulesIdx_, 0);
   for (size_t i = 1; i < globalTypesCounter_.size(); i++) {
-    offsetsModule_[i] = globalTypesCounter_[i - 1];
-    offsetsTrLink_[i] = globalTypesCounter_[i - 1] * globalTypesNTrLinks_[i - 1];
-    offsetsTC_[i] = globalTypesCounter_[i - 1] * globalTypesNTCs_[i - 1];
+    offsetsModule_[i] = globalTypesCounter_[i - 1] + offsetsModule_[i - 1];
+    offsetsTrLink_[i] = globalTypesCounter_[i - 1] * globalTypesNTrLinks_[i - 1] + offsetsTrLink_[i - 1];
+    offsetsTC_[i] = globalTypesCounter_[i - 1] * globalTypesNTCs_[i - 1] + offsetsTC_[i - 1];
   }
-  std::partial_sum(offsetsModule_.begin(), offsetsModule_.end(), offsetsModule_.begin());
-  std::partial_sum(offsetsTrLink_.begin(), offsetsTrLink_.end(), offsetsTrLink_.begin());
-  std::partial_sum(offsetsTC_.begin(), offsetsTC_.end(), offsetsTC_.begin());
 
   // now go through the FEDs and ascribe the offsets per module in the readout sequence
   std::vector<uint32_t> typeCounters(globalTypesCounter_.size(), 0);

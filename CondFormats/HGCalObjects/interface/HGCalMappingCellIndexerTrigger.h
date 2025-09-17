@@ -20,7 +20,7 @@ public:
   /**
      adds to map of type codes (= module types) to handle and updatest the max. number of eRx
    */
-  void processNewCell(std::string typecode, uint16_t ROC, uint16_t trLink, uint16_t trCell) {
+  void processNewCell(std::string const& typecode, uint16_t ROC, uint16_t trLink, uint16_t trCell) {
     // Skip if trLink, trCell not connected
     if (trLink == uint16_t(-1) || trCell == uint16_t(-1))
       return;
@@ -58,17 +58,14 @@ public:
       uint16_t maxTCPerLink = maxTCPerLink_[idx];
       di_[idx].updateRanges({{maxROCs, maxLinks, maxTCPerLink}});
       if (idx < n - 1)
-        offsets_[idx + 1] = di_[idx].maxIndex();
+        offsets_[idx + 1] = di_[idx].maxIndex() + offsets_[idx];
     }
-
-    //accumulate the offsets in the array
-    std::partial_sum(offsets_.begin(), offsets_.end(), offsets_.begin());
   }
 
   /**
      @short gets index given typecode string
    */
-  size_t getEnumFromTypecode(std::string typecode) const {
+  size_t getEnumFromTypecode(std::string const& typecode) const {
     auto it = typeCodeIndexer_.find(typecode);
     if (it == typeCodeIndexer_.end())
       throw cms::Exception("ValueError") << " unable to find typecode=" << typecode << " in cell indexer";
@@ -88,7 +85,7 @@ public:
   /**
      @short returns the dense indexer for a typecode
    */
-  HGCalDenseIndexerBase getDenseIndexFor(std::string typecode) const {
+  HGCalDenseIndexerBase getDenseIndexFor(std::string const& typecode) const {
     return getDenseIndexerFor(getEnumFromTypecode(typecode));
   }
 
@@ -105,30 +102,12 @@ public:
   /**
     @short builders for the dense index
   */
-  uint16_t denseIndex(std::string typecode, uint32_t ROC, uint32_t trLink, uint32_t trCell) const {
+  uint16_t denseIndex(std::string const& typecode, uint32_t ROC, uint32_t trLink, uint32_t trCell) const {
     return denseIndex(getEnumFromTypecode(typecode), ROC, trLink, trCell);
   }
   uint32_t denseIndex(size_t idx, uint32_t ROC, uint32_t trLink, uint32_t trCell) const {
     return di_[idx].denseIndex({{ROC, trLink, trCell}}) + offsets_[idx];
   }
-
-  /**
-     @short decodes the dense index code
-  */
-  /* ###############################
-   Only for Data, Trigger does not have elecId yet
-  uint32_t elecIdFromIndex(uint32_t rtn, std::string typecode) const {
-    return elecIdFromIndex(rtn, getEnumFromTypecode(typecode));
-  }
-  uint32_t elecIdFromIndex(uint32_t rtn, size_t idx) const {
-    if (idx >= di_.size())
-      throw cms::Exception("ValueError") << " index requested for cell dense indexer (i=" << idx
-                                         << ") is larger than allocated";
-    rtn -= offsets_[idx];
-    auto rtn_codes = di_[idx].unpackDenseIndex(rtn); // {}
-    return HGCalElectronicsId(false, 0, 0, 0, rtn_codes[0], rtn_codes[1]).raw();
-  }
-  ################################*/
 
   /**
      @short returns the max. dense index expected
@@ -147,7 +126,7 @@ public:
      e.g.: ML-T has 22 TCs but this will return 32 or MH-T has 19 but it will return 24
      It results in a small mem overhead over the totall memory needed to be allocated
   */
-  size_t getNWordsExpectedFor(std::string typecode) const {
+  size_t getNWordsExpectedFor(std::string const& typecode) const {
     auto it = getEnumFromTypecode(typecode);
     return getNWordsExpectedFor(it);
   }
@@ -156,13 +135,13 @@ public:
   /**
      @short gets the number of Trigger Links for a given typecode
   */
-  size_t getNTrLinkExpectedFor(std::string typecode) const {
+  size_t getNTrLinkExpectedFor(std::string const& typecode) const {
     auto it = getEnumFromTypecode(typecode);
     return getNTrLinkExpectedFor(it);
   }
   size_t getNTrLinkExpectedFor(size_t typecodeidx) const { return maxTrLink_[typecodeidx] * maxROC_[typecodeidx]; }
 
-  std::map<std::string, size_t> typeCodeIndexer_;
+  std::unordered_map<std::string, size_t> typeCodeIndexer_;
   std::vector<uint16_t> maxROC_;
   std::vector<uint16_t> maxTrLink_;
   std::vector<uint16_t> maxTCPerLink_;
