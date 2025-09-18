@@ -42,6 +42,16 @@ public:
                         hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo,
                         bool headerOnlyMode = false);
 
+  uint16_t parseFEDData(unsigned fedId,
+                        const unsigned char* start_fed_data,
+                        size_t fed_data_size,
+                        const HGCalMappingModuleIndexer& moduleIndexer,
+                        const HGCalConfiguration& config,
+                        hgcaldigi::HGCalDigiHost& digis,
+                        hgcaldigi::HGCalFEDPacketInfoHost& fedPacketInfo,
+                        hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo,
+                        bool headerOnlyMode);
+
 private:
   constexpr static uint8_t tctp_[16] = {
       0b00, 0b00, 0b01, 0b00, 0b00, 0b00, 0b00, 0b00, 0b10, 0b10, 0b10, 0b10, 0b11, 0b11, 0b11, 0b11};

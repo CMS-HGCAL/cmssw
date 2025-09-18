@@ -27,6 +27,28 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
                                      hgcaldigi::HGCalFEDPacketInfoHost& fedPacketInfo,
                                      hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo,
                                      bool headerOnlyMode) {
+  const auto fed_data_size = fed_data.size();
+  const auto* start_fed_data = &(fed_data.data().front());
+  return parseFEDData(fedId,
+                      start_fed_data,
+                      fed_data_size,
+                      moduleIndexer,
+                      config,
+                      digis,
+                      fedPacketInfo,
+                      econdPacketInfo,
+                      headerOnlyMode);
+}
+
+uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
+                                     const unsigned char* start_fed_data,
+                                     size_t fed_data_size,
+                                     const HGCalMappingModuleIndexer& moduleIndexer,
+                                     const HGCalConfiguration& config,
+                                     hgcaldigi::HGCalDigiHost& digis,
+                                     hgcaldigi::HGCalFEDPacketInfoHost& fedPacketInfo,
+                                     hgcaldigi::HGCalECONDPacketInfoHost& econdPacketInfo,
+                                     bool headerOnlyMode) {
   // ReadoutSequence object for this FED
   const auto& fedReadoutSequence = moduleIndexer.getFEDReadoutSequences()[fedId];
   // Configuration object for this FED
@@ -50,9 +72,8 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
   // Endianness assumption
   // From 32-bit word(ECOND) to 64-bit word(capture block): little endianness
   // Others: big endianness
-  const auto* start_fed_data = &(fed_data.data().front());
   const auto* const header = reinterpret_cast<const uint64_t*>(start_fed_data);
-  const auto* const trailer = reinterpret_cast<const uint64_t*>(start_fed_data + fed_data.data().size());
+  const auto* const trailer = reinterpret_cast<const uint64_t*>(start_fed_data + fed_data_size);
   LogDebug("[HGCalUnpacker]") << "fedId = " << fedId << ", nwords (64b) = " << std::distance(header, trailer);
   const auto* ptr = header;
 
@@ -121,7 +142,7 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
       uint32_t ECONDdenseIdx = moduleIndexer.getIndexForModule(fedId, 0);
       econdPacketInfo.view()[ECONDdenseIdx].location() = (uint32_t)(ptr - header);
       if (cb_header == 0x0) {
-        auto nToEnd = (fed_data.size() / 8 - 2) - std::distance(header, ptr);
+        auto nToEnd = (fed_data_size / 8 - 2) - std::distance(header, ptr);
         if (nToEnd == 1) {
           ptr++;
           LogDebug("[HGCalUnpacker]")
