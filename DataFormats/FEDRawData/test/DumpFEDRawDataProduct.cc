@@ -62,15 +62,6 @@ namespace test {
       descriptions.add("dumpFEDdata", desc);
     }
 
-    static void fillDescriptions(ConfigurationDescriptions& descriptions) {
-      ParameterSetDescription desc;
-      desc.addUntracked<std::vector<int>>("feds")->setComment("List of FED IDs of interest");
-      desc.addUntracked<edm::InputTag>("label")->setComment("Label for the raw data collection");
-      desc.addUntracked<bool>("dumpPayload")->setComment("Enable payload dump");
-      desc.addUntracked<bool>("usePhase2")->setComment("Use Phase 2 RawDataBuffer instead of Phase 1's FEDRawDataCollection");
-      descriptions.add("dumpFEDdata", desc);
-    }
-    
     void analyze(edm::StreamID sid, const Event& e, const EventSetup& c) const override {
       if (usePhase2_)
         analyzePhase2(e, c);
@@ -79,7 +70,6 @@ namespace test {
     }
 
   private:
-
     const std::set<int> feds_;
     const edm::EDGetTokenT<FEDRawDataCollection> phase1_token_;
     const edm::EDGetTokenT<RawDataBuffer> phase2_token_;
@@ -169,6 +159,6 @@ namespace test {
       }
     }
   };
-  
+
   DEFINE_FWK_MODULE(DumpFEDRawDataProduct);
 }  // namespace test
