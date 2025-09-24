@@ -158,10 +158,10 @@ public:
     }
 
     // consistency check
-    if (ntot_mods != moduleMap.maxModuleSize())
+    if (ntot_mods != moduleMap.maxModulesCount())
       edm::LogWarning("HGCalConfigurationESProducer")
           << "Total number of ECON-D modules found in JSON file " << modjson_ << " (" << ntot_mods
-          << ") does not match indexer (" << moduleMap.maxModuleSize() << ")";
+          << ") does not match indexer (" << moduleMap.maxModulesCount() << ")";
     if (ntot_rocs != moduleMap.maxERxSize())
       edm::LogWarning("HGCalConfigurationESProducer")
           << "Total number of eRx half-ROCs found in JSON file " << modjson_ << " (" << ntot_rocs
