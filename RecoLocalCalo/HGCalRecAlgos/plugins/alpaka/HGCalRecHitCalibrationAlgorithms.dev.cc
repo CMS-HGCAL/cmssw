@@ -64,25 +64,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         bool useTOT((digi.tctp() == 3) && isAvailable);
         bool useADC(!useTOT && isAvailable);
         auto lin_counts = useADC * adc_denoise(digi.adc(),
-					       digi.cm(),
-					       digi.adcm1(),
-					       calib.ADC_ped(),
-					       calib.CM_slope(),
-					       calib.CM_ped(),
-					       calib.BXm1_slope()) +
-	                 useTOT * tot_linearization(digi.tot(),
-                                                 calib.TOT_lin(),
-                                                 calib.TOTtoADC(),
-                                                 calib.TOT_ped(),
-                                                 calib.TOT_P0(),
-                                                 calib.TOT_P1(),
-                                                 calib.TOT_P2());
+                                               digi.cm(),
+                                               digi.adcm1(),
+                                               calib.ADC_ped(),
+                                               calib.CM_slope(),
+                                               calib.CM_ped(),
+                                               calib.BXm1_slope()) +
+                          useTOT * tot_linearization(digi.tot(),
+                                                     calib.TOT_lin(),
+                                                     calib.TOTtoADC(),
+                                                     calib.TOT_ped(),
+                                                     calib.TOT_P0(),
+                                                     calib.TOT_P1(),
+                                                     calib.TOT_P2());
 
         // after denoising/linearization apply the MIP & EM scale to convert to energy (GeV)
+        // noise is also saved in units of GeV
         recHits[idx].mipEnergy() = lin_counts * calib.MIPS_scale();
-        recHits[idx].energy() = recHits[idx].mipEnergy() * calib.EM_scale();
-	auto counts2energy = recHits[idx].energy() / (lin_counts+1e-6);
-	recHits[idx].sigmaNoise() = counts2energy * recHits[idx].sigmaNoise();
+        recHits[idx].energy() = calib.EM_scale() * calib.MIPS_scale() * lin_counts;
+        recHits[idx].sigmaNoise() = calib.EM_scale() * calib.MIPS_scale() * calib.Noise();
       }
     }
   };
@@ -187,12 +187,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   struct HGCalRecHitCalibrationKernel_metaData {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   HGCalSoARecHitsDeviceCollection::View recHits,
-                                  HGCalCalibParamDevice::ConstView calibs,
                                   HGCalMappingModuleParamDevice::ConstView mapmod,
                                   HGCalDenseIndexInfoDevice::ConstView index) const {
       for (auto idx : uniform_elements(acc, recHits.metadata().size())) {
         auto denseIdx = index[idx];
-        auto calib = calibs[idx];
         auto recHit = recHits[idx];
         if (mapmod[denseIdx.modInfoIdx()].isSiPM()) {
           recHit.dim1() = denseIdx.eta();
@@ -203,7 +201,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           recHit.dim2() = denseIdx.y();
         }
         recHit.dim3() = denseIdx.z();
-        recHit.sigmaNoise() = calib.Noise();
         recHit.recHitIndex() = idx;
         recHit.detid() = denseIdx.detid();
         recHit.layer() = denseIdx.layer();
@@ -241,10 +238,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   int32_t* __restrict__ nsel,
                                   int32_t* __restrict__ sidx,
                                   HGCalSoARecHitsDeviceCollection::ConstView recHits,
-				  double k_noise = 0.) const {
-      for (auto idx : uniform_elements(acc, recHits.metadata().size()))
-        if (!recHits[idx].flags() && recHits[idx].energy() > k_noise*recHits[idx].sigmaNoise())
+                                  double k_noise = 0.) const {
+      for (auto idx : uniform_elements(acc, recHits.metadata().size())) {
+        if (!recHits[idx].flags() && recHits[idx].energy() > k_noise * recHits[idx].sigmaNoise())
           sidx[alpaka::atomicAdd(acc, nsel, 1)] = idx;
+      }
     }
   };
 
@@ -321,13 +319,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         grid,
                         HGCalRecHitCalibrationKernel_metaData{},
                         device_recHits.view(),
-                        device_calib.const_view(),
                         device_mapmod.const_view(),
                         device_index.const_view());
 
     // select rec hits
     alpaka::exec<Acc1D>(
-       queue, grid, HGCalRecHitCalibrationKernel_countRecHits{}, nsel, sidx, device_recHits.const_view(), k_noise);
+        queue, grid, HGCalRecHitCalibrationKernel_countRecHits{}, nsel, sidx, device_recHits.const_view(), k_noise);
 
     return device_recHits;
   }

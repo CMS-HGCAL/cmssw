@@ -75,9 +75,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         mappingToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("mappingSource"))},
         indexingToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("indexingSource"))},
         moduleToken_{esConsumes()},
-        recHitsToken_{produces()},	
+        recHitsToken_{produces()},
         calibrator_{iConfig.getParameter<int>("n_blocks"), iConfig.getParameter<int>("n_threads")},
-	k_noise_{iConfig.getParameter<double>("k_noise")},
+        k_noise_{iConfig.getParameter<double>("k_noise")},
         n_hits_scale_{iConfig.getParameter<int>("n_hits_scale")},
         nsel_{cms::alpakatools::make_host_buffer<int32_t, Platform>()} {
 #ifndef HGCAL_PERF_TEST
@@ -187,7 +187,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                      deviceModuleInfoProvider,
                                      deviceMappingCellParamProvider,
                                      deviceIndexingParamProvider,
-				     k_noise_);
+                                     k_noise_);
 #endif
 
 #ifdef EDM_ML_DEBUG
