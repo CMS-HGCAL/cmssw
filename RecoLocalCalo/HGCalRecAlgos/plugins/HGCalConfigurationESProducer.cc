@@ -100,8 +100,8 @@ public:
     config_->feds.resize(moduleMap.maxFEDSize());
     for (std::size_t fedid = 0; fedid < moduleMap.maxFEDSize(); ++fedid) {
       // sanity checks
-      if (moduleMap.fedReadoutSequences()[fedid].readoutTypes_.empty())            // check if FED exists (non-empty)
-        continue;                                                                  // skip non-existent FED
+      if (moduleMap.fedReadoutSequences()[fedid].readoutTypes_.empty())              // check if FED exists (non-empty)
+        continue;                                                                    // skip non-existent FED
       const auto fedkey = hgcal::search_fedkey(fedid, fed_config_data, fedjsonurl);  // search matching key
       hgcal::check_keys(
           fed_config_data, fedkey, fedkeys, fedjsonurl);  // check required keys are in the JSON, warn otherwise
@@ -178,8 +178,8 @@ private:
   }
 
   edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> indexToken_;
-  const edm::FileInPath fedjson_;       // JSON file
-  const edm::FileInPath modjson_;       // JSON file
+  const edm::FileInPath fedjson_;   // JSON file
+  const edm::FileInPath modjson_;   // JSON file
   int32_t bePassthroughMode_ = -1;  // for manual override
   int32_t cbHeaderMarker_ = -1;     // for manual override
   int32_t slinkHeaderMarker_ = -1;  // for manual override
