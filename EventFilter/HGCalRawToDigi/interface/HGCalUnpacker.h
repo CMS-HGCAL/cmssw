@@ -64,7 +64,7 @@ public:
     }
     return totout;
   }
-  
+
 private:
   constexpr static uint8_t tctp_[16] = {
       0b00, 0b00, 0b01, 0b00, 0b00, 0b00, 0b00, 0b00, 0b10, 0b10, 0b10, 0b10, 0b11, 0b11, 0b11, 0b11};
