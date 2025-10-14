@@ -56,11 +56,13 @@ void HGCalRawToDigiTrigger::produce(edm::Event& iEvent, const edm::EventSetup& i
   const auto& moduleIndexer = iSetup.getData(moduleIndexToken_);
   //const auto& cellIndexer = iSetup.getData(cellIndexToken_);
   const auto& config = iSetup.getData(configToken_);
-
+  std::cout << "HGCalRawToDigiTrigger::produce - with module indexer " << moduleIndexer.fedReadoutSequences().size() << std::endl;
+  
   hgcaldigi::HGCalDigiTriggerHost digisTrigger(moduleIndexer.maxDataSize(), cms::alpakatools::host());
   const auto& fedBuffer = iEvent.get(fedRawTriggerToken_);
   for (unsigned fedId = 0; fedId < moduleIndexer.fedCount(); ++fedId) {
     const auto& frs = moduleIndexer.fedReadoutSequences()[fedId];
+    std::cout << frs.readoutTypes_.size() << " " << frs.id << std::endl;
     if (frs.readoutTypes_.empty()) {
       continue;
     }
@@ -68,6 +70,7 @@ void HGCalRawToDigiTrigger::produce(edm::Event& iEvent, const edm::EventSetup& i
     if (fed_data.size() == 0){
       continue;
     }
+    std::cout << "HGCalRawToDigiTrigger::produce - got a fed_data fragment size=" << fed_data.size() << std::endl; 
     unpacker_trigger_.parseFEDData(fedId,fed_data,config,moduleIndexer,digisTrigger);
   }
 

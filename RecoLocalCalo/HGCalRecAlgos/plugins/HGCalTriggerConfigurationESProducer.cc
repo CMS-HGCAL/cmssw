@@ -80,7 +80,10 @@ public:
     // HGCalTriggerConfiguration = container class holding FED structs of ECON-D structs of eRx structs
     std::unique_ptr<HGCalTriggerConfiguration> config_ = std::make_unique<HGCalTriggerConfiguration>();
     config_->feds.resize(moduleMap.maxFEDSize());
-    for (std::size_t fedid = 0; fedid < moduleMap.maxFEDSize(); fedid++) {
+    for(const auto& tfed : moduleMap.fedReadoutSequences()) {
+      if( tfed.readoutTypes_.size()==0 ) continue;
+      auto fedid = tfed.id;
+      
       // sanity checks
       const auto fedkey = hgcal::search_fedkey(fedid, fed_config_data, fedjsonurl);  // search matching key
       hgcal::check_keys(
@@ -90,7 +93,9 @@ public:
         continue;                                                                  // skip non-existent FED
       if (fed_config_data[fedkey]["tdaqFlag"].size() != fed_config_data[fedkey]["neconts"].size()) // check if tdaqFlag and neconts have the same length(number of TDAQs)
         continue;
+
       uint32_t nTDAQ = uint32_t(fed_config_data[fedkey]["tdaqFlag"].size());
+            
       uint32_t totalECONTs=0;
       for (std::size_t itdaq=0;itdaq<nTDAQ;itdaq++){
         totalECONTs+=uint32_t(fed_config_data[fedkey]["neconts"][itdaq]);
@@ -98,7 +103,7 @@ public:
       if (moduleMap.getNumModules(fedid) != fed_config_data[fedkey]["econtSwapOffset"].size()
         || moduleMap.getNumModules(fedid) != totalECONTs)             // check if length of sawp offsets, number of ECONTs in FED read from module locator, and number of econts summed mathces
         continue;
-
+      std::cout << fedid << " has " << nTDAQ << " nTDAQ and " << totalECONTs << "ECONTs" << std::endl; 
       // fill FED configurations
       HGCalTriggerFedConfig fedConfig;
       
