@@ -69,7 +69,7 @@ void HGCalRawToDigiTrigger::produce(edm::Event& iEvent, const edm::EventSetup& i
     std::cout << fedConfig.tdaqs.size() << " tdaq blocks and " << fedConfig.econtSwapOffset.size() << " ECONTs" << std::endl;
     
     //pedro : comment the unpacker should receive direcly fedConfig and not the full config, and maybe the fed readout sequence instead of the module indexer
-    //unpacker_trigger_.parseFEDData(fedId,fed_data,config,moduleIndexer,digisTrigger);
+    unpacker_trigger_.parseFEDData(fedId,fed_data,config,moduleIndexer,digisTrigger);
   }
 
 

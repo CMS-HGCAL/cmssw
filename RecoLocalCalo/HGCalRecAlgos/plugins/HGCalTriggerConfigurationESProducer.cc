@@ -41,11 +41,6 @@ public:
     descriptions.addWithDefaultLabel(desc);
   }
 
-  // @short get hexadecimal value, and override if value_override>=0
-  static int32_t gethex(const std::string& value, const int32_t value_override) {
-    return (value_override >= 0 ? value_override : std::stoi(value, nullptr, 16));
-  }
-
   // @short get integer value, and override if value_override>=0
   static int32_t getint(const int32_t value, const int32_t value_override) {
     return (value_override >= 0 ? value_override : value);
@@ -66,9 +61,7 @@ public:
 
     // consistency check
     uint32_t nfeds = moduleMap.numFEDs();
-    // const std::vector<std::string> fedkeys = {"mismatchPassthroughMode", "cbHeaderMarker", "slinkHeaderMarker"};
     const std::vector<std::string> fedkeys = {"tdaqHeaderMarker", "tdaqFlag", "neconts", "econtSwapOffset"};
-    // const std::vector<std::string> modkeys = {"headerMarker", "CalibrationSC"};
     const std::vector<std::string> modkeys = {"density", "dropLSB", "select", "stc_type", "eporttx_numen","calv","mux"};
     if (nfeds != fed_config_data.size())
       edm::LogWarning("HGCalTriggerConfigurationESProducer")
@@ -81,29 +74,27 @@ public:
     std::unique_ptr<HGCalTriggerConfiguration> config_ = std::make_unique<HGCalTriggerConfiguration>();
     config_->feds.resize(moduleMap.maxFEDSize());
     for(const auto& tfed : moduleMap.fedReadoutSequences()) {
+
       if( tfed.readoutTypes_.size()==0 ) continue;
       auto fedid = tfed.id;
       
       // sanity checks
       const auto fedkey = hgcal::search_fedkey(fedid, fed_config_data, fedjsonurl);  // search matching key
-      hgcal::check_keys(
-          fed_config_data, fedkey, fedkeys, fedjsonurl);  // check required keys are in the JSON, warn otherwise
+      hgcal::check_keys(fed_config_data, fedkey, fedkeys, fedjsonurl);               // check required keys are in the JSON, warn otherwise
 
-      if (moduleMap.fedReadoutSequences()[fedid].readoutTypes_.empty())            // check if FED exists (non-empty)
-        continue;                                                                  // skip non-existent FED
-      if (fed_config_data[fedkey]["tdaqFlag"].size() != fed_config_data[fedkey]["neconts"].size()) // check if tdaqFlag and neconts have the same length(number of TDAQs)
-        continue;
-
+      // count trigger blocks and compare to size of ECONTs list
       uint32_t nTDAQ = uint32_t(fed_config_data[fedkey]["tdaqFlag"].size());
-            
+      uint32_t size_econt_list = uint32_t(fed_config_data[fedkey]["neconts"].size());
+      assert(nTDAQ==size_econt_list);
+
+      //count econs and address swaps and compare to baseline expectations from mapping
       uint32_t totalECONTs=0;
-      for (std::size_t itdaq=0;itdaq<nTDAQ;itdaq++){
-        totalECONTs+=uint32_t(fed_config_data[fedkey]["neconts"][itdaq]);
-      }
-      if (moduleMap.getNumModules(fedid) != fed_config_data[fedkey]["econtSwapOffset"].size()
-        || moduleMap.getNumModules(fedid) != totalECONTs)             // check if length of sawp offsets, number of ECONTs in FED read from module locator, and number of econts summed mathces
-        continue;
-      std::cout << fedid << " has " << nTDAQ << " nTDAQ and " << totalECONTs << "ECONTs" << std::endl; 
+      for (std::size_t itdaq=0;itdaq<nTDAQ;itdaq++)
+       totalECONTs += uint32_t(fed_config_data[fedkey]["neconts"][itdaq]);
+      uint32_t totalECONTs_expected = moduleMap.getNumModules(fedid);
+      uint32_t nSwapOffsets = fed_config_data[fedkey]["econtSwapOffset"].size();
+      assert(totalECONTs_expected == totalECONTs && totalECONTs_expected==nSwapOffsets);
+
       // fill FED configurations
       HGCalTriggerFedConfig fedConfig;
       
@@ -117,8 +108,8 @@ public:
       totalECONTs = 0;
       for (std::size_t itdaq=0;itdaq<nTDAQ;itdaq++){
         HGCalTDAQConfig tdaqConfig;
-        tdaqConfig.tdaqBlockHeaderMarker=std::stoi(std::string(fed_config_data[fedkey]["tdaqHeaderMarker"]), nullptr, 16);
-        tdaqConfig.tdaqFlag=fed_config_data[fedkey]["tdaqFlag"][itdaq];
+	tdaqConfig.tdaqBlockHeaderMarker= std::stoul(std::string(fed_config_data[fedkey]["tdaqHeaderMarker"]), nullptr, 16);
+        tdaqConfig.tdaqFlag = fed_config_data[fedkey]["tdaqFlag"][itdaq];
         uint32_t nECONT = uint32_t(fed_config_data[fedkey]["neconts"][itdaq]);
 
         for (const auto& [typecode, ids] : moduleMap.typecodeMap()) {
@@ -159,7 +150,7 @@ public:
       }
       config_->feds[fedid] = fedConfig;
     }
-    std::cout<<*config_<<std::endl;
+
     LogDebug("HGCalTriggerConfigurationESProducer") << *config_;
     return config_;
   }  // end of produce()
