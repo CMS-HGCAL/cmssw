@@ -17,11 +17,12 @@
 #include "DataFormats/HGCalDigi/interface/HGCalDigiTriggerHost.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexerTrigger.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "DataFormats/HGCalDigi/interface/HGCalECONTPacketInfoHost.h"
 
 class HGCalUnpackerTrigger {
 public:
   HGCalUnpackerTrigger() {}
-  bool parseFEDData(unsigned fedId,const RawFragmentWrapper& fed_data,const HGCalTriggerConfiguration& config,const HGCalMappingModuleIndexerTrigger& moduleIndexer,hgcaldigi::HGCalDigiTriggerHost& digisTrigger);
+  bool parseFEDData(unsigned fedId,const RawFragmentWrapper& fed_data,const HGCalTriggerConfiguration& config,const HGCalMappingModuleIndexerTrigger& moduleIndexer,hgcaldigi::HGCalDigiTriggerHost& digisTrigger, hgcaldigi::HGCalECONTPacketInfoHost& econtPacketInfo);
   bool parseTDAQBlock() ;
 
 private:

@@ -2,7 +2,9 @@
 #include "DataFormats/HGCalDigi/interface/HGCalDigiHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalECONDPacketInfoHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalFEDPacketInfoHost.h"
+#include "DataFormats/HGCalDigi/interface/HGCalECONTPacketInfoHost.h"
 
 SET_PORTABLEHOSTCOLLECTION_READ_RULES(hgcaldigi::HGCalDigiHost);
 SET_PORTABLEHOSTCOLLECTION_READ_RULES(hgcaldigi::HGCalECONDPacketInfoHost);
+SET_PORTABLEHOSTCOLLECTION_READ_RULES(hgcaldigi::HGCalECONTPacketInfoHost);
 SET_PORTABLEHOSTCOLLECTION_READ_RULES(hgcaldigi::HGCalFEDPacketInfoHost);

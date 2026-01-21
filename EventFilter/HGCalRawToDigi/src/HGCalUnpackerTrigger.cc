@@ -2,7 +2,9 @@
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TPGFEDataformat.hh"
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TPGBEDataformat.hh"
 #include "EventFilter/HGCalRawToDigi/interface/TPG/Stage1IO.hh"
+#include "DataFormats/HGCalDigi/interface/HGCalDigiTriggerHost.h"
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TpgSubpacketHeader.h"
+#include "DataFormats/HGCalDigi/interface/HGCalECONTPacketInfoHost.h"
 
 using namespace hgcal;
 
@@ -10,7 +12,9 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                                         const RawFragmentWrapper& fed_data,
                                         const HGCalTriggerConfiguration& config,
                                         const HGCalMappingModuleIndexerTrigger& moduleIndexer,
-                                        hgcaldigi::HGCalDigiTriggerHost& digisTrigger) {
+                                        hgcaldigi::HGCalDigiTriggerHost& digisTrigger,
+					hgcaldigi::HGCalECONTPacketInfoHost& econtPacketInfo
+					){
   
   // Endianness assumption
   // From 32-bit word(ECOND) to 64-bit word(capture block): little endianness
@@ -60,27 +64,19 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
     if(!tsh->validPattern()) {
       done=true;	
     } else {
-	            //tsh->print();
 
-      if((tsh->channelId()%2)==0) { // do we need this? 
 	std::cout << "tdaq idx " << TdaqIdx  << std::endl;
 	tsh->print();	  
 	unsigned emp_chan(tsh->channelId()/2);
-	//// WE NEED **CONFIGURE** THE MODULES TO BE READ, 100 stands for the first module
-	//if(emp_chan==100 or emp_chan==102 or emp_chan==104 or emp_chan==108){
-	//std::cout << "CHannel " <<emp_chan  << std::endl; //if tdaqIdx is valid
-	//if(emp_chan==100 or emp_chan==102){
 	HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[TdaqIdx];
 	uint32_t isValidTdaq;
 	isValidTdaq = tdaqConfig.econts.size();
         std::cout << "tdaqsize" << isValidTdaq<< std::endl;
 	if (isValidTdaq != 0){
-           //if(TdaqIdx == 2 or TdaqIdx == 4){
-        //if(emp_chan==100 or emp_chan==102){
 	 
-       	//// WE NEED TO **CONFIGURE** THE Number of ECONT-s connected to this emp_channel and then nof elinks associated with each ECON-T
-	  //uint32_t nEconTs = 1 ; //// A test setting but needs to be **CONFIGURE** ed from json
 	  uint32_t nEconTs = isValidTdaq;
+	  std::cout << "econT VALID" << isValidTdaq << std::endl;
+
 	  for(unsigned bx(0);bx<tsh->numberOfBxs();bx++) {
 	    const uint64_t *el64packed((const uint64_t*)(tsh+1+bx*tsh->numberOfWordsPerBx()));
 	    uint32_t *elinks = new uint32_t[tsh->numberOfWordsPerBx()];
@@ -106,8 +102,6 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 
 	    //// WE NEED TO **CONFIGURE** THE Channel number for Si and Scitillators
 
-	    //if(emp_chan!=123){
-	      // /////////////////////////// Si ////////////////////////////
 	      uint32_t nprevTxs = 0 ;
 	      for(unsigned iecon(0) ; iecon < nEconTs ; iecon++) {
 		 const auto& econt_conf = tdaqConfig.econts[iecon];
@@ -125,27 +119,22 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 
 		cfgecont.setSelect(select);
 
-		/*//-----------------------------*/
-		//Run 110693
-		// el[0] = elinks[nprevTxs+2];
-		// el[1] = elinks[nprevTxs+1];
-		// el[2] = elinks[nprevTxs+0];
-		// el[3] = elinks[nprevTxs+3];
-		/*///-----------------------------*/
-		
-		/*//-----------------------------*/
-		//Run 111137 and 111138 for later runs use the one below
-		//for(int iel=0;iel<neTx;iel++) el[iel] = elinks[nprevTxs + (6-iel)];
-		/*///-----------------------------*/
-		
-		/*//-----------------------------*/
-		//Runs >= 111139
 		for(int iel=0;iel<neTx;iel++) el[iel] = elinks[nprevTxs + iel];
-		/*///-----------------------------*/
 		
 		TPGFEDataformat::TcRawDataPacket rdp;
-		TPGStage1Emulation::Stage1IO::convertElinksToTcRawData(cfgecont.getOutType(), cfgecont.getNofTCs(), el, rdp);		
-		//rdp.print();
+                try {
+                    TPGStage1Emulation::Stage1IO::convertElinksToTcRawData(cfgecont.getOutType(), cfgecont.getNofTCs(), el, rdp);
+                }
+                catch (cms::Exception &e) {
+                 edm::LogWarning("Stage1IORecoverable")
+                 << "Skipping ECON-T " << iecon
+                 << " (neTx=" << neTx << ")\n"
+                 << e.what();
+
+		  econtPacketInfo.view()[iecon].exception() = 1;
+                  econtPacketInfo.view()[iecon].location() = (uint32_t)(ptr - header);
+                  continue;
+                }
 		std::cout <<  "TCs "<< cfgecont.getNofTCs() <<  " out "<< cfgecont.getOutType() << " econTId " << iecon << " offset "  << econTOffset << " nElinks "<< cfgecont.getNElinks() << " Select " << cfgecont.getSelect()  << std::endl;
 
 		delete [] el;
@@ -204,22 +193,15 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 		nprevTxs += neTx;
 	      }//iecon loop
 
-	      // /////////////////////////// Si ////////////////////////////
-	    //}else{
-	     /////////////////////////// Sci ////////////////////////////
-	     //}
 	      delete []elinks;
 	  }
 	  econTOffset += nEconTs;
 	}//list of valid emp channel
-      //}
-      }
       TdaqIdx++;
       tsh=tsh->nextSubpacketHeader();
     }
     noffecafe++;
   }
-  
   return true;
 }
 

@@ -60,6 +60,7 @@ void HGCalMappingModuleIndexerTrigger::processNewModule(uint32_t fedid,
 void HGCalMappingModuleIndexerTrigger::finalize() {
   // max indices at different levels
   nfeds_ = fedReadoutSequences_.size();
+  maxModulesCount_ = accumulate(globalTypesCounter_.begin(), globalTypesCounter_.end(), 0);
   maxModulesIdx_ = std::accumulate(globalTypesCounter_.begin(), globalTypesCounter_.end(), 0);
   maxTrLinksIdx_ =
       std::inner_product(globalTypesCounter_.begin(), globalTypesCounter_.end(), globalTypesNTrLinks_.begin(), 0);

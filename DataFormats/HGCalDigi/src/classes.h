@@ -9,6 +9,8 @@
 #include "DataFormats/HGCalDigi/interface/HGCalDigiSoA.h"
 #include "DataFormats/HGCalDigi/interface/HGCalECONDPacketInfoHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalECONDPacketInfoSoA.h"
+#include "DataFormats/HGCalDigi/interface/HGCalECONTPacketInfoHost.h"
+#include "DataFormats/HGCalDigi/interface/HGCalECONTPacketInfoSoA.h"
 #include "DataFormats/HGCalDigi/interface/HGCalFEDPacketInfoHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalFEDPacketInfoSoA.h"
 #include "DataFormats/HGCalDigi/interface/HGCalDigiTriggerHost.h"

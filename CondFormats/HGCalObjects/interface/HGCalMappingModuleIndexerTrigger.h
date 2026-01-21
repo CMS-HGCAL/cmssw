@@ -178,6 +178,8 @@ public:
   uint32_t maxDataIndex() const { return maxNTCIdx_; }
   uint32_t maxTrLinkIndex() const { return maxTrLinksIdx_; }
   uint32_t maxModulesIndex() const { return maxModulesIdx_; }
+  uint32_t maxModulesCount() const { return maxModulesCount_; }
+
   std::map<std::string, std::pair<uint32_t, uint32_t>> const &typecodeMap() const { return typecodeMap_; }
 
   // max number of ECON-Ds processed by a main buffer/capture block
@@ -193,7 +195,7 @@ private:
   // base offsets to apply per module type with different granularity : module, e-Rx, channel data
   std::vector<uint32_t> offsetsModule_, offsetsTrLink_, offsetsTC_;
   // global counters (sizes of vectors)
-  uint32_t nfeds_, maxNTCIdx_, maxTrLinksIdx_, maxModulesIdx_;
+  uint32_t nfeds_, maxNTCIdx_, maxTrLinksIdx_, maxModulesIdx_, maxModulesCount_;
   // map from module type code string to (fedIdx,modIdx) pair (implemented to retrieve dense index offset)
   std::map<std::string, std::pair<uint32_t, uint32_t>> typecodeMap_;
 
