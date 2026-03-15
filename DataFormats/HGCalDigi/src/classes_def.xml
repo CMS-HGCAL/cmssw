@@ -41,12 +41,19 @@
   </class>
   <class name="edm::Wrapper<HGCalSlinkEmulatorInfo>"/>
 
+  <class name="hgcaldigi::HGCalSimHitAccumHost"  rntupleStreamerMode="true"/>
+  <!-- ::Layout alias must be listed before the aliased-to type -->
+  <class name="hgcaldigi::HGCalSimHitAccumHost::Layout"/>
+  <class name="hgcaldigi::HGCalSimHitAccumSoA"/>
+  <class name="hgcaldigi::HGCalSimHitAccumSoA::View"/>
+  <class name="hgcaldigi::HGCalSimHitAccumSoALayout<128,false>"/>
+  <class name="edm::Wrapper<PortableHostCollection<hgcaldigi::HGCalSimHitAccumSoALayout<128,false> > >" splitLevel="0"/>
+  
   <class name="hgcaldigi::HGCalDigiHost"  rntupleStreamerMode="true"/>
   <!-- ::Layout alias must be listed before the aliased-to type -->
   <class name="hgcaldigi::HGCalDigiHost::Layout"/>
   <class name="hgcaldigi::HGCalDigiSoA"/>
   <class name="hgcaldigi::HGCalDigiSoA::View"/>
-
   <class name="hgcaldigi::HGCalDigiSoALayout<128,false>"/>
   <class name="edm::Wrapper<PortableHostCollection<hgcaldigi::HGCalDigiSoALayout<128,false> > >" splitLevel="0"/>
 
@@ -71,5 +78,5 @@
   <class name="hgcaldigi::HGCalDigiTriggerSoA::View"/>
   <class name="hgcaldigi::HGCalDigiTriggerSoALayout<128,false>"/>
   <class name="edm::Wrapper<PortableHostCollection<hgcaldigi::HGCalDigiTriggerSoALayout<128,false> > >" splitLevel="0"/>
-  
+
 </lcgdict>
