@@ -52,10 +52,10 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
   }
 
   tsh=tsh->nextSubpacketHeader();
-  int noffecafe = 0;
+  int noffecafe = 0; // not used 
   bool done(false);
-  uint32_t econTOffset = 0; ///THIS DEPENDS ON module 
-  uint32_t denseIndexOffset = 0 ;
+  uint32_t econTOffset = 0; ///THIS DEPENDS ON module
+  //uint32_t denseIndexOffset = 0 ; 
   uint32_t TdaqIdx = 0;  
   while(tsh<=tshEnd && !done && TdaqIdx < 3 ) {
     if(!tsh->validPattern()) {
@@ -108,9 +108,13 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 
 
 	      uint32_t nprevTxs = 0 ;
+
+
+
 	      for(unsigned iecon(0) ; iecon < nEconTs ; iecon++) {
 	        const auto& econt_conf = tdaqConfig.econts[iecon];
 		const int neTx = econt_conf.eportTxNumen;
+		std::cout << "n econt " << iecon << std::endl;
 		std::cout << "neTx " << neTx << std::endl;
 		uint32_t *el = new uint32_t[neTx];
 		TPGFEConfiguration::ConfigEconT cfgecont;
@@ -159,14 +163,23 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 		for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type());
 
 		//// How much of below will be **CONFIGURE** ed
-		
 		for(unsigned itc(0) ; itc < rdp.size() ; itc++){
 
 		  //uint32_t tcidx = uint32_t(rdp.getTc(itc).address()); 
 		  uint32_t tcidx = itc;
 		  // uint32_t denseIdx = tcidx + fedReadoutSequence.TCOffsets_.at(econTId) ; //same as following function call
-		  uint32_t denseIdx = moduleIndexer.getIndexForModuleData(fedId, econTId, tcidx) ;
-		  
+		  uint32_t denseIdxRaw = moduleIndexer.getIndexForModuleData(fedId, econTId, tcidx) ; // before any swapping
+		 
+		  // offset in 2 steps, first mux then econts 
+		  uint32_t tcMuxOffset = econt_conf.tcMux[itc] - tcidx;
+		  uint32_t econtOffset = fedConfig.econtSwapOffset[iecon];
+		  //uint32_t denseIndexOffset =  tcMuxOffset + econtOffset; 
+
+		  // get offset directly from config file
+                  uint32_t denseIndexOffset =  econt_conf.offset[itc]; 
+
+		  uint32_t denseIdx = denseIdxRaw + denseIndexOffset; // applying offset accounting for TCs and econts swapping
+
 		  digisTrigger.view()[denseIdx].algo() = uint8_t(cfgecont.getOutType());
 		  digisTrigger.view()[denseIdx].valid()(bx,0) = true;
 		  digisTrigger.view()[denseIdx].nBxs() = uint8_t(tsh->numberOfBxs());
@@ -178,9 +191,13 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 		  digisTrigger.view()[denseIdx].TCAddress()(bx,0) = uint8_t(rdp.getTc(itc).address());
 
 		  LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData fedId : " << fedId
-			     << ", iecon " << iecon
+                     	     << ", iecon " << iecon
 			     << ", econTId " << econTId
 			     << ", tcidx: " << tcidx
+			     << ", denseIdxRaw: " << denseIdxRaw
+			     << ", muxOffset: " << tcMuxOffset
+			     << ", econtOffset: " << econtOffset
+			     << ", denseIdxOffset: " << denseIndexOffset
 			     << ", denseIdx: " << denseIdx
 			     << ", getDenseTCIndex00: " << moduleIndexer.getDenseTCIndex(fedId, econTId, 0, tcidx) 
 			     << ", getDenseTCIndex01: " << moduleIndexer.getDenseTCIndex(fedId, econTId+1, 1, tcidx) 
