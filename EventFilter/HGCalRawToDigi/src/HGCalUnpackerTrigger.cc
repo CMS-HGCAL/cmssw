@@ -19,7 +19,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
   
   // TODO: if this also depends on the unpacking configuration, it should be moved to the specialization
   //const auto& fedConfig = config.feds[fedId];
-  const auto& fedReadoutSequence = moduleIndexer.fedReadoutSequences()[fedId];
+  //const auto& fedReadoutSequence = moduleIndexer.fedReadoutSequences()[fedId]; // not used
   const auto* start_fed_data = &(fed_data.data().front());
   const auto* const header = reinterpret_cast<const uint64_t*>(start_fed_data);
   const auto* const trailer = reinterpret_cast<const uint64_t*>(start_fed_data + fed_data.size());
@@ -45,27 +45,51 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
   unsigned n64(std::distance(header, trailer));  
   const Hgcal10gLinkReceiver::TpgSubpacketHeader *tsh(reinterpret_cast<const Hgcal10gLinkReceiver::TpgSubpacketHeader*>(header+2));
   const Hgcal10gLinkReceiver::TpgSubpacketHeader *tshEnd(reinterpret_cast<const Hgcal10gLinkReceiver::TpgSubpacketHeader*>(header+n64-2-2));
-  
-  if(!tsh->validPattern()) {
-    tsh->print();
+
+  // Check the header of the first subpacket
+  auto headerMarker = fedConfig.tdaqs[0].tdaqBlockHeaderMarker;
+  if(!tsh->validPattern(headerMarker)) {
+    uint32_t ECONTdenseIdx = moduleIndexer.getIndexForModule(fedId, uint16_t(0));
+    econtPacketInfo.view()[ECONTdenseIdx].exception() = 1;
+    econtPacketInfo.view()[ECONTdenseIdx].location() = 0;
+    econtPacketInfo.view()[ECONTdenseIdx].payloadLength() = 0;
+
+    edm::LogWarning("[HGCalTriggerUnpacker]") << "First subpacket :: Expected a header 0x" << std::hex << headerMarker
+                                           << ", got 0x" << std::hex
+                                           << tsh->pattern()
+                                           << " from word = 0x" << std::hex << tsh->data() << ".";
+      
     return false;
   }
-
+  
   tsh=tsh->nextSubpacketHeader();
-  int noffecafe = 0; // not used 
   bool done(false);
   uint32_t econTOffset = 0; ///THIS DEPENDS ON module
-  //uint32_t denseIndexOffset = 0 ; 
-  uint32_t TdaqIdx = 0;  
+  uint32_t TdaqIdx = 0; 
+
   while(tsh<=tshEnd && !done && TdaqIdx < 3 ) {
-    if(!tsh->validPattern()) {
+
+    HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[TdaqIdx];
+    headerMarker = tdaqConfig.tdaqBlockHeaderMarker;
+    // check header, if not valid skip all. 
+    if(!tsh->validPattern(headerMarker)) {
+      uint32_t ECONTdenseIdx = moduleIndexer.getIndexForModule(fedId, uint16_t(0));
+      econtPacketInfo.view()[ECONTdenseIdx].exception() = 1;
+      econtPacketInfo.view()[ECONTdenseIdx].location() = 0;
+      econtPacketInfo.view()[ECONTdenseIdx].payloadLength() = 0;
+
+      edm::LogWarning("[HGCalTriggerUnpacker]") << "TDaq idx " << TdaqIdx << " :: Expected a header 0x" << std::hex << headerMarker
+                                             << ", got 0x" << std::hex
+                                             << tsh->pattern()
+                                             << " from word = 0x" << std::hex << tsh->data() << ".";
+	
       done=true;	
     } else {
-	            //tsh->print();
 
 	std::cout << "tdaq idx " << TdaqIdx  << std::endl;
 	tsh->print();	  
-	unsigned emp_chan(tsh->channelId()/2);
+        
+	//unsigned emp_chan(tsh->channelId()/2); // not used atm
 	if (TdaqIdx >= fedConfig.tdaqs.size()) {
 	  std::cout << "aqui"<< std::endl;
 	  edm::LogWarning("HGCalUnpackerTrigger")
@@ -75,7 +99,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	  break;
 	}
 
-	HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[TdaqIdx];
+
 	uint32_t isValidTdaq;
 	isValidTdaq = tdaqConfig.econts.size();
         std::cout << "tdaqsize" << isValidTdaq<< std::endl;
@@ -114,7 +138,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	      for(unsigned iecon(0) ; iecon < nEconTs ; iecon++) {
 	        const auto& econt_conf = tdaqConfig.econts[iecon];
 		const int neTx = econt_conf.eportTxNumen;
-		std::cout << "n econt " << iecon << std::endl;
+		std::cout << "iecont " << iecon << std::endl;
 		std::cout << "neTx " << neTx << std::endl;
 		uint32_t *el = new uint32_t[neTx];
 		TPGFEConfiguration::ConfigEconT cfgecont;
@@ -171,14 +195,14 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 		  uint32_t denseIdxRaw = moduleIndexer.getIndexForModuleData(fedId, econTId, tcidx) ; // before any swapping
 		 
 		  // offset in 2 steps, first mux then econts 
-		  uint32_t tcMuxOffset = econt_conf.tcMux[itc] - tcidx;
-		  uint32_t econtOffset = fedConfig.econtSwapOffset[iecon];
-		  //uint32_t denseIndexOffset =  tcMuxOffset + econtOffset; 
+		  uint32_t tcMuxSwapOffset = econt_conf.tcMux[itc] - tcidx;
+		  uint32_t econtSwapOffset = fedConfig.econtSwapOffset[iecon];
+		  uint32_t denseIdxOffset =  tcMuxSwapOffset + econtSwapOffset; 
 
 		  // get offset directly from config file
-                  uint32_t denseIndexOffset =  econt_conf.offset[itc]; 
+                  //uint32_t denseIdxOffset =  econt_conf.offset[itc]; 
 
-		  uint32_t denseIdx = denseIdxRaw + denseIndexOffset; // applying offset accounting for TCs and econts swapping
+		  uint32_t denseIdx = denseIdxRaw + denseIdxOffset; // applying offset accounting for TCs and econts swapping
 
 		  digisTrigger.view()[denseIdx].algo() = uint8_t(cfgecont.getOutType());
 		  digisTrigger.view()[denseIdx].valid()(bx,0) = true;
@@ -191,13 +215,13 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 		  digisTrigger.view()[denseIdx].TCAddress()(bx,0) = uint8_t(rdp.getTc(itc).address());
 
 		  LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData fedId : " << fedId
-                     	     << ", iecon " << iecon
-			     << ", econTId " << econTId
+                     	     << ", iecon: " << iecon
+			     << ", econTId: " << econTId
 			     << ", tcidx: " << tcidx
 			     << ", denseIdxRaw: " << denseIdxRaw
-			     << ", muxOffset: " << tcMuxOffset
-			     << ", econtOffset: " << econtOffset
-			     << ", denseIdxOffset: " << denseIndexOffset
+			     << ", tcMuxSwapOffset: " << tcMuxSwapOffset
+			     << ", econtSwapOffset: " << econtSwapOffset
+			     << ", denseIdxOffset: " << denseIdxOffset
 			     << ", denseIdx: " << denseIdx
 			     << ", getDenseTCIndex00: " << moduleIndexer.getDenseTCIndex(fedId, econTId, 0, tcidx) 
 			     << ", getDenseTCIndex01: " << moduleIndexer.getDenseTCIndex(fedId, econTId+1, 1, tcidx) 
@@ -234,7 +258,6 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
       TdaqIdx++;
       tsh=tsh->nextSubpacketHeader();
     }
-    noffecafe++;
   }
   
   return true;

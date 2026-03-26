@@ -28,10 +28,15 @@ namespace Hgcal10gLinkReceiver {
       _data=0xcafecafe00000000;
     }
 
-    bool validPattern() const {
-      return (_data>>32)==0xcafecafe;
+    bool validPattern(uint32_t header) const {
+      //return (_data>>32)==0xcafecafe;
+      return (_data>>32)==header;
     }
 
+    uint64_t data() const {
+      return _data;
+    }
+   
     uint32_t pattern() const {
       return _data>>32;
     }
