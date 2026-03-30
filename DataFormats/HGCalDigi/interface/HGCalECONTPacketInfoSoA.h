@@ -13,7 +13,9 @@ namespace hgcaldigi {
                       // Exception flag
                       // 0: Normal
                       // 1: Stage1IO conversion exception while unpacking ECON-T
-                      // 2: ... to be added
+                      // 2: Subpacket wrong header marker
+                      // This will be saved to the first ECON-T in the block
+                      // 3: ... to be added
                       SOA_COLUMN(uint8_t, exception),
                       // Location
                       // If exception found before ECON-T, this would be 0
