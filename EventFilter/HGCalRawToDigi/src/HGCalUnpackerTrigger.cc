@@ -43,16 +43,14 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
   }
   
   unsigned n64(std::distance(header, trailer));  
-  const Hgcal10gLinkReceiver::TpgSubpacketHeader *tsh(reinterpret_cast<const Hgcal10gLinkReceiver::TpgSubpacketHeader*>(header+2));
+  const Hgcal10gLinkReceiver::TpgSubpacketHeader *tsh(reinterpret_cast<const Hgcal10gLinkReceiver::TpgSubpacketHeader*>(header+2)); 
   const Hgcal10gLinkReceiver::TpgSubpacketHeader *tshEnd(reinterpret_cast<const Hgcal10gLinkReceiver::TpgSubpacketHeader*>(header+n64-2-2));
-
-  // skip the first subpacket which is the main
-  tsh=tsh->nextSubpacketHeader();
 
   uint32_t econTOffset = 0; ///THIS DEPENDS ON module
   uint32_t TdaqIdx = 0; 
-
-  while(tsh<=tshEnd) {
+  
+  bool done(false); // bool to skip all the tdaqs > tdaqsize
+  while(tsh<=tshEnd && !done) {
 
     HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[TdaqIdx];
 
@@ -84,11 +82,10 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
         
         //unsigned emp_chan(tsh->channelId()/2); // not used atm
         if (TdaqIdx >= fedConfig.tdaqs.size()) {
-          std::cout << "aqui"<< std::endl;
           edm::LogWarning("HGCalUnpackerTrigger")
               << "TDAQ index out of range for FED " << fedId << ": idx=" << TdaqIdx
               << ", size=" << fedConfig.tdaqs.size() << ". Skipping remaining subpackets.";
-          //done = true;
+          done = true; // To skip everything after last expected tdaq
           break;
         }
       
@@ -100,8 +97,11 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	  std::cout << "Start of unpacking, BX " << bx << std::endl;
 	  const uint64_t *el64packed((const uint64_t*)(tsh+1+bx*tsh->numberOfWordsPerBx()));
 	  const uint32_t econTLocation = static_cast<uint32_t>(el64packed - header);
-	  uint32_t *elinks = new uint32_t[tsh->numberOfWordsPerBx()];
+	  uint32_t *elinks = new uint32_t[unsigned(tsh->numberOfWordsPerBx())*2]; 
+          
+
 	  for(unsigned j(0);j<tsh->numberOfWordsPerBx();j++) {
+	    
 	    elinks[2*j] = el64packed[j] & 0xffffffff;
 	    elinks[2*j+1] = (el64packed[j]>>32) & 0xffffffff;
 	    sprintf(word64,"0x%016lx",el64packed[j]);
@@ -110,6 +110,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	      				  << std::setw(16) << word64
 	      				  << std::dec << std::setfill(' ')
 	      				  << std::endl;	      
+	    
 	    
 	  }
 	  for(unsigned iel(0);iel<8;iel++) {
@@ -207,36 +208,36 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	      digisTrigger.view()[denseIdx].TCAddress()(bx,0) = uint8_t(rdp.getTc(itc).address());
 
 	      LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData fedId : " << fedId
-                 	     << ", iecon: " << iecon
-	    	     << ", econTId: " << econTId
-	    	     << ", tcidx: " << tcidx
-	    	     << ", denseIdxRaw: " << denseIdxRaw
-	    	     << ", tcMuxSwapOffset: " << tcMuxSwapOffset
-	    	     << ", econtSwapOffset: " << econtSwapOffset
-	    	     << ", denseIdxOffset: " << denseIdxOffset
-	    	     << ", denseIdx: " << denseIdx
-	    	     << ", getDenseTCIndex00: " << moduleIndexer.getDenseTCIndex(fedId, econTId, 0, tcidx) 
-	    	     << ", getDenseTCIndex01: " << moduleIndexer.getDenseTCIndex(fedId, econTId+1, 1, tcidx) 
-	    	     << ", getDenseTCIndex02: " << moduleIndexer.getDenseTCIndex(fedId, econTId+2, 2, tcidx) 
-	    	     << ", getIndexForModuleData00: " << moduleIndexer.getIndexForModuleData(fedId, econTId, tcidx) 
-	    	     << ", getIndexForModuleData01: " << moduleIndexer.getIndexForModuleData(fedId, econTId+1, tcidx) 
-	    	     << ", getIndexForModuleData02: " << moduleIndexer.getIndexForModuleData(fedId, econTId+2, tcidx) 
-	    	     << std::endl;
+                     << ", iecon: " << iecon
+	             << ", econTId: " << econTId
+	             << ", tcidx: " << tcidx
+	             << ", denseIdxRaw: " << denseIdxRaw
+	             << ", tcMuxSwapOffset: " << tcMuxSwapOffset
+	             << ", econtSwapOffset: " << econtSwapOffset
+	             << ", denseIdxOffset: " << denseIdxOffset
+	             << ", denseIdx: " << denseIdx
+	             << ", getDenseTCIndex00: " << moduleIndexer.getDenseTCIndex(fedId, econTId, 0, tcidx) 
+	             << ", getDenseTCIndex01: " << moduleIndexer.getDenseTCIndex(fedId, econTId+1, 1, tcidx) 
+	             << ", getDenseTCIndex02: " << moduleIndexer.getDenseTCIndex(fedId, econTId+2, 2, tcidx) 
+	             << ", getIndexForModuleData00: " << moduleIndexer.getIndexForModuleData(fedId, econTId, tcidx) 
+	             << ", getIndexForModuleData01: " << moduleIndexer.getIndexForModuleData(fedId, econTId+1, tcidx) 
+	             << ", getIndexForModuleData02: " << moduleIndexer.getIndexForModuleData(fedId, econTId+2, tcidx) 
+	             << std::endl;
 	      LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData "
-	    	     << " algo = " << uint16_t(digisTrigger.view()[denseIdx].algo())
-	    	     << ", valid = " << uint16_t(digisTrigger.view()[denseIdx].valid()(bx,0))
-	    	     << ", nBxs = " << uint16_t(digisTrigger.view()[denseIdx].nBxs())
-	    	     << ", nTCs = " << uint16_t(digisTrigger.view()[denseIdx].nTCs())
-	    	     << ", ieconTId = " << uint32_t(digisTrigger.view()[denseIdx].econTId())
-	    	     << std::endl;
+	             << " algo = " << uint16_t(digisTrigger.view()[denseIdx].algo())
+	             << ", valid = " << uint16_t(digisTrigger.view()[denseIdx].valid()(bx,0))
+	             << ", nBxs = " << uint16_t(digisTrigger.view()[denseIdx].nBxs())
+	             << ", nTCs = " << uint16_t(digisTrigger.view()[denseIdx].nTCs())
+	             << ", ieconTId = " << uint32_t(digisTrigger.view()[denseIdx].econTId())
+	             << std::endl;
 	      LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData ibx : " << bx
-	    	     << ", bxID : " << uint16_t(digisTrigger.view()[denseIdx].bxId()(bx,0))
-	    	     << ", MS/totE : " << uint32_t(digisTrigger.view()[denseIdx].TotE()(bx,0))
-	    	     << std::endl;
+	             << ", bxID : " << uint16_t(digisTrigger.view()[denseIdx].bxId()(bx,0))
+	             << ", MS/totE : " << uint32_t(digisTrigger.view()[denseIdx].TotE()(bx,0))
+	             << std::endl;
 	      LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData itc : " << itc
-	    	     << ", Address: " << uint16_t(digisTrigger.view()[denseIdx].TCAddress()(bx,0))
-	    	     << ", Unpacked Energy: " << uint32_t(digisTrigger.view()[denseIdx].TCEnergy()(bx,0))
-	    	     << std::endl;
+	             << ", Address: " << uint16_t(digisTrigger.view()[denseIdx].TCAddress()(bx,0))
+	             << ", Unpacked Energy: " << uint32_t(digisTrigger.view()[denseIdx].TCEnergy()(bx,0))
+	             << std::endl;
 	     //denseIdx++;
 	    } // tc loop      
 	    //denseIndexOffset += rdp.size();
@@ -251,7 +252,6 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
       }// if check header
 
     } // if valid tdaq
-
     TdaqIdx++;
     tsh=tsh->nextSubpacketHeader();
 
