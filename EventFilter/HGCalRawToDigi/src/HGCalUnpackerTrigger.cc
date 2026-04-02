@@ -38,7 +38,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
     sprintf(word32m,"0x%08x",tword32m);
     sprintf(word32l,"0x%08x",tword32l);
 
-    std::cout << "[HGCalUnpackerTrigger]"  << "HGCalUnpackerTrigger::parseFEDData::tword " << num << " " << word64  << " (" << word32m << ", " << word32l << ")" << std::endl;
+    //std::cout << "[HGCalUnpackerTrigger]"  << "HGCalUnpackerTrigger::parseFEDData::tword " << num << " " << word64  << " (" << word32m << ", " << word32l << ")" << std::endl;
     ++ptr;
   }
   
@@ -48,7 +48,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 
   uint32_t econTOffset = 0; ///THIS DEPENDS ON module
   uint32_t TdaqIdx = 0; 
-  
+
   bool done(false); // bool to skip all the tdaqs > tdaqsize
   while(tsh<=tshEnd && !done) {
 
@@ -57,10 +57,10 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
     uint32_t isValidTdaq;
     isValidTdaq = tdaqConfig.econts.size();
 
-    std::cout << "tdaq idx: "   << TdaqIdx 
-              << ", tdaqsize: " << isValidTdaq << std::endl;
+    //std::cout << "tdaq idx: "   << TdaqIdx 
+    //          << ", tdaqsize: " << isValidTdaq << std::endl;
      
-    tsh->print();	  
+    //tsh->print();	  
     if (isValidTdaq != 0){
     
       auto headerMarker = tdaqConfig.tdaqBlockHeaderMarker;
@@ -94,7 +94,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	 
 	uint32_t nEconTs = isValidTdaq;
 	for(unsigned bx(0);bx<tsh->numberOfBxs();bx++) {
-	  std::cout << "Start of unpacking, BX " << bx << std::endl;
+	  //std::cout << "Start of unpacking, BX " << bx << std::endl;
 	  const uint64_t *el64packed((const uint64_t*)(tsh+1+bx*tsh->numberOfWordsPerBx()));
 	  const uint32_t econTLocation = static_cast<uint32_t>(el64packed - header);
 	  uint32_t *elinks = new uint32_t[unsigned(tsh->numberOfWordsPerBx())*2]; 
@@ -113,7 +113,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	    
 	    
 	  }
-	  for(unsigned iel(0);iel<8;iel++) {
+	  for(unsigned iel(0);iel<tsh->numberOfBxs();iel++) {
 	    sprintf(word32m,"0x%08x",elinks[iel]);
 	    LogDebug("[HGCalUnpackerTrigger]")  << "\t elink " << std::setw(3) << iel << " = 0x"
 	      				  << std::hex << std::setfill('0')
@@ -129,14 +129,14 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	  for(unsigned iecon(0) ; iecon < nEconTs ; iecon++) {
 	    const auto& econt_conf = tdaqConfig.econts[iecon];
 	    const int neTx = econt_conf.eportTxNumen;
-	    std::cout << "iecont " << iecon << std::endl;
-	    std::cout << "nprevTxs " << nprevTxs << std::endl;
-	    std::cout << "neTx " << neTx << std::endl;
+	    //std::cout << "iecont " << iecon << std::endl;
+	    //std::cout << "nprevTxs " << nprevTxs << std::endl;
+	    //std::cout << "neTx " << neTx << std::endl;
 	    uint32_t *el = new uint32_t[neTx];
 	    TPGFEConfiguration::ConfigEconT cfgecont;
 	    cfgecont.setNElinks(uint32_t(neTx));
 	    const int select = econt_conf.select;
-	    std::cout << "select " << select << std::endl;
+	    //std::cout << "select " << select << std::endl;
 
 	    cfgecont.setSelect(select);
 
@@ -144,7 +144,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	    
             uint32_t econTId = iecon + econTOffset; //unique per fedId
 	    uint32_t econtDenseIdx = moduleIndexer.getIndexForModule(fedId, econTId);
-	    std::cout <<  "ECONT dense "<< econtDenseIdx << " econtid " << econTId << std::endl;
+	    //std::cout <<  "ECONT dense "<< econtDenseIdx << " econtid " << econTId << std::endl;
 	    if (bx == 0) {
 	      econtPacketInfo.view()[econtDenseIdx].exception() = 0;
 	      econtPacketInfo.view()[econtDenseIdx].location() = econTLocation;
@@ -172,7 +172,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
             }
 
 	    //rdp.print();
-	    std::cout <<  "TCs "<< cfgecont.getNofTCs() <<  " out "<< cfgecont.getOutType() << " econTId " << iecon << " offset "  << econTOffset << " nElinks "<< cfgecont.getNElinks() << " Select " << cfgecont.getSelect()  << std::endl;
+	    //std::cout <<  "TCs "<< cfgecont.getNofTCs() <<  " out "<< cfgecont.getOutType() << " econTId " << iecon << " offset "  << econTOffset << " nElinks "<< cfgecont.getNElinks() << " Select " << cfgecont.getSelect()  << std::endl;
 
 	    delete [] el;
 	    
