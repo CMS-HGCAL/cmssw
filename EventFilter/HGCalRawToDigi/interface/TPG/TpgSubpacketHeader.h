@@ -20,12 +20,14 @@ namespace Hgcal10gLinkReceiver {
   class TpgSubpacketHeader {
   
   public:
-    TpgSubpacketHeader() {
-      reset();
+    TpgSubpacketHeader(uint32_t header) {
+      reset(header);
     }
     
-    void reset() {
-      _data=0xcafecafe00000000;
+    void reset(uint32_t header) {
+      _data = header;
+      _data = _data << 32;
+      //_data=0xcafecafe00000000;
     }
 
     bool validPattern(uint32_t header) const {
