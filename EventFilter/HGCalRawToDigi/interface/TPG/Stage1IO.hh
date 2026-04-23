@@ -15,7 +15,7 @@
 //#include "TcRawData.hh"
 #include "LpGbtData.hh"
 #include "Stage1IOFwCfg.hh"
-#include <stdexcept>
+//#include <stdexcept>
 namespace TPGStage1Emulation {
 
 class Stage1IO {
@@ -29,7 +29,7 @@ public:
     
     std::vector<TPGFEDataformat::TcRawData> &vTc(vTcrdp.setTcData());
     
-    bool doPrint(true);
+    bool doPrint(false);
 
     if(doPrint) {      
       for(unsigned i(0);i<2;i++) {

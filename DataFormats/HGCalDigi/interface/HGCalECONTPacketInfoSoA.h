@@ -7,15 +7,33 @@
 #include "DataFormats/SoATemplate/interface/SoALayout.h"
 
 namespace hgcaldigi {
+  namespace ECONTUnpackingFlags {
+    constexpr uint8_t NormalUnpacking = 0, Stage1IOConversionError = 1, WrongSubpacketHeader = 2, tdaqIdxOutRange = 3;
+  } // namespace ECONTUnpackingFlags
+
+  inline constexpr bool isNotNormalECONT(uint16_t econtUnpackingFlag) {
+    return !((econtUnpackingFlag >> ECONTUnpackingFlags::NormalUnpacking) & 0x1);
+  }
+  inline constexpr bool hasStage1IOConversionError(uint16_t econtUnpackingFlag) {
+    return ((econtUnpackingFlag >> ECONTUnpackingFlags::Stage1IOConversionError) & 0x1);
+  }
+  inline constexpr bool hasWrongSubpacketHeader(uint16_t econtUnpackingFlag) {
+    return ((econtUnpackingFlag >> ECONTUnpackingFlags::WrongSubpacketHeader) & 0x1);
+  }
+  inline constexpr bool hastdaqIdxOutRange(uint16_t econtUnpackingFlag) {
+    return ((econtUnpackingFlag >> ECONTUnpackingFlags::tdaqIdxOutRange) & 0x1);
+  }
 
   // generate structure of arrays (SoA) layout with Digi dataformat
   GENERATE_SOA_LAYOUT(HGCalECONTPacketInfoSoALayout,
-                      // Exception flag
-                      // 0: Normal
-                      // 1: Stage1IO conversion exception while unpacking ECON-T
-                      // 2: Subpacket wrong header marker
+                      // ECONT unpacking exception flag
+                      // bit 0: Normal
+                      // bit 1: Stage1IO conversion exception while unpacking ECON-T
+                      // bit 2: Subpacket wrong header marker
                       // This will be saved to the first ECON-T in the block
-                      // 3: ... to be added
+                      // bit 3: TDaq index out of range
+                      // This will be saved to the first ECON-T in the block
+                      // bit 4: ... to be added
                       SOA_COLUMN(uint8_t, exception),
                       // Location
                       // If exception found before ECON-T, this would be 0

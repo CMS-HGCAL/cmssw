@@ -45,13 +45,13 @@ void HGCalMappingModuleIndexerTrigger::processNewModule(uint32_t fedid,
   if (!typecode.empty()) {
     if (typecodeMap_.find(typecode) != typecodeMap_.end()) {     // found key
       const auto& [fedid_, modid_] = typecodeMap_.at(typecode);  // (fedId,modId)
-      std::cout << "HGCalMappingModuleIndexerTrigger" 
+      edm::LogWarning("HGCalMappingModuleIndexerTrigger") 
           << "Found typecode " << typecode << " already in map (fedid,modid)=(" << fedid_ << "," << modid_
-          << ")! Overwriting with (" << fedid << "," << idx << ")..." << std::endl;
+          << ")! Overwriting with (" << fedid << "," << idx << ")...";
     }
-    std::cout << "HGCalMappingModuleIndexerTrigger" 
+    LogDebug("HGCalMappingModuleIndexerTrigger") 
         << "HGCalMappingModuleIndexerTrigger::processNewModule: Adding typecode=\"" << typecode
-        << "\" with fedid=" << fedid << ", idx=" << idx << " (will be re-indexed after finalize)" << std::endl;
+        << "\" with fedid=" << fedid << ", idx=" << idx << " (will be re-indexed after finalize)";
     typecodeMap_[typecode] = std::make_pair(fedid, idx);
   }
 }
