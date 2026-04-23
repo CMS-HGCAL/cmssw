@@ -15,7 +15,7 @@
 //#include "TcRawData.hh"
 #include "LpGbtData.hh"
 #include "Stage1IOFwCfg.hh"
-//#include <stdexcept>
+
 namespace TPGStage1Emulation {
 
 class Stage1IO {
