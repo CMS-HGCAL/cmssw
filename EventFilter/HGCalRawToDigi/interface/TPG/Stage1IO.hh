@@ -110,9 +110,15 @@ public:
 	}
       }
       if(doPrint) std::cout << "vTc.size() = " << vTc.size() << ", nTc = " << nTc << std::endl;
-      assert(vTc.size()==nTc);
-    }
-      
+            if (vTc.size() != nTc) {
+      throw cms::Exception("Stage1IORecoverable")
+      << "convertElinksToTcRawData: vTc.size() != nTc\n"
+      << "  vTc.size() = " << vTc.size() << "\n"
+      << "  nTc        = " << nTc << "\n"
+      << "  type       = " << type;
+      } 
+
+      } 
     for(unsigned tc(0);tc<nTc;tc++) {
       if(lastBit<9) {
 	d=(d<<32);

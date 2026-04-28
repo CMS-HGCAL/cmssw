@@ -7,6 +7,7 @@
 #include "DataFormats/FEDRawData/interface/RawDataBuffer.h"
 #include "DataFormats/HGCalDigi/interface/HGCalDigiHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalECONDPacketInfoHost.h"
+#include "DataFormats/HGCalDigi/interface/HGCalECONTPacketInfoHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalFEDPacketInfoHost.h"
 #include "CondFormats/DataRecord/interface/HGCalModuleConfigurationRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalTriggerConfiguration.h"
@@ -31,6 +32,7 @@ private:
 
   // output tokens
   const edm::EDPutTokenT<hgcaldigi::HGCalDigiTriggerHost> digisTriggerToken_;
+  const edm::EDPutTokenT<hgcaldigi::HGCalECONTPacketInfoHost> econtPacketInfoToken_;
 
   // config tokens and objects
   edm::ESGetToken<HGCalMappingModuleIndexerTrigger, HGCalElectronicsMappingRcd> moduleIndexToken_;
@@ -41,6 +43,7 @@ private:
 HGCalRawToDigiTrigger::HGCalRawToDigiTrigger(const edm::ParameterSet& iConfig)
     : fedRawTriggerToken_(consumes<RawDataBuffer>(iConfig.getParameter<edm::InputTag>("src"))),
       digisTriggerToken_(produces<hgcaldigi::HGCalDigiTriggerHost>()),
+      econtPacketInfoToken_(produces<hgcaldigi::HGCalECONTPacketInfoHost>()),
       moduleIndexToken_(esConsumes()),
       configToken_(esConsumes()) {}
 
@@ -53,11 +56,18 @@ void HGCalRawToDigiTrigger::produce(edm::Event& iEvent, const edm::EventSetup& i
   const auto& config = iSetup.getData(configToken_);
   
   hgcaldigi::HGCalDigiTriggerHost digisTrigger(moduleIndexer.maxDataSize(), cms::alpakatools::host());
+  hgcaldigi::HGCalECONTPacketInfoHost econtPacketInfo(moduleIndexer.maxModulesIndex(), cms::alpakatools::host());
   const auto& fedBuffer = iEvent.get(fedRawTriggerToken_);
 
   for (int32_t i = 0; i < digisTrigger.view().metadata().size(); i++) {
     for (int32_t ibx = 0; ibx < 7; ibx++) digisTrigger.view()[i].valid()(ibx,0) = false;
     digisTrigger.view()[i].algo() = 0;
+  }
+  std::cout << " packte info metadata size " << econtPacketInfo.view().metadata().size() <<  std::endl;
+  for (int32_t i = 0; i < econtPacketInfo.view().metadata().size(); i++) {
+    econtPacketInfo.view()[i].exception() = 0;
+    econtPacketInfo.view()[i].location() = 0;
+    econtPacketInfo.view()[i].payloadLength() = 0;
   }
 
   for(const auto& frs :  moduleIndexer.fedReadoutSequences() ) {
@@ -75,12 +85,13 @@ void HGCalRawToDigiTrigger::produce(edm::Event& iEvent, const edm::EventSetup& i
     std::cout << fedConfig.tdaqs.size() << " tdaq blocks and " << fedConfig.econtSwapOffset.size() << " ECONTs" << std::endl;
     
     //pedro : comment the unpacker should receive direcly fedConfig and not the full config, and maybe the fed readout sequence instead of the module indexer
-    unpacker_trigger_.parseFEDData(fedId,fed_data,config,moduleIndexer,digisTrigger);
+    unpacker_trigger_.parseFEDData(fedId,fed_data,config,moduleIndexer,digisTrigger,econtPacketInfo);
   }
 
 
   // put information to the event
   iEvent.emplace(digisTriggerToken_, std::move(digisTrigger));
+  iEvent.emplace(econtPacketInfoToken_, std::move(econtPacketInfo));
 }
 
 // fill descriptions
@@ -92,3 +103,4 @@ void HGCalRawToDigiTrigger::fillDescriptions(edm::ConfigurationDescriptions& des
 
 // define this as a plug-in
 DEFINE_FWK_MODULE(HGCalRawToDigiTrigger);
+
