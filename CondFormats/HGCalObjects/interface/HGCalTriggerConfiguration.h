@@ -33,6 +33,7 @@ struct HGCalTDAQConfig {
 struct HGCalTriggerFedConfig {
   std::vector<HGCalTDAQConfig> tdaqs;
   std::vector<int32_t> econtSwapOffset;
+  std::map<uint8_t, std::vector<uint8_t>> elinksMap;
   // TODO: if we want to add information checking for S-Link header/trailer
   COND_SERIALIZABLE;
 };

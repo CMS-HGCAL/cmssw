@@ -67,6 +67,10 @@ namespace Hgcal10gLinkReceiver {
     const TpgSubpacketHeader* nextSubpacketHeader() const {
       return this+subpacketSize()+1;
     }
+    const TpgSubpacketHeader* prevSubpacketHeader() const {
+      return this-subpacketSize()-1;
+    }
+
 
     void print(std::ostream &o=std::cout, std::string s="") const {
       o << s << "TpgSubpacketHeader::print()  Data = 0x"
