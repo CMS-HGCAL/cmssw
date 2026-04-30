@@ -115,11 +115,13 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	  //filling first 7 elinks 
 	  for(unsigned j(0);j<tsh->numberOfWordsPerBx();j++) { 
 	    //ordering elinks thanks to mapping  
-	    auto elinkIdx = elinks_mapping [2*j + elink_offset];
+	    unsigned elinkIdx = unsigned(elinks_mapping [2*j + elink_offset]);
             elinks[elinkIdx] = el64packed[j] & 0xffffffff;
+            //std::cout << "Natural order - Correct order " << 2*j + elink_offset  << " - " << elinkIdx << std::endl;
 
-	    elinkIdx = elinks_mapping [2*j + elink_offset +1];
+	    elinkIdx = unsigned(elinks_mapping [2*j + elink_offset +1]);
 	    elinks[elinkIdx] = (el64packed[j]>>32) & 0xffffffff;
+            //std::cout << "Natural order - Correct order " << 2*j + elink_offset + 1 << " - " << elinkIdx  << std::endl;
 
 	    sprintf(word64,"0x%016lx",el64packed[j]);
 	    LogDebug("[HGCalUnpackerTrigger]")  << "Word " << std::setw(6) << j << " = 0x"
@@ -136,16 +138,18 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	    //std::cout << " going to next subpacket for remaining 7 elinks " << std::endl;
 	    //tsh->print();
 	    const uint64_t *el64packed2((const uint64_t*)(tsh+1+bx*tsh->numberOfWordsPerBx())); //second part of elinks
-	    elink_offset = 7; 
+	    elink_offset = 8; 
             // filling the remaining elinks
   	    for(unsigned j(0);j<tsh->numberOfWordsPerBx();j++) { 
 
 	      //ordering elinks thanks to mapping  
-	      auto elinkIdx = elinks_mapping [2*j + elink_offset];
+	      unsigned elinkIdx = unsigned(elinks_mapping [2*j + elink_offset]);
               elinks[elinkIdx] = el64packed2[j] & 0xffffffff;
+              //std::cout << "Natural order - Correct order " << 2*j + elink_offset  << " - " << elinkIdx << std::endl;
 
-	      elinkIdx = elinks_mapping [2*j + elink_offset + 1];
+	      elinkIdx = unsigned(elinks_mapping [2*j + elink_offset + 1]);
 	      elinks[elinkIdx] = (el64packed2[j]>>32) & 0xffffffff;
+              //std::cout << "Natural order - Correct order " << 2*j + elink_offset + 1 << " - " << elinkIdx << std::endl;
 
   	      sprintf(word64,"0x%016lx",el64packed2[j]);
   	      LogDebug("[HGCalUnpackerTrigger]")  << "Word " << std::setw(6) << j << " = 0x"
@@ -220,11 +224,11 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	     continue;
             }
 
-	    //rdp.print();
+	    //if (bx == 0) rdp.print();
 	    //std::cout <<  "TCs "<< cfgecont.getNofTCs() <<  " out "<< cfgecont.getOutType() << " econTId " << iecon << " offset "  << econTOffset << " nElinks "<< cfgecont.getNElinks() << " Select " << cfgecont.getSelect()  << std::endl;
 
 	    
-	    uint32_t totE = 0;
+	    uint32_t totE = 0; // module sum, for BC is over all the 48 TCs 
 	    for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type());
 
 	    //// How much of below will be **CONFIGURE** ed
