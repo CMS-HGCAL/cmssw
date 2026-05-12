@@ -15,6 +15,7 @@ struct HGCalECONTConfig {
   uint8_t select; //0 = Threshold Sum (TS), 1 = Super Trigger Cell (STC), 2 = Best Choice (BC), 3 = Repeater, 4=Autoencoder (AE).
   uint8_t stcType; //0 = STC4B(5E+4M), 1 = STC16(5E+4M), 2 = CTC4A(4E+3M), 3 = STC4A(4E+3M), 4 = CTC4B(5E+3M)
   uint8_t eportTxNumen; //number of elinks
+  uint8_t sumType;  //0: MS summed over 48-N TCs, 1: MS summed over 48 TCs
   std::vector<uint16_t> calv; //12-bit calibration for 48 TCs
   std::vector<uint8_t> tcMux;   //multiplexer between HGCROC and TC to ECONT
   std::vector<uint32_t> offset; 
@@ -76,7 +77,8 @@ inline std::ostream& operator<<(std::ostream& os, const HGCalTriggerConfiguratio
            << ", dropLSB = " << std::dec << (int)econtConfig.dropLSB
            << ", select = " << std::dec << (int)econtConfig.select
            << ", stcType = " << std::dec << (int)econtConfig.stcType
-           << ", eportTxNumen = " << std::dec << (int)econtConfig.eportTxNumen<< "," <<std::endl
+           << ", eportTxNumen = " << std::dec << (int)econtConfig.eportTxNumen
+           << ", sumType = " << std::dec << (int)econtConfig.sumType<< "," <<std::endl
            << "calv = [";
         for(unsigned int i=0; i<econtConfig.calv.size(); i++){
           os << "(0x" << std::hex << std::setfill('0') << std::setw(3) << econtConfig.calv[i] << ", " <<std::dec<< (float)econtConfig.calv[i]/2048 << "), ";

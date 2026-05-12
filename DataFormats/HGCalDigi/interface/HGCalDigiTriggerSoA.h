@@ -51,6 +51,7 @@ namespace hgcaldigi {
   
   GENERATE_SOA_LAYOUT(HGCalDigiTriggerSoALayout,
                       SOA_COLUMN(uint8_t, algo),          //0:BC, 1:STC4A(4E3M), 2:STC4B(5E4M), 3:STC16 
+                      SOA_COLUMN(uint8_t, sumType),          //0: MS summed over 48-N TCs, 1: MS summed over 48 TCs
 		      SOA_EIGEN_COLUMN(Mtrxbt71, valid),  //valid bit
                       SOA_COLUMN(uint8_t, nBxs),          //nof Bxs   //"TODO: REMOVE THIS (When Configuration is ready)" [Read nBxs from run111138_board160_configuration.yaml CommonReadout-->RxChannels-->ReadoutWindow]
                       SOA_COLUMN(uint8_t, nTCs),          //nof TCs per Bx //"TODO: REMOVE THIS (When Configuration is ready)" [Interpret from nof elinks]

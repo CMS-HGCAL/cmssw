@@ -1,3 +1,4 @@
+#define EDM_ML_DEBUG
 #include "EventFilter/HGCalRawToDigi/interface/HGCalUnpackerTrigger.h"
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TPGFEDataformat.hh"
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TPGBEDataformat.hh"
@@ -57,10 +58,10 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
     uint32_t isValidTdaq;
     isValidTdaq = tdaqConfig.econts.size();
 
-    //std::cout << "tdaq idx: "   << TdaqIdx 
-    //          << ", tdaqsize: " << isValidTdaq << std::endl;
+    std::cout << "tdaq idx: "   << TdaqIdx 
+              << ", tdaqsize: " << isValidTdaq << std::endl;
      
-    //tsh->print();	  
+    tsh->print();	  
     if (isValidTdaq != 0){
     
 
@@ -188,10 +189,20 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	    std::unique_ptr<uint32_t[]> el(new uint32_t[neTx]);
 	    TPGFEConfiguration::ConfigEconT cfgecont;
 	    cfgecont.setNElinks(uint32_t(neTx));
+	    
 	    const int select = econt_conf.select;
 	    //std::cout << "select " << select << std::endl;
-
 	    cfgecont.setSelect(select);
+
+	    const int dropLSB = econt_conf.dropLSB;
+	    cfgecont.setDropLSB(dropLSB);
+
+            //std::cout << "dropLSB from cfg: " << dropLSB << " ECONT dropLSB set to: " << cfgecont.getDropLSB() << std::endl; 
+
+	    const bool sumType = econt_conf.sumType;
+	    cfgecont.setMSSumType(sumType);
+
+            //std::cout << "sumType from cfg: " << sumType << " ECONT sumType set to: " << cfgecont.getMSSumType() << std::endl; 
 
 	    for(int iel=0;iel<neTx;iel++) el[iel] = elinks[nprevTxs + iel];
 	    
@@ -229,7 +240,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 
 	    
 	    uint32_t totE = 0; // module sum, for BC is over all the 48 TCs 
-	    for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type());
+	    for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type()) >> cfgecont.getDropLSB();
 
 	    //// How much of below will be **CONFIGURE** ed
 	    for(unsigned itc(0) ; itc < rdp.size() ; itc++){
@@ -250,15 +261,15 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	      uint32_t denseIdx = denseIdxRaw + denseIdxOffset; // applying offset accounting for TCs and econts swapping
 
 	      digisTrigger.view()[denseIdx].algo() = uint8_t(cfgecont.getOutType());
+	      digisTrigger.view()[denseIdx].sumType() = uint8_t(cfgecont.getMSSumType());
 	      digisTrigger.view()[denseIdx].valid()(bx,0) = true;
 	      digisTrigger.view()[denseIdx].nBxs() = uint8_t(tsh->numberOfBxs());
 	      digisTrigger.view()[denseIdx].econTId() = econTId;
 	      digisTrigger.view()[denseIdx].nTCs() = uint8_t(cfgecont.getNofTCs());
 	      digisTrigger.view()[denseIdx].bxId()(bx,0) = uint8_t(rdp.bx());
 	      digisTrigger.view()[denseIdx].TotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(TPGFEDataformat::TcRawData::Decode5E3M(rdp.moduleSum())) : totE ;
-	      digisTrigger.view()[denseIdx].TCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).decodedE(rdp.type()));
+	      digisTrigger.view()[denseIdx].TCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).decodedE(rdp.type()) << cfgecont.getDropLSB());
 	      digisTrigger.view()[denseIdx].TCAddress()(bx,0) = uint8_t(rdp.getTc(itc).address());
-
 	      LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData fedId : " << fedId
                      << ", iecon: " << iecon
 	             << ", econTId: " << econTId
@@ -277,6 +288,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 	             << std::endl;
 	      LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData "
 	             << " algo = " << uint16_t(digisTrigger.view()[denseIdx].algo())
+	             << " sumType = " << uint16_t(digisTrigger.view()[denseIdx].sumType())
 	             << ", valid = " << uint16_t(digisTrigger.view()[denseIdx].valid()(bx,0))
 	             << ", nBxs = " << uint16_t(digisTrigger.view()[denseIdx].nBxs())
 	             << ", nTCs = " << uint16_t(digisTrigger.view()[denseIdx].nTCs())

@@ -70,7 +70,7 @@ public:
     //const std::vector<std::string> fedkeys = {"tdaqHeaderMarker", "neconts", "econtSwapOffset", "elinksMap"};
     const std::vector<std::string> fedkeys = {"tdaqHeaderMarker", "neconts", "econtSwapOffset"};
     const std::vector<std::string> modkeys = {
-        "density", "dropLSB", "select", "stc_type", "eporttx_numen", "calv", "mux"};
+        "density", "dropLSB", "select", "stc_type", "eporttx_numen", "use_sum", "calv", "mux"};
     if (nfeds != fed_config_data.size())
       edm::LogWarning("HGCalTriggerConfigurationESProducer")
           << "Total number of FEDs found in JSON file " << fedjsonurl << " (" << fed_config_data.size()
@@ -155,6 +155,7 @@ public:
           econtConfig.select = uint8_t(mod_config_data[modkey]["select"]);
           econtConfig.stcType = uint8_t(mod_config_data[modkey]["stc_type"]);
           econtConfig.eportTxNumen = uint8_t(mod_config_data[modkey]["eporttx_numen"]);
+          econtConfig.sumType = uint8_t(mod_config_data[modkey]["use_sum"]);
 
           econtConfig.calv.resize(nTC);
           econtConfig.tcMux.resize(nTC);
