@@ -1,4 +1,3 @@
-#define EDM_ML_DEBUG
 #include "EventFilter/HGCalRawToDigi/interface/HGCalUnpackerTrigger.h"
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TPGFEDataformat.hh"
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TPGBEDataformat.hh"
@@ -58,10 +57,10 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
     uint32_t isValidTdaq;
     isValidTdaq = tdaqConfig.econts.size();
 
-    std::cout << "tdaq idx: "   << TdaqIdx 
-              << ", tdaqsize: " << isValidTdaq << std::endl;
+    //std::cout << "tdaq idx: "   << TdaqIdx 
+    //          << ", tdaqsize: " << isValidTdaq << std::endl;
      
-    tsh->print();	  
+    //tsh->print();	  
     if (isValidTdaq != 0){
     
 
