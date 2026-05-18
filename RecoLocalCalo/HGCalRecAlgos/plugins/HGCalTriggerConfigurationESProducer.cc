@@ -67,9 +67,10 @@ public:
 
     // consistency check
     uint32_t nfeds = moduleMap.numFEDs();
+    //const std::vector<std::string> fedkeys = {"tdaqHeaderMarker", "neconts", "econtSwapOffset", "elinksMap"};
     const std::vector<std::string> fedkeys = {"tdaqHeaderMarker", "neconts", "econtSwapOffset"};
     const std::vector<std::string> modkeys = {
-        "density", "dropLSB", "select", "stc_type", "eporttx_numen", "calv", "mux"};
+        "density", "dropLSB", "select", "stc_type", "eporttx_numen", "use_sum", "calv", "mux"};
     if (nfeds != fed_config_data.size())
       edm::LogWarning("HGCalTriggerConfigurationESProducer")
           << "Total number of FEDs found in JSON file " << fedjsonurl << " (" << fed_config_data.size()
@@ -111,6 +112,17 @@ public:
       for (std::size_t iecont = 0; iecont < moduleMap.getNumModules(fedid); iecont++) {
         fedConfig.econtSwapOffset[iecont] = int(fed_config_data[fedkey]["econtSwapOffset"][iecont]);
       }
+      // fill elinksMap (only if present in cfg)
+      if(hgcal::check_keys(fed_config_data, fedkey, {"elinksMap"}, fedjsonurl)) { 
+     
+        for (auto itdaq = fed_config_data[fedkey]["elinksMap"].begin(); itdaq!=fed_config_data[fedkey]["elinksMap"].end(); ++itdaq) {
+          fedConfig.elinksMap[(uint8_t)stoi(itdaq.key())].resize(itdaq.value().size());
+          for (std::size_t ielink = 0; ielink < itdaq.value().size(); ielink++) {   
+            //fedConfig.elinksMap[(uint8_t)stoi(it.key())].push_back(it.value()[ielink]);
+            fedConfig.elinksMap[(uint8_t)stoi(itdaq.key())][ielink] = itdaq.value()[ielink];
+          }
+        }
+      }
       // fill TDAQ configurations
       fedConfig.tdaqs.resize(nTDAQ);
       totalECONTs = 0;
@@ -143,6 +155,7 @@ public:
           econtConfig.select = uint8_t(mod_config_data[modkey]["select"]);
           econtConfig.stcType = uint8_t(mod_config_data[modkey]["stc_type"]);
           econtConfig.eportTxNumen = uint8_t(mod_config_data[modkey]["eporttx_numen"]);
+          econtConfig.sumType = uint8_t(mod_config_data[modkey]["use_sum"]);
 
           econtConfig.calv.resize(nTC);
           econtConfig.tcMux.resize(nTC);
