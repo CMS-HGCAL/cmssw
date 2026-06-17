@@ -66,7 +66,7 @@ void HGCalRawToDigiTrigger::produce(edm::Event& iEvent, const edm::EventSetup& i
     for (int32_t ibx = 0; ibx < 7; ibx++) digisTrigger.view()[i].valid()(ibx,0) = false;
     digisTrigger.view()[i].algo() = 0;
   }
-  LogDebug << " packet info metadata size " << econtPacketInfo.view().metadata().size();
+  LogDebug("HGCalRawToDigiTrigger::produce") << " packet info metadata size " << econtPacketInfo.view().metadata().size();
   for (int32_t i = 0; i < econtPacketInfo.view().metadata().size(); i++) {
     econtPacketInfo.view()[i].exception() = 0;
     econtPacketInfo.view()[i].location() = 0;
@@ -85,8 +85,8 @@ void HGCalRawToDigiTrigger::produce(edm::Event& iEvent, const edm::EventSetup& i
     }
     
     const auto& fedConfig = config.feds[fedId];
-    LogDebug << "HGCalRawToDigiTrigger::produce - got a fed_data fragment size=" << fed_data.size() << " for fedid=" << fedId;
-    LogDebug << fedConfig.tdaqs.size() << " tdaq blocks and " << fedConfig.econtSwapOffset.size() << " ECONTs";
+    LogDebug("HGCalRawToDigiTrigger::produce") << "HGCalRawToDigiTrigger::produce - got a fed_data fragment size=" << fed_data.size() << " for fedid=" << fedId;
+    LogDebug("HGCalRawToDigiTrigger::produce") << fedConfig.tdaqs.size() << " tdaq blocks and " << fedConfig.econtSwapOffset.size() << " ECONTs";
     
     //pedro : comment the unpacker should receive direcly fedConfig and not the full config, and maybe the fed readout sequence instead of the module indexer
     unpacker_trigger_.parseFEDData(fedId,fed_data,config,moduleIndexer,digisTrigger,fedTriggerPacketInfo,econtPacketInfo);
