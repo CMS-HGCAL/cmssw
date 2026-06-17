@@ -11,10 +11,12 @@
 #include "SimDataFormats/GeneratorProducts/interface/LHEXMLStringProduct.h"
 
 #include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
+#include "SimDataFormats/GeneratorProducts/interface/HepMC3Product.h"
 
 #include "SimDataFormats/GeneratorProducts/interface/GenRunInfoProduct.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenFilterInfo.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
+#include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct3.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenLumiInfoProduct.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenLumiInfoHeader.h"
 #include "SimDataFormats/GeneratorProducts/interface/ExternalGeneratorLumiInfo.h"
@@ -37,3 +39,19 @@ namespace hepmc_rootio {
     }
   }
 }  // namespace hepmc_rootio
+
+// needed for backwards compatibility for auto_ptr<gen::PdfInfo>
+namespace pdfinfo_autoptr_rootio {
+  // Following the pattern in DataFormats/TestObjects/src/classes.h
+  template <typename T>
+  struct deprecated_auto_ptr {
+    // We use compat_auto_ptr only to assign the wrapped raw pointer
+    // to a unique pointer in an I/O customization rule.
+    // Therefore, we don't delete on destruction (because ownership
+    // gets transferred to the unique pointer).
+
+    // ~deprecated_auto_ptr() { delete _M_ptr; }
+
+    T* _M_ptr = nullptr;
+  };
+}  // namespace pdfinfo_autoptr_rootio

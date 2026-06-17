@@ -109,7 +109,8 @@ namespace edm {
     Ptr() : core_(), key_(key_traits<key_type>::value) {}
 
     template <typename U>
-    Ptr(Ptr<U> const& iOther, std::enable_if_t<std::is_base_of<T, U>::value>* = nullptr)
+      requires std::is_base_of_v<T, U>
+    Ptr(Ptr<U> const& iOther)
         : core_(iOther.id(),
                 (iOther.hasProductCache() ? static_cast<T const*>(iOther.get()) : static_cast<T const*>(nullptr)),
                 iOther.productGetter(),
@@ -123,7 +124,8 @@ namespace edm {
     }
 
     template <typename U>
-    explicit Ptr(Ptr<U> const& iOther, std::enable_if_t<std::is_base_of<U, T>::value>* = nullptr)
+      requires std::is_base_of_v<U, T>
+    explicit Ptr(Ptr<U> const& iOther)
         : core_(iOther.id(), dynamic_cast<T const*>(iOther.get()), nullptr, iOther.isTransient()), key_(iOther.key()) {}
 
     /// Destructor
@@ -184,15 +186,11 @@ namespace edm {
         WrapperBase const* prod = getter->getIt(core_.id());
         unsigned int iKey = key_;
         if (prod == nullptr) {
-          auto optionalProd = getter->getThinnedProduct(core_.id(), key_);
-          if (not optionalProd.has_value()) {
-            if (throwIfNotFound) {
-              core_.productNotFoundException(typeid(T));
-            } else {
-              return;
-            }
+          if (throwIfNotFound) {
+            core_.productNotFoundException(typeid(T));
+          } else {
+            return;
           }
-          std::tie(prod, iKey) = *optionalProd;
         }
         void const* ad = nullptr;
         prod->setPtr(typeid(T), iKey, ad);

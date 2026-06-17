@@ -1,12 +1,19 @@
 #ifndef RecoParticleFlow_PFRecHitProducer_interface_alpaka_CalorimeterDefinitions_h
 #define RecoParticleFlow_PFRecHitProducer_interface_alpaka_CalorimeterDefinitions_h
 
+#include <limits>
+
+// Include Eigen core library before include the SoA definitions
+#include <Eigen/Core>
+
 #include "DataFormats/DetId/interface/DetId.h"
 #include "DataFormats/EcalDetId/interface/EcalSubdetector.h"
 #include "DataFormats/EcalRecHit/interface/EcalRecHit.h"
 #include "DataFormats/HcalDetId/interface/HcalDetId.h"
 #include "DataFormats/HcalDetId/interface/HcalSubdetector.h"
 #include "DataFormats/HcalRecHit/interface/HBHERecHit.h"
+#include "DataFormats/HcalRecHit/interface/HcalRecHitHostCollection.h"
+#include "DataFormats/HcalRecHit/interface/alpaka/HcalRecHitDeviceCollection.h"
 #include "DataFormats/ParticleFlowReco/interface/CaloRecHitHostCollection.h"
 #include "DataFormats/ParticleFlowReco/interface/alpaka/CaloRecHitDeviceCollection.h"
 #include "RecoParticleFlow/PFRecHitProducer/interface/PFRecHitTopologyHostCollection.h"
@@ -32,8 +39,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::particleFlowRecHitProducer {
 
   struct HCAL {
     using CaloRecHitType = HBHERecHit;
-    using CaloRecHitSoATypeHost = reco::CaloRecHitHostCollection;
-    using CaloRecHitSoATypeDevice = reco::CaloRecHitDeviceCollection;
+    using CaloRecHitSoATypeHost = hcal::RecHitHostCollection;
+    using CaloRecHitSoATypeDevice = hcal::RecHitDeviceCollection;
     using ParameterType = reco::PFRecHitHCALParamsDeviceCollection;
     using ParameterRecordType = PFRecHitHCALParamsRecord;
     using TopologyTypeHost = reco::PFRecHitHCALTopologyHostCollection;
@@ -97,6 +104,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::particleFlowRecHitProducer {
       return retval + kSizeBarrel;
     }
 
+    static constexpr uint32_t kInvalidDenseId = std::numeric_limits<uint32_t>::max();
+
     static constexpr uint32_t detId2denseId(uint32_t detId) {
       const uint32_t subdet = getSubdet(detId);
       if (subdet == HcalBarrel)
@@ -104,8 +113,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::particleFlowRecHitProducer {
       if (subdet == HcalEndcap)
         return detId2denseIdHE(detId);
 
-      printf("invalid detId: %u\n", detId);
-      return -1;
+      printf("invalid Hcal detId: %u\n", detId);
+      return kInvalidDenseId;
     }
   };
 
@@ -181,6 +190,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::particleFlowRecHitProducer {
 
     static constexpr bool checkFlag(uint32_t flagBits, int flag) { return flagBits & (0x1 << flag); }
 
+    static constexpr uint32_t kInvalidDenseId = std::numeric_limits<uint32_t>::max();
+
     static constexpr uint32_t detId2denseId(uint32_t detId) {
       const uint32_t subdet = getSubdet(detId);
       if (subdet == EcalBarrel)
@@ -188,8 +199,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::particleFlowRecHitProducer {
       if (subdet == EcalEndcap)
         return Barrel::kSize + Endcap::denseIndex(detId);
 
-      printf("invalid detId: %u\n", detId);
-      return 0;
+      printf("invalid Ecal detId: %u\n", detId);
+      return kInvalidDenseId;
     }
 
     static constexpr bool detIdInRange(uint32_t detId) {

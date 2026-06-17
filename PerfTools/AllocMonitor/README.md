@@ -29,6 +29,9 @@ The monitor is owned by the registry and should not be deleted by any other code
 of the monitor, one can call `cms::perftools::AllocMonitorRegistry::deregisterMonitor` to have the monitor removed from
 the callback list and be deleted (again, without the deallocation causing any callbacks).
 
+NOTE: Experience has shown that using thread_local within a call to `allocCalled` or `deallocCalled` can lead to unexpected behavior. Therefore if per thread information must be gathered it is recommended to make a system that uses thread ids.
+An example of such code can be found in the implementation of ModuleAllocMonitor.
+
 ## General usage
 
 To use the facility, one needs to use LD_PRELOAD to load in the memory proxies before the application runs, e.g.
@@ -67,6 +70,26 @@ This service registers a monitor at the end of beginJob (after all modules have 
 
 This service is multi-thread safe. Note that when run multi-threaded the maximum reported value will vary from job to job.
 
+### PhaseAllocMonitor
+
+This service registers a monitor at the end of service construction, and on a predefined set of other signals that correspond to framework's "phases". Each such signal corresponds to a global synchronization point of the framework. This can be useful to understand how memory is being used in different phases of a job. The monitor reports the following quantities measured during the period from the previous signal to the current signal
+
+| Field | Description |
+|-------|-------------|
+| `requested` | Total amount of bytes requested by all allocation calls since the previous signal |
+| `max alloc` | The largest single memory allocation since the previous signal |
+| `presentActual` | The amount of _used_ memory (i.e. actual size) at the time of the signal |
+| `peak` | The maximum amount of _used_ allocated memory that was in use at one time since the previous signal |
+| `added ` | The amount of _used_ memory added by the allocations and deallocations since the previous signal. Can be negative if memory allocated in earlier phases is deleted in the current phase. |
+| `nAlloc` | Number of calls made to allocation functions since the previous signal |
+| `nDealloc` | Number of calls made to deallocation functions since the previous signal |
+
+
+The service has the following configuration parameters:
+- `showSignals`: names of [`ActivityRegistry`](../../FWCore/ServiceRegistry/interface/ActivityRegistry.h) signals to measure. Empty vector (default) shows for all the predefined signals. For a list of possible values see the [code](plugins/PhaseAllocMonitor.cc).
+
+This service is multi-thread safe. Note that when run multi-threaded the maximum reported value will vary from job to job.
+
 ### HistogrammingAllocMonitor
 This service registers a monitor when the service is created (after python parsing is finished but before any modules
 have been loaded into cmsRun) and reports its accumulated information when the service is destroyed (services are the
@@ -82,8 +105,8 @@ This service is multi-thread safe. Note that when run multi-threaded the maximum
 This service registers a monitor when the service is created (after python parsing is finished but before any modules
 have been loaded into cmsRun) and prints its accumulated information to the specified file at specified intervals. Both
 the file name and  interval are specified by setting parameters of the service in the configuration. The parameters are
-- filename: name of file to which to write reports
-- millisecondsPerMeasurement: number of milliseconds to wait between making each report
+- `filename`: name of file to which to write reports
+- `millisecondsPerMeasurement`: number of milliseconds to wait between making each report
 
 The output file contains the following information on each line
 - The time, in milliseconds, since the service was created
@@ -99,3 +122,129 @@ The output file contains the following information on each line
 - Number of calls made to deallocation functions
 
 This service is multi-thread safe. Note that when run multi-threaded the maximum reported value will vary from job to job.
+
+### ModuleAllocMonitor
+This service registers a monitor when the service is created (after python parsing is finished but before any modules
+have been loaded into cmsRun) and writes module related information to the specified file. The file name, an optional
+list of module names, and  an optional number of initial events to skip are specified by setting parameters of the
+service in the configuration. The parameters are
+- `filename`: name of file to which to write reports
+- `moduleNames`: list of modules which should have their information added to the file. An empty list specifies all modules should be included.
+- `skippedModuleNames`: list of module which should have their information skipped. 
+- `nEventsToSkip`: the number of initial events that must be processed before reporting happens.
+
+The beginning of the file contains a description of the structure and contents of the file.
+
+This service is multi-thread safe.
+
+
+### ModuleEventAllocMonitor
+This service registers a monitor when the service is created (after python parsing is finished but before any modules
+have been loaded into cmsRun) and writes event based module related information to the specified file. The service
+keeps track of the address of each allocation requested during an event from each module and pairs them with any
+deallocation using the same address. The list of addresses are kept until the event data products are deleted at which
+time the dallocations are paired with allocations done in a module. The list of addresses are then cleared (to keep memory usage down) but the amount of unassociated deallocations for each module is recorded per event.
+The file name, an optional list of module names, and  an optional number of initial events to skip are specified by setting parameters of the
+service in the configuration. The parameters are
+- `filename`: name of file to which to write reports
+- `moduleNames`: list of modules which should have their information added to the file. An empty list specifies all modules should be included.
+- `nEventsToSkip`: the number of initial events that must be processed before reporting happens.
+
+The beginning of the file contains a description of the structure and contents of the file. The file can be analyzed with the helper script `edmModuleEventAllocMonitorAnalyze.py`. The script can be used to find modules where the memory is being retained between Events as well as modules where the memory appears to be growing Event to Event. Use `--help` with the script for a full description.
+
+This service is multi-thread safe.
+
+
+### IntrusiveAllocMonitors
+
+These services register monitors when the service is created (after python parsing is finished, but before any modules have been loaded into cmsRun) that a user can use to instrument their code as shown in the following example
+```cpp
+#include "FWCore/AbstractServices/interface/IntrusiveMonitorBase.h"
+#include "FWCore/ServiceRegistry/interface/Service.h"
+
+
+void someFunction() {
+  {
+    edm::Service<IntrusiveMonitorBase> monitor;
+    auto guard = monitor->startMonitoring("Measurement description");
+
+    // more code doing memory allocations
+  }
+}
+
+```
+The monitoring stops, in an RAII fashion, at the end of the scope, and the results of the memory operations within that code block are reported. Note that the instrumented code is independent of the specific IntrusiveAllocMonitor, that is specified through the python configuration
+
+These services are multi-thread safe, and concurrent measurements can be done in different threads, although in multi-threaded context MessageLogger messages can be dropped so some measurements from these services could be lost. The services are re-entrant, i.e. measurements in nested scopes or function calls can be done within one thread. In case of nested measurements the numbers for the outer scope exclude the numbers of the inner scope. 
+
+Note that if an `std::string` is passed to `startMeasurement()`, the memory allocations from the string formatting will be accounted by a possible outer scope measurements. Therefore it is recommended to use `std::string` overload only when really necessary.
+
+Allocations done in different thread where the `startMeasurement()` is called are not recorded. Measurements started in one thread and ended in different thread are not supported.
+
+
+
+#### IntrusiveAllocMonitor
+
+The `IntrusiveAllocMonitor` records the following quantities that are printed at the end of each measurement with the [MessageLogger](../../FWCore/MessageService/Readme.md) with an `IntrusiveAllocMonitor` message category.
+| Field | Description |
+|-------|-------------|
+| `requested` | Total number of requested bytes |
+| `added` | Total number of bytes added (can be more than `requested`) |
+| `max alloc` | Largest single memory allocation |
+| `peak` | Maximum amount of allocated memory at any given moment |
+| `nAlloc` | Number of memory allocations |
+| `nDealloc` | Number of memory deallocations |
+
+
+In case of nested measurements, the inner scope measurement message will contain the description strings of all outer measurements in a strack-trace-like format.
+
+If an `std::string` is passed to `startMeasurement()`, the measurement printout of the outer scope will denote that along with the minimum amount of allocated memory and the number of allocations for the strings, but generally the numbers can not be obtained precisely.
+
+#### IntrusiveAllocProfiler (C++23)
+
+The `IntrusiveAllocProfiler` records the stack traces of each individual memory allocation and deallocation within the measurement region. At the end of the measurement it reports
+| Name | Description |
+|-------|-------------|
+| `alloc` | Stack traces from all memory allocations. Sorted in decreasing order by `actual` allocated memory. |
+| `dealloc` | Stack traces from all memory deallocations. Sorted in decreasing order by `actual` deallocated memory. |
+| `atMaxAlloc` | Stack traces from such memory allocations that were not deallocated at the moment the `actual` allocated memory reached its maximum value during the measurement. Sorted in decreasing order by `actual` allocated memory. |
+| `added` | Stack traces from such memory allocations that were not deallocated within the same measurement, i.e. that memory is added to the process by the corresponding code block. Roughly corresponds to IgProf's `MEM_LIVE`. Sorted in decreasing order by `actual` allocated memory. |
+| `churn` | Stack traces from such memory allocations that were deallocated within the same measurement. These indicate possible memory churn. The first entry in the stack trace shows the lowest entry that is common in the stack traces of both the allocation and deallocation. Sorted in decreasing order by the number of allocations (`count`) |
+| `churnalloc` | Shows same memory allocations as in the `churn` report, but the stack traces point to the memory allocations. Sorted in decreasing order by the number of allocations (`count`). |
+
+Following quantities are reported for the aggregated stack traces
+| Field | Description |
+|-------|-------------|
+| `count` | Number of allocations/deallocations |
+| `requested` | Requested bytes (not shown for deallocations) |
+| `actual` | Actually allocated/deallocated bytes |
+
+The Service has the following configuration parameters
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `filePattern` | empty | If empty, print the repots with MessageLogger. If non-empty, specifies the pattern for output text files. Must contain at least one `%I` for a file counter, and `%M` for the measurement name. |
+| `statistics` | `False` | If `True`, print internal statistics to the log. |
+
+By default all reports are printed with MessageLogger. With `filePattern` the reports are written into files, with the file names being printed with MessageLogger at the time when each measurment ends. The `edmIntrusiveAllocProfilerFoldStacks.py` script can be used to "fold" the stack traces to a format understood e.g. flamegraph tools such as https://github.com/brendangregg/FlameGraph for one quantity at a time. An example
+```sh
+edmIntrusiveAllocProfilerFoldStacks.py -q actual report.txt | flamegraph.pl > report_flamegraph.svg
+```
+
+### ThresholdAbortAllocMonitor
+
+This service registers a monitor when the service is created and will abort the job (which will normally trigger a stack trace) if a memory request falling within a certain memory range is seen for a specified number of times. The service accepts the following parameters
+
+- `minThreshold` : the minimum number of bytes an allocation request must reach before an abort might be triggered.
+- `maxThreshold` : the maximum number of bytes an allocation request must stay below (or equal) before an abort might be triggered. A value of `0` means there is no such limit.
+- `skipCount` : the number of times allocations have satisfied the `minThreshold` to `maxThreshold` range before the next time will trigger an abort. A value of `0` will trigger the first time the range is met.
+
+This service is multi-thread safe although it may not yield consistent results if multiple threads reach the criteria at the same time. Using `skipCount` concurrently will likely make the inconsistency worse.
+
+### PresentThresholdAbortAllocMonitor
+
+This service registers a monitor when the service is created and will abort the job (which will normally trigger a stack trace) if the actual presently allocated memory would grow above a threshold for a specified number of times. The service accepts the following parameters
+
+- `threshold` : the number of bytes the actual presently allocated memory must reach before an abort might be triggered.
+- `skipCount` : the number of times the `threshold` condition is crossed  before the next time will trigger an abort. A value of `0` will trigger the first time the `threshold` is met.
+
+This service is multi-thread safe although it may not yield consistent results if multiple threads reach the criteria at the same time. Using `skipCount` concurrently will likely make the inconsistency worse.

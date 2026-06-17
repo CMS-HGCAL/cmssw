@@ -38,44 +38,31 @@ namespace edm {
       endIOVTasks_.reset();
       if (endIOVTaskHolder_.hasTask()) {
         endIOVTasks_.add(std::move(iEndTask));
-        { WaitingTaskHolder tmp{std::move(endIOVTaskHolder_)}; }
+        {
+          WaitingTaskHolder tmp{std::move(endIOVTaskHolder_)};
+        }
       }
       endIOVCalled_ = true;
     }
 
-    void EventSetupRecordIOVQueue::setNewIntervalForAnySubProcess() {
-      bool newIntervalForAnySubProcess = false;
-      for (auto const& recordProvider : recordProviders_) {
-        if (recordProvider->intervalStatus() == EventSetupRecordProvider::IntervalStatus::NewInterval) {
-          newIntervalForAnySubProcess = true;
-          break;
-        }
-      }
-      for (auto& recordProvider : recordProviders_) {
-        recordProvider->setNewIntervalForAnySubProcess(newIntervalForAnySubProcess);
-      }
+    void EventSetupRecordIOVQueue::setNewInterval() {
+      bool newInterval = (recordProvider_->intervalStatus() == EventSetupRecordProvider::IntervalStatus::NewInterval);
+      recordProvider_->setNewInterval(newInterval);
     }
 
     void EventSetupRecordIOVQueue::checkForNewIOVs(WaitingTaskHolder const& taskToStartAfterIOVInit,
                                                    WaitingTaskList& endIOVWaitingTasks,
                                                    bool newEventSetupImpl) {
-      for (auto& recordProvider : recordProviders_) {
-        if (recordProvider->newIntervalForAnySubProcess()) {
-          startNewIOVAsync(taskToStartAfterIOVInit, endIOVWaitingTasks);
-          return;
-        }
+      if (recordProvider_->newInterval()) {
+        startNewIOVAsync(taskToStartAfterIOVInit, endIOVWaitingTasks);
+        return;
       }
 
-      for (auto& recordProvider : recordProviders_) {
-        if (recordProvider->intervalStatus() != EventSetupRecordProvider::IntervalStatus::Invalid) {
-          endIOVWaitingTasks.add(endIOVTaskHolder_);
-          break;
-        }
+      if (recordProvider_->intervalStatus() != EventSetupRecordProvider::IntervalStatus::Invalid) {
+        endIOVWaitingTasks.add(endIOVTaskHolder_);
       }
 
-      for (auto& recordProvider : recordProviders_) {
-        recordProvider->continueIOV(newEventSetupImpl);
-      }
+      recordProvider_->continueIOV(newEventSetupImpl);
     }
 
     void EventSetupRecordIOVQueue::startNewIOVAsync(WaitingTaskHolder const& taskToStartAfterIOVInit,
@@ -106,14 +93,10 @@ namespace edm {
                     << "Couldn't find available IOV slot. This should never happen.\n"
                     << "Contact a Framework Developer\n";
               }
-              for (auto recordProvider : recordProviders_) {
-                recordProvider->initializeForNewIOV(iovIndex, cacheIdentifier_);
-              }
+              recordProvider_->initializeForNewIOV(iovIndex, cacheIdentifier_);
 
               auto endIOVWaitingTask = make_waiting_task([this, iResumer, iovIndex](std::exception_ptr const*) mutable {
-                for (auto recordProvider : recordProviders_) {
-                  recordProvider->endIOV(iovIndex);
-                }
+                recordProvider_->endIOV(iovIndex);
                 isAvailable_[iovIndex].store(true);
                 iResumer.resume();
                 endIOVTasks_.doneWaiting(std::exception_ptr());
@@ -132,7 +115,7 @@ namespace edm {
     }
 
     void EventSetupRecordIOVQueue::addRecProvider(EventSetupRecordProvider* recProvider) {
-      recordProviders_.push_back(recProvider);
+      recordProvider_ = recProvider;
     }
 
   }  // namespace eventsetup

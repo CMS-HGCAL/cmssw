@@ -61,7 +61,7 @@ public:
                const DetId& detId) override;
 
   /// Get the cell geometry of a given detector id.  Should return false if not found.
-  std::shared_ptr<const CaloCellGeometry> getGeometry(const DetId& id) const override;
+  CaloCellGeometryMayOwnPtr getGeometry(const DetId& id) const override;
 
   bool present(const DetId& id) const override;
 
@@ -70,7 +70,9 @@ public:
                   CaloSubdetectorGeometry::DimVec& dimVector,
                   CaloSubdetectorGeometry::IVec& dinsVector) const override;
 
-  GlobalPoint getPosition(const DetId& id, bool debug = false) const;
+  GlobalPoint getPosition(const DetId& id, bool cog, bool debug) const;
+  GlobalPoint getPosition(const DetId& id, int overRideDebug) const;
+  GlobalPoint getPosition(const DetId& id) const;
   GlobalPoint getWaferPosition(const DetId& id) const;
 
   /// Returns area of a cell
@@ -93,7 +95,8 @@ public:
 
   // Get closest cell, etc...
   DetId getClosestCell(const GlobalPoint& r) const override;
-  DetId getClosestCellHex(const GlobalPoint& r, bool extend) const;
+  DetId getClosestCell(const GlobalPoint& r, bool debug) const;
+  DetId getClosestCellHex(const GlobalPoint& r, bool extend, bool debug) const;
 
   /** \brief Get a list of all cells within a dR of the given cell
       
@@ -103,7 +106,7 @@ public:
   */
   DetIdSet getCells(const GlobalPoint& r, double dR) const override;
 
-  virtual void fillNamedParams(DDFilteredView fv);
+  void fillNamedParams(DDFilteredView fv);
   void initializeParms() override;
 
   static std::string producerTag() { return "HGCal"; }
@@ -118,9 +121,9 @@ protected:
   unsigned int sizeForDenseIndex() const;
 
   // Modify the RawPtr class
-  const CaloCellGeometry* getGeometryRawPtr(uint32_t index) const override;
+  CaloCellGeometryPtr getGeometryRawPtr(uint32_t index) const override;
 
-  std::shared_ptr<const CaloCellGeometry> cellGeomPtr(uint32_t index) const override;
+  CaloCellGeometryPtr cellGeomPtr(uint32_t index) const override;
 
   void addValidID(const DetId& id);
   unsigned int getClosestCellIndex(const GlobalPoint& r) const;
@@ -128,7 +131,7 @@ protected:
 private:
   template <class T>
   unsigned int getClosestCellIndex(const GlobalPoint& r, const std::vector<T>& vec) const;
-  std::shared_ptr<const CaloCellGeometry> cellGeomPtr(uint32_t index, const GlobalPoint& p) const;
+  CaloCellGeometryMayOwnPtr cellGeomPtr(uint32_t index, const GlobalPoint& p) const;
   DetId getGeometryDetId(DetId detId) const;
 
   static constexpr double k_half = 0.5;

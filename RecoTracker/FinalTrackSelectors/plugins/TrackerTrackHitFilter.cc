@@ -564,7 +564,7 @@ namespace reco {
           }
           hits.clear();
         }  // loop on tracks
-      }    //end else useTracks
+      }  //end else useTracks
 
       // std::cout<<"OUTPUT SIZE: "<<output->size()<<std::endl;
 
@@ -572,7 +572,7 @@ namespace reco {
     }
 
     bool TrackerTrackHitFilter::isFirstValidHitInLayer(const reco::Track &tk, std::vector<bool> isNotValidVec) {
-      reco::HitPattern hp = tk.hitPattern();
+      const reco::HitPattern &hp = tk.hitPattern();
 
       int vecSize = static_cast<int>(isNotValidVec.size());
       // If hit is not valid, it will not count as a tracker layer with measurement -> don't increase sequLayers
@@ -805,8 +805,8 @@ namespace reco {
           ///---OverlapEnd
 
           hits.push_back(hit->clone());  //just copy it
-        }                                //end if HIT TAKEN
-        else if (verdict < -2) {         //hit rejected because did not pass the selections
+        }  //end if HIT TAKEN
+        else if (verdict < -2) {  //hit rejected because did not pass the selections
           // still, if replaceWithInactiveHits is true we have to put a new hit
           if (replaceWithInactiveHits_) {
             hits.push_back(new InvalidTrackingRecHit(*hit->det(), TrackingRecHit::inactive));
@@ -849,7 +849,7 @@ namespace reco {
             if (!checkStoN(detid, hit))
               hitresult = -5;
           }  //end if S/N is ok
-        }    //end hit in tracker
+        }  //end hit in tracker
         else
           hitresult = -2;
       }  //end hit is valid
@@ -1051,7 +1051,7 @@ namespace reco {
                 corrcharge_ok = true;
               }
             }  //end if hit is in pixel
-          }    //end if hit is valid
+          }  //end if hit is valid
 
         }  //check corr cluster charge for pixel hits
 

@@ -18,7 +18,6 @@ using namespace std;
 PixelFEDConfig::PixelFEDConfig(std::vector<std::vector<std::string> > &tableMat) : PixelConfigBase(" ", " ", " ") {
   std::string mthn = "[PixelFEDConfig::PixelFEDConfig()]\t\t\t    ";
 
-  std::vector<std::string> ins = tableMat[0];
   std::map<std::string, int> colM;
   std::vector<std::string> colNames;
   /*
@@ -108,7 +107,7 @@ PixelFEDConfig::PixelFEDConfig(std::vector<std::vector<std::string> > &tableMat)
         fedconfig_.push_back(tmp);
       }
     }  //end else
-  }    //end for r
+  }  //end for r
   /*   
    std::cout << __LINE__ << "]\t"    << mthn                      << std::endl;
    

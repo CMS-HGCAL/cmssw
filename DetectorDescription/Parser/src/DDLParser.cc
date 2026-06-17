@@ -80,7 +80,7 @@ bool DDLParser::isParsed(const std::string& filename) {
 bool DDLParser::parseOneFile(const std::string& fullname) {
   std::string filename = extractFileName(fullname);
   edm::FileInPath fp(fullname);
-  std::string absoluteFileName = fp.fullPath();
+  const std::string& absoluteFileName = fp.fullPath();
   size_t foundFile = isFound(filename);
   if (!foundFile) {
     pair<std::string, std::string> pss;
@@ -133,7 +133,7 @@ int DDLParser::parse(const DDLDocumentProvider& dp) {
   const std::vector<std::string>& urlList = dp.getURLList();
 
   for (; fileIndex < fileList.size(); ++fileIndex) {
-    std::string ts = urlList[fileIndex];
+    const std::string& ts = urlList[fileIndex];
     std::string tf = fileList[fileIndex];
     if (!ts.empty()) {
       if (ts[ts.size() - 1] == '/') {

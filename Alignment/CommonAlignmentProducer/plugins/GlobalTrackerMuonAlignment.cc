@@ -53,7 +53,6 @@
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "Geometry/CommonDetUnit/interface/GlobalTrackingGeometry.h"
 #include "Geometry/Records/interface/GlobalTrackingGeometryRecord.h"
-#include "Geometry/CommonTopologies/interface/GeometryAligner.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 
@@ -396,8 +395,6 @@ void GlobalTrackerMuonAlignment::beginJob() {
 
   file = new TFile(rootOutFile_.c_str(), "recreate");
   const bool oldAddDir = TH1::AddDirectoryStatus();
-
-  TH1::AddDirectory(true);
 
   this->bookHist();
 

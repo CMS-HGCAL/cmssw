@@ -1,0 +1,71 @@
+#ifndef RecoTracker_LSTCore_interface_TripletsSoA_h
+#define RecoTracker_LSTCore_interface_TripletsSoA_h
+
+#include <alpaka/alpaka.hpp>
+#include "DataFormats/Common/interface/StdArray.h"
+#include "DataFormats/SoATemplate/interface/SoALayout.h"
+#include "DataFormats/SoATemplate/interface/SoABlocks.h"
+
+#include "RecoTracker/LSTCore/interface/Common.h"
+
+namespace lst {
+  GENERATE_SOA_LAYOUT(TripletsSoALayout,
+                      SOA_COLUMN(ArrayUx2,
+                                 preAllocatedSegmentIndices),  // pre-allocated the theoretical max segment indices
+                      SOA_COLUMN(ArrayUx2, segmentIndices),    // inner and outer segment indices
+                      SOA_COLUMN(Params_T3::ArrayU16xLayers, lowerModuleIndices),  // lower module index in each layer
+                      SOA_COLUMN(Params_T3::ArrayU8xLayers, logicalLayers),        // layer ID
+                      SOA_COLUMN(Params_T3::ArrayUxHits, hitIndices),              // hit indices
+                      SOA_COLUMN(FPX, betaIn),                 // beta/chord angle of the inner segment
+                      SOA_COLUMN(float, centerX),              // lower/anchor-hit based circle center x
+                      SOA_COLUMN(float, centerY),              // lower/anchor-hit based circle center y
+                      SOA_COLUMN(float, radius),               // lower/anchor-hit based circle radius
+                      SOA_COLUMN(float, fakeScore),            // DNN confidence score for fake t3
+                      SOA_COLUMN(float, promptScore),          // DNN confidence score for real (prompt) t3
+                      SOA_COLUMN(float, displacedScore),       // DNN confidence score for real (displaced) t3
+                      SOA_COLUMN(unsigned int, connectedMax),  // number of outer-triplets that pass the MD-equality cut
+                      SOA_COLUMN(unsigned int, connectedLSMax),  // n of outer-triplets that pass the LS-equality cut
+                      SOA_COLUMN(short, charge),
+#ifdef CUT_VALUE_DEBUG
+                      SOA_COLUMN(float, betaInCut),
+#endif
+                      SOA_COLUMN(bool, partOfPT5),   // is it used in a pT5
+                      SOA_COLUMN(bool, partOfT5),    // is it used in a T5
+                      SOA_COLUMN(bool, partOfPT3));  // is it used in a pT3
+
+  using TripletsSoA = TripletsSoALayout<>;
+  using Triplets = TripletsSoA::View;
+  using TripletsConst = TripletsSoA::ConstView;
+
+  GENERATE_SOA_LAYOUT(TripletsOccupancySoALayout,
+                      SOA_COLUMN(unsigned int, nTriplets),
+                      SOA_COLUMN(unsigned int, totOccupancyTriplets));
+
+  using TripletsOccupancySoA = TripletsOccupancySoALayout<>;
+  using TripletsOccupancy = TripletsOccupancySoA::View;
+  using TripletsOccupancyConst = TripletsOccupancySoA::ConstView;
+
+  GENERATE_SOA_BLOCKS(TripletsSoABlocksLayout,
+                      SOA_BLOCK(triplets, TripletsSoALayout),
+                      SOA_BLOCK(tripletsOccupancy, TripletsOccupancySoALayout))
+
+  using TripletsSoABlocks = TripletsSoABlocksLayout<>;
+  using TripletsSoABlocksView = TripletsSoABlocks::View;
+  using TripletsSoABlocksConstView = TripletsSoABlocks::ConstView;
+
+  // Template based accessor for getting specific SoA views. Needed in LSTEvent.dev.cc
+  template <typename TSoA>
+  struct TripletsViewAccessor;
+
+  template <>
+  struct TripletsViewAccessor<TripletsSoA> {
+    static constexpr auto get(auto const& v) { return v.triplets(); }
+  };
+
+  template <>
+  struct TripletsViewAccessor<TripletsOccupancySoA> {
+    static constexpr auto get(auto const& v) { return v.tripletsOccupancy(); }
+  };
+
+}  // namespace lst
+#endif

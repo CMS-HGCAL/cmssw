@@ -1,5 +1,6 @@
 <use name="CommonTools/Statistics"/>
 <use name="CommonTools/Utils"/>
+<use name="FWCore/AbstractServices"/>
 <use name="FWCore/Framework"/>
 <use name="DataFormats/Common"/>
 <use name="DataFormats/EgammaReco"/>
@@ -15,7 +16,7 @@
 <use name="CondFormats/GBRForest"/>
 <use name="RecoEcal/EgammaCoreTools"/>
 <use name="DataFormats/ParticleFlowReco"/>
-<use name="PhysicsTools/TensorFlow" />
+<use name="PhysicsTools/ONNXRuntime" />
 <export>
   <lib name="1"/>
 </export>

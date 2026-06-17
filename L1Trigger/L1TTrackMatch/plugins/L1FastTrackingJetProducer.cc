@@ -34,7 +34,7 @@
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 
 //mc
-#include "SimTracker/TrackTriggerAssociation/interface/TTTrackAssociationMap.h"
+#include "SimDataFormats/Associations/interface/TTTrackAssociationMap.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingParticle.h"
 
 #include <fastjet/JetDefinition.hh>
@@ -158,7 +158,7 @@ void L1FastTrackingJetProducer::produce(edm::Event& iEvent, const edm::EventSetu
     float trk_pt = iterL1Track->momentum().perp();
     float trk_z0 = iterL1Track->z0();
     float trk_chi2dof = iterL1Track->chi2Red();
-    float trk_bendchi2 = iterL1Track->stubPtConsistency();
+    float trk_bendchi2 = iterL1Track->chi2BendRed();
     std::vector<edm::Ref<edmNew::DetSetVector<TTStub<Ref_Phase2TrackerDigi_>>, TTStub<Ref_Phase2TrackerDigi_>>>
         theStubs = iterL1Track->getStubRefs();
     int trk_nstub = (int)theStubs.size();
@@ -215,7 +215,7 @@ void L1FastTrackingJetProducer::produce(edm::Event& iEvent, const edm::EventSetu
                                  iterL1Track->momentum().mag());
     JetInputs.push_back(psuedoJet);                     // input tracks for clustering
     JetInputs.back().set_user_index(this_l1track - 1);  // save track index in the collection
-  }                                                     // end loop over tracks
+  }  // end loop over tracks
 
   fastjet::ClusterSequence cs(JetInputs, jet_def);  // define the output jet collection
   std::vector<fastjet::PseudoJet> JetOutputs =

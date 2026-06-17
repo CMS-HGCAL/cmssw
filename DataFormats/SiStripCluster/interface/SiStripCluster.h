@@ -3,19 +3,19 @@
 
 #include "DataFormats/SiStripDigi/interface/SiStripDigi.h"
 #include "DataFormats/SiStripCluster/interface/SiStripApproximateCluster.h"
+#include "DataFormats/SiStripCluster/interface/SiStripApproximateCluster_v1.h"
 #include <vector>
 #include <numeric>
 #include <iostream>
-
-class SiStripApproximateCluster;
 
 class SiStripCluster {
 public:
   typedef std::vector<SiStripDigi>::const_iterator SiStripDigiIter;
   typedef std::pair<SiStripDigiIter, SiStripDigiIter> SiStripDigiRange;
 
-  static const uint16_t stripIndexMask = 0x7FFF;   // The first strip index is in the low 15 bits of firstStrip_
+  static const uint16_t stripIndexMask = 0x3FFF;   // The first strip index is in the low 15 bits of firstStrip_
   static const uint16_t mergedValueMask = 0x8000;  // The merged state is given by the high bit of firstStrip_
+  static const uint16_t approximateMask = 0x4000;  // The approximate state is the high-1 bit of firstStrip_
 
   /** Construct from a range of digis that form a cluster and from 
    *  a DetID. The range is assumed to be non-empty.
@@ -26,24 +26,38 @@ public:
   explicit SiStripCluster(const SiStripDigiRange& range);
 
   SiStripCluster(uint16_t firstStrip, std::vector<uint8_t>&& data)
-      : amplitudes_(std::move(data)), firstStrip_(firstStrip) {}
+      : amplitudes_(std::move(data)), firstStrip_(firstStrip) {
+    initQB();
+  }
+
+  SiStripCluster(uint16_t firstStrip, std::vector<uint8_t>&& data, float barycenter, float charge)
+      : amplitudes_(std::move(data)), firstStrip_(firstStrip), barycenter_(barycenter), charge_(charge) {}
 
   template <typename Iter>
-  SiStripCluster(const uint16_t& firstStrip, Iter begin, Iter end) : amplitudes_(begin, end), firstStrip_(firstStrip) {}
+  SiStripCluster(const uint16_t& firstStrip, Iter begin, Iter end) : amplitudes_(begin, end), firstStrip_(firstStrip) {
+    initQB();
+  }
 
   template <typename Iter>
   SiStripCluster(const uint16_t& firstStrip, Iter begin, Iter end, bool merged)
       : amplitudes_(begin, end), firstStrip_(firstStrip) {
     if (merged)
       firstStrip_ |= mergedValueMask;  // if this is a candidate merged cluster
+    initQB();
   }
 
   SiStripCluster(const SiStripApproximateCluster cluster, const uint16_t maxStrips);
+  SiStripCluster(const v1::SiStripApproximateCluster cluster,
+                 const uint16_t maxStrips,
+                 float pc = -999,
+                 unsigned int module_length = 0,
+                 unsigned int previous_module_length = 0);
 
   // extend the cluster
   template <typename Iter>
   void extend(Iter begin, Iter end) {
     amplitudes_.insert(amplitudes_.end(), begin, end);
+    initQB();
   }
 
   /** The amplitudes of the strips forming the cluster.
@@ -75,16 +89,16 @@ public:
   /** The barycenter of the cluster, not corrected for Lorentz shift;
    *  should not be used as position estimate for tracking.
    */
-  float barycenter() const;
+  float barycenter() const { return barycenter_; }
 
   /** total charge
    *
    */
-  int charge() const;
+  int charge() const { return charge_; }
 
-  bool filter() const;
+  bool filter() const { return filter_; }
 
-  bool isFromApprox() const;
+  bool isFromApprox() const { return (firstStrip_ & approximateMask) != 0; }
 
   /** Test (set) the merged status of the cluster
    *
@@ -94,6 +108,8 @@ public:
 
   float getSplitClusterError() const { return error_x; }
   void setSplitClusterError(float errx) { error_x = errx; }
+
+  void initQB();
 
 private:
   std::vector<uint8_t> amplitudes_;
@@ -134,4 +150,21 @@ inline bool operator<(const SiStripCluster& cluster, const uint16_t& firstStrip)
 inline bool operator<(const uint16_t& firstStrip, const SiStripCluster& cluster) {
   return firstStrip < cluster.firstStrip();
 }
+
+inline void SiStripCluster::initQB() {
+  int sumx = 0;
+  int suma = 0;
+  auto asize = size();
+  for (auto i = 0U; i < asize; ++i) {
+    sumx += i * amplitudes_[i];
+    suma += amplitudes_[i];
+  }
+  charge_ = suma;
+
+  // strip centers are offset by half pitch w.r.t. strip numbers,
+  // so one has to add 0.5 to get the correct barycenter position.
+  // Need to mask off the high bit of firstStrip_, which contains the merged status.
+  barycenter_ = float((firstStrip_ & stripIndexMask)) + float(sumx) / float(suma) + 0.5f;
+}
+
 #endif  // DATAFORMATS_SISTRIPCLUSTER_H

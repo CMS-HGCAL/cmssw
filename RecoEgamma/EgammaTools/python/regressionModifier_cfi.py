@@ -4,6 +4,7 @@ regressionModifier106XUL = cms.PSet(
     modifierName = cms.string('EGRegressionModifierV3'),       
     rhoTag = cms.InputTag('fixedGridRhoFastjetAllTmp'),
     useClosestToCentreSeedCrysDef = cms.bool(False),
+    useBuggedHOverE = cms.bool(False),
     maxRawEnergyForLowPtEBSigma = cms.double(-1), 
     maxRawEnergyForLowPtEESigma = cms.double(1200.),
     eleRegs = cms.PSet(
@@ -94,6 +95,7 @@ regressionModifier103XLowPtPho = cms.PSet(
     modifierName = cms.string('EGRegressionModifierV3'),       
     rhoTag = cms.InputTag('fixedGridRhoFastjetAllTmp'),
     useClosestToCentreSeedCrysDef = cms.bool(False),
+    useBuggedHOverE = cms.bool(False),
     maxRawEnergyForLowPtEBSigma = cms.double(-1), 
     maxRawEnergyForLowPtEESigma = cms.double(1200.),
     eleRegs = cms.PSet(
@@ -265,4 +267,19 @@ from Configuration.Eras.Modifier_run3_egamma_cff import run3_egamma
 run3_egamma.toReplaceWith(regressionModifier,regressionModifierRun3)
 
 from Configuration.ProcessModifiers.egamma_lowPt_exclusive_cff import egamma_lowPt_exclusive
+(run3_egamma & egamma_lowPt_exclusive).toModify(regressionModifier103XLowPtPho,
+    eleRegs = dict(
+        ecalOnlyMean = dict(
+            rangeMinHighEt = 0.2,
+            rangeMaxHighEt = 2.0
+        )
+    ),
+    phoRegs = dict(
+        ecalOnlyMean = dict(
+            rangeMinHighEt = 0.2,
+            rangeMaxHighEt = 2.0
+        )
+    )
+)
+
 egamma_lowPt_exclusive.toReplaceWith(regressionModifier,regressionModifier103XLowPtPho)

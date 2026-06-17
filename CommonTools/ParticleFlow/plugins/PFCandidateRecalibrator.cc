@@ -47,10 +47,10 @@ struct HFChannel {
   HFChannel(int ieta, int iphi, int depth, float ratio) : ieta(ieta), iphi(iphi), depth(depth), ratio(ratio) {}
 };
 
-class PFCandidateRecalibrator : public edm::stream::EDProducer<> {
+class PFCandidateRecalibrator : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   PFCandidateRecalibrator(const edm::ParameterSet&);
-  ~PFCandidateRecalibrator() override{};
+  ~PFCandidateRecalibrator() override {}
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 

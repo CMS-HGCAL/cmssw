@@ -4,8 +4,8 @@
 
 #include "FWCore/Framework/interface/ProductRegistryHelper.h"
 #include "DataFormats/Common/interface/setIsMergeable.h"
-#include "DataFormats/Provenance/interface/ProductRegistry.h"
-#include "DataFormats/Provenance/interface/BranchDescription.h"
+#include "FWCore/Framework/interface/SignallingProductRegistryFiller.h"
+#include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "DataFormats/Provenance/interface/ModuleDescription.h"
 #include "FWCore/Reflection/interface/DictionaryTools.h"
 #include "FWCore/Utilities/interface/EDMException.h"
@@ -34,7 +34,7 @@ namespace edm {
   void ProductRegistryHelper::addToRegistry(TypeLabelList::const_iterator const& iBegin,
                                             TypeLabelList::const_iterator const& iEnd,
                                             ModuleDescription const& iDesc,
-                                            ProductRegistry& iReg,
+                                            SignallingProductRegistryFiller& iReg,
                                             ProductRegistryHelper* iProd,
                                             bool iIsListener) {
     std::vector<std::string> missingDictionaries;
@@ -74,26 +74,13 @@ namespace edm {
         }
       }
 
-      TypeWithDict type(p->typeID_.typeInfo());
-      BranchDescription pdesc(branchType,
-                              iDesc.moduleLabel(),
-                              iDesc.processName(),
-                              p->typeID_.userClassName(),
-                              p->typeID_.friendlyClassName(),
-                              p->productInstanceName_,
-                              iDesc.moduleName(),
-                              iDesc.parameterSetID(),
-                              type,
-                              true,
-                              isEndTransition(p->transition_));
-      if (p->aliasType_ == TypeLabelItem::AliasType::kSwitchAlias) {
-        if (p->branchAlias_.empty()) {
-          throw edm::Exception(edm::errors::LogicError)
-              << "Branch alias type has been set to SwitchAlias, but the alias content is empty.\n"
-              << "Please report this error to the FWCore developers";
-        }
-        pdesc.setSwitchAliasModuleLabel(p->branchAlias_);
-      }
+      ProductDescription pdesc(branchType,
+                               iDesc.moduleLabel(),
+                               iDesc.processName(),
+                               p->productInstanceName_,
+                               p->typeID_,
+                               true,
+                               isEndTransition(p->transition_));
       if (p->isTransform_) {
         pdesc.setOnDemand(true);
         pdesc.setIsTransform(true);

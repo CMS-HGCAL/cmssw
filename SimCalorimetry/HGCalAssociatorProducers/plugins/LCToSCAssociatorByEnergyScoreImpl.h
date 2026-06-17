@@ -7,14 +7,17 @@
 
 #include "DataFormats/ForwardDetId/interface/HGCalDetId.h"
 #include "DataFormats/HGCRecHit/interface/HGCRecHit.h"
+#include "DataFormats/HGCRecHit/interface/HGCRecHitCollections.h"
+#include "DataFormats/ParticleFlowReco/interface/PFRecHit.h"
 #include "SimDataFormats/Associations/interface/LayerClusterToSimClusterAssociator.h"
 #include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
+#include "DataFormats/ParticleFlowReco/interface/PFCluster.h"
 
 namespace edm {
   class EDProductGetter;
 }
 
-namespace hgcal {
+namespace ticl {
   // This structure is used both for LayerClusters and SimClusters storing their id and the fraction of a hit
   // that belongs to the LayerCluster or SimCluster. The meaning of the operator is extremely important since
   // this struct will be used inside maps and other containers and when searching for one particular occurence
@@ -52,34 +55,50 @@ namespace hgcal {
   typedef std::vector<std::vector<std::pair<unsigned int, float>>> layerClusterToSimCluster;
   // This is used to save the simClusterOnLayer structure for all simClusters in each layer.
   // It is not exactly what is returned outside, but out of its entries, the output object is build.
-  typedef std::vector<std::vector<hgcal::simClusterOnCLayer>> simClusterToLayerCluster;
+  typedef std::vector<std::vector<ticl::simClusterOnCLayer>> simClusterToLayerCluster;
   //This is the output of the makeConnections function that contain all the work with SC2LC and LC2SC
   //association. It will be read by the relevant associateSimToReco and associateRecoToSim functions to
   //provide the final product.
   typedef std::tuple<layerClusterToSimCluster, simClusterToLayerCluster> association;
-}  // namespace hgcal
+}  // namespace ticl
 
-class LCToSCAssociatorByEnergyScoreImpl : public hgcal::LayerClusterToSimClusterAssociatorBaseImpl {
+template <typename HIT, typename CLUSTER>
+class LCToSCAssociatorByEnergyScoreImplT : public ticl::LayerClusterToSimClusterAssociatorBaseImplT<CLUSTER> {
 public:
-  explicit LCToSCAssociatorByEnergyScoreImpl(edm::EDProductGetter const &,
-                                             bool,
-                                             std::shared_ptr<hgcal::RecHitTools>,
-                                             const std::unordered_map<DetId, const HGCRecHit *> *);
+  using multiCollectionT = std::vector<edm::RefProd<std::vector<HIT>>>;
 
-  hgcal::RecoToSimCollectionWithSimClusters associateRecoToSim(
-      const edm::Handle<reco::CaloClusterCollection> &cCH,
-      const edm::Handle<SimClusterCollection> &sCCH) const override;
+  explicit LCToSCAssociatorByEnergyScoreImplT(edm::EDProductGetter const &,
+                                              bool,
+                                              std::shared_ptr<hgcal::RecHitTools>,
+                                              const std::unordered_map<DetId, const unsigned int> *,
+                                              const multiCollectionT &hits);
 
-  hgcal::SimToRecoCollectionWithSimClusters associateSimToReco(
-      const edm::Handle<reco::CaloClusterCollection> &cCH,
-      const edm::Handle<SimClusterCollection> &sCCH) const override;
+  ticl::RecoToSimCollectionWithSimClustersT<CLUSTER> associateRecoToSim(
+      const edm::Handle<CLUSTER> &cCH, const edm::Handle<SimClusterCollection> &sCCH) const override;
+
+  ticl::SimToRecoCollectionWithSimClustersT<CLUSTER> associateSimToReco(
+      const edm::Handle<CLUSTER> &cCH, const edm::Handle<SimClusterCollection> &sCCH) const override;
 
 private:
   const bool hardScatterOnly_;
   std::shared_ptr<hgcal::RecHitTools> recHitTools_;
-  const std::unordered_map<DetId, const HGCRecHit *> *hitMap_;
+  const std::unordered_map<DetId, const unsigned int> *hitMap_;
   unsigned layers_;
   edm::EDProductGetter const *productGetter_;
-  hgcal::association makeConnections(const edm::Handle<reco::CaloClusterCollection> &cCH,
-                                     const edm::Handle<SimClusterCollection> &sCCH) const;
+  ticl::association makeConnections(const edm::Handle<CLUSTER> &cCH,
+                                    const edm::Handle<SimClusterCollection> &sCCH) const;
+  multiCollectionT hits_;
 };
+
+extern template class LCToSCAssociatorByEnergyScoreImplT<HGCRecHit, reco::CaloClusterCollection>;
+extern template class LCToSCAssociatorByEnergyScoreImplT<reco::PFRecHit, reco::CaloClusterCollection>;
+extern template class LCToSCAssociatorByEnergyScoreImplT<HGCRecHit, reco::PFClusterCollection>;
+extern template class LCToSCAssociatorByEnergyScoreImplT<reco::PFRecHit, reco::PFClusterCollection>;
+
+using HGCalLCToSCAssociatorByEnergyScoreImpl =
+    LCToSCAssociatorByEnergyScoreImplT<HGCRecHit, reco::CaloClusterCollection>;
+using BarrelLCToSCAssociatorByEnergyScoreImpl =
+    LCToSCAssociatorByEnergyScoreImplT<reco::PFRecHit, reco::CaloClusterCollection>;
+using HGCalPCToSCAssociatorByEnergyScoreImpl = LCToSCAssociatorByEnergyScoreImplT<HGCRecHit, reco::PFClusterCollection>;
+using BarrelPCToSCAssociatorByEnergyScoreImpl =
+    LCToSCAssociatorByEnergyScoreImplT<reco::PFRecHit, reco::PFClusterCollection>;

@@ -17,220 +17,7 @@ from HLTrigger.Configuration.common import *
 #                     pset.minGoodStripCharge = cms.PSet(refToPSet_ = cms.string('HLTSiStripClusterChargeCutNone'))
 #     return process
 
-def customiseHCALFor2018Input(process):
-    """Customise the HLT to run on Run 2 data/MC using the old readout for the HCAL barel"""
-
-    for producer in producers_by_type(process, "HBHEPhase1Reconstructor"):
-        # switch on the QI8 processing for 2018 HCAL barrel
-        producer.processQIE8 = True
-
-    # adapt CaloTowers threshold for 2018 HCAL barrel with only one depth
-    for producer in producers_by_type(process, "CaloTowersCreator"):
-        producer.HBThreshold1  = 0.7
-        producer.HBThreshold2  = 0.7
-        producer.HBThreshold   = 0.7
-
-    # adapt Particle Flow threshold for 2018 HCAL barrel with only one depth
-    from RecoParticleFlow.PFClusterProducer.particleFlowClusterHBHE_cfi import _thresholdsHB, _thresholdsHEphase1, _seedingThresholdsHB
-
-    logWeightDenominatorHCAL2018 = cms.VPSet(
-        cms.PSet(
-            depths = cms.vint32(1, 2, 3, 4),
-            detector = cms.string('HCAL_BARREL1'),
-            logWeightDenominator = _thresholdsHB
-        ),
-        cms.PSet(
-            depths = cms.vint32(1, 2, 3, 4, 5, 6, 7),
-            detector = cms.string('HCAL_ENDCAP'),
-            logWeightDenominator = _thresholdsHEphase1
-        )
-    )
-
-    for producer in producers_by_type(process, "PFRecHitProducer"):
-        if producer.producers[0].name.value() == 'PFHBHERecHitCreator':
-            producer.producers[0].qualityTests[0].cuts[0].threshold = _thresholdsHB
-
-    for producer in producers_by_type(process, "PFClusterProducer"):
-        if producer.seedFinder.thresholdsByDetector[0].detector.value() == 'HCAL_BARREL1':
-            producer.seedFinder.thresholdsByDetector[0].seedingThreshold = _seedingThresholdsHB
-            producer.initialClusteringStep.thresholdsByDetector[0].gatheringThreshold = _thresholdsHB
-            producer.pfClusterBuilder.recHitEnergyNorms[0].recHitEnergyNorm = _thresholdsHB
-            producer.pfClusterBuilder.positionCalc.logWeightDenominatorByDetector = logWeightDenominatorHCAL2018
-            producer.pfClusterBuilder.allCellsPositionCalc.logWeightDenominatorByDetector = logWeightDenominatorHCAL2018
-
-    for producer in producers_by_type(process, "PFMultiDepthClusterProducer"):
-        producer.pfClusterBuilder.allCellsPositionCalc.logWeightDenominatorByDetector = logWeightDenominatorHCAL2018
-
-    # done
-    return process
-
-def customiseFor2017DtUnpacking(process):
-    """Adapt the HLT to run the legacy DT unpacking
-    for pre2018 data/MC workflows as the default"""
-
-    if hasattr(process,'hltMuonDTDigis'):
-        process.hltMuonDTDigis = cms.EDProducer( "DTUnpackingModule",
-            useStandardFEDid = cms.bool( True ),
-            maxFEDid = cms.untracked.int32( 779 ),
-            inputLabel = cms.InputTag( "rawDataCollector" ),
-            minFEDid = cms.untracked.int32( 770 ),
-            dataType = cms.string( "DDU" ),
-            readOutParameters = cms.PSet(
-                localDAQ = cms.untracked.bool( False ),
-                debug = cms.untracked.bool( False ),
-                rosParameters = cms.PSet(
-                    localDAQ = cms.untracked.bool( False ),
-                    debug = cms.untracked.bool( False ),
-                    writeSC = cms.untracked.bool( True ),
-                    readDDUIDfromDDU = cms.untracked.bool( True ),
-                    readingDDU = cms.untracked.bool( True ),
-                    performDataIntegrityMonitor = cms.untracked.bool( False )
-                    ),
-                performDataIntegrityMonitor = cms.untracked.bool( False )
-                ),
-            dqmOnly = cms.bool( False )
-        )
-
-    return process
-
-def customisePixelGainForRun2Input(process):
-    """Customise the HLT to run on Run 2 data/MC using the old definition of the pixel calibrations
-
-    Up to 11.0.x, the pixel calibarations were fully specified in the configuration:
-        VCaltoElectronGain      =   47
-        VCaltoElectronGain_L1   =   50
-        VCaltoElectronOffset    =  -60
-        VCaltoElectronOffset_L1 = -670
-
-    Starting with 11.1.x, the calibrations for Run 3 were moved to the conditions, leaving in the configuration only:
-        VCaltoElectronGain      =    1
-        VCaltoElectronGain_L1   =    1
-        VCaltoElectronOffset    =    0
-        VCaltoElectronOffset_L1 =    0
-
-    Since the conditions for Run 2 have not been updated to the new scheme, the HLT configuration needs to be reverted.
-    """
-    # revert the Pixel parameters to be compatible with the Run 2 conditions
-    for producer in producers_by_type(process, "SiPixelClusterProducer"):
-        producer.VCaltoElectronGain = 47
-        producer.VCaltoElectronGain_L1 = 50
-        producer.VCaltoElectronOffset = -60
-        producer.VCaltoElectronOffset_L1 = -670
-
-    for pluginType in ["SiPixelRawToClusterCUDA", "SiPixelRawToClusterCUDAPhase1", "SiPixelRawToClusterCUDAHIonPhase1"]:
-        for producer in producers_by_type(process, pluginType):
-            producer.VCaltoElectronGain = 47
-            producer.VCaltoElectronGain_L1 = 50
-            producer.VCaltoElectronOffset = -60
-            producer.VCaltoElectronOffset_L1 = -670
-
-    return process
-
-def customisePixelL1ClusterThresholdForRun2Input(process):
-    # revert the pixel Layer 1 cluster threshold to be compatible with Run2:
-    for producer in producers_by_type(process, "SiPixelClusterProducer"):
-        if hasattr(producer,"ClusterThreshold_L1"):
-            producer.ClusterThreshold_L1 = 2000
-    for pluginType in ["SiPixelRawToClusterCUDA", "SiPixelRawToClusterCUDAPhase1", "SiPixelRawToClusterCUDAHIonPhase1"]:
-        for producer in producers_by_type(process, pluginType):
-            if hasattr(producer,"clusterThreshold_layer1"):
-                producer.clusterThreshold_layer1 = 2000
-    for producer in producers_by_type(process, "SiPixelDigisClustersFromSoA"):
-        if hasattr(producer,"clusterThreshold_layer1"):
-            producer.clusterThreshold_layer1 = 2000
-
-    return process
-
-def customiseCTPPSFor2018Input(process):
-    for prod in producers_by_type(process, 'CTPPSGeometryESModule'):
-        prod.isRun2 = True
-    for prod in producers_by_type(process, 'CTPPSPixelRawToDigi'):
-        prod.isRun3 = False
-
-    return process
-
-def customiseEGammaRecoFor2018Input(process):
-    for prod in producers_by_type(process, 'PFECALSuperClusterProducer'):
-        if hasattr(prod, 'regressionConfig'):
-            prod.regressionConfig.regTrainedWithPS = cms.bool(False)
-
-    return process
-
-def customiseBeamSpotFor2018Input(process):
-    """Customisation for the HLT BeamSpot when running on Run-2 (2018) data:
-       - For Run-2 data, disable the use of the BS transient record, in order to read the BS record from SCAL.
-       - Additionally, remove all instances of OnlineBeamSpotESProducer (not needed if useTransientRecord=False).
-       - See CMSHLT-2271 and CMSHLT-2300 for further details.
-    """
-    for prod in producers_by_type(process, 'BeamSpotOnlineProducer'):
-        prod.useTransientRecord = False
-    onlineBeamSpotESPLabels = [prod.label_() for prod in esproducers_by_type(process, 'OnlineBeamSpotESProducer')]
-    for espLabel in onlineBeamSpotESPLabels:
-        delattr(process, espLabel)
-
-    # re-introduce SCAL digis, if missing
-    if not hasattr(process, 'hltScalersRawToDigi') and hasattr(process, 'HLTBeamSpot') and isinstance(process.HLTBeamSpot, cms.Sequence):
-
-        if hasattr(process, 'hltOnlineBeamSpot'):
-            process.hltOnlineBeamSpot.src = 'hltScalersRawToDigi'
-
-        if hasattr(process, 'hltPixelTrackerHVOn'):
-            process.hltPixelTrackerHVOn.DcsStatusLabel = 'hltScalersRawToDigi'
-
-        if hasattr(process, 'hltStripTrackerHVOn'):
-            process.hltStripTrackerHVOn.DcsStatusLabel = 'hltScalersRawToDigi'
-
-        process.hltScalersRawToDigi = cms.EDProducer( "ScalersRawToDigi",
-            scalersInputTag = cms.InputTag( "rawDataCollector" )
-        )
-
-        process.HLTBeamSpot.insert(0, process.hltScalersRawToDigi)
-
-    return process
-
-def customiseECALCalibrationsFor2018Input(process):
-    """Customisation to apply the ECAL Run-2 Ultra-Legacy calibrations (CMSHLT-2339)"""
-    if hasattr(process, 'GlobalTag'):
-      if not hasattr(process.GlobalTag, 'toGet'):
-        process.GlobalTag.toGet = cms.VPSet()
-      process.GlobalTag.toGet += [
-        cms.PSet(
-          record = cms.string('EcalLaserAlphasRcd'),
-          tag = cms.string('EcalLaserAlphas_UL_Run1_Run2_2018_lastIOV_movedTo1')
-        ),
-        cms.PSet(
-          record = cms.string('EcalIntercalibConstantsRcd'),
-          tag = cms.string('EcalIntercalibConstants_UL_Run1_Run2_2018_lastIOV_movedTo1')
-        )
-      ]
-    else:
-      print('# customiseECALCalibrationsFor2018Input -- the process.GlobalTag ESSource does not exist: no customisation applied.')
-
-    return process
-
-def customiseFor2018Input(process):
-    """Customise the HLT to run on Run 2 data/MC"""
-    process = customisePixelGainForRun2Input(process)
-    process = customisePixelL1ClusterThresholdForRun2Input(process)
-    process = customiseHCALFor2018Input(process)
-    process = customiseCTPPSFor2018Input(process)
-    process = customiseEGammaRecoFor2018Input(process)
-    process = customiseBeamSpotFor2018Input(process)
-    process = customiseECALCalibrationsFor2018Input(process)
-
-    return process
-
-
 def customiseForOffline(process):
-    # For running HLT offline on Run-3 Data, use "(OnlineBeamSpotESProducer).timeThreshold = 1e6",
-    # in order to pick the beamspot that was actually used by the HLT (instead of a "fake" beamspot).
-    # These same settings can be used offline for Run-3 Data and Run-3 MC alike.
-    # Note: the products of the OnlineBeamSpotESProducer are used only
-    #       if the configuration uses "(BeamSpotOnlineProducer).useTransientRecord = True".
-    # See CMSHLT-2271 and CMSHLT-2300 for further details.
-    for prod in esproducers_by_type(process, 'OnlineBeamSpotESProducer'):
-        prod.timeThreshold = int(1e6)
-
     # For running HLT offline and relieve the strain on Frontier so it will no longer inject a
     # transaction id which tells Frontier to add a unique "&freshkey" to many query URLs.
     # That was intended as a feature to only be used by the Online HLT, to guarantee that fresh conditions
@@ -250,33 +37,262 @@ def customiseForOffline(process):
 
     return process
 
-def checkHLTfor43774(process):
-    filt_types = ["HLTEgammaGenericFilter","HLTEgammaGenericQuadraticEtaFilter","HLTEgammaGenericQuadraticFilter","HLTElectronGenericFilter"]
-    absAbleVar = ["DEta","deta","DetaSeed","Dphi","OneOESuperMinusOneOP","OneOESeedMinusOneOP"]
-    for filt_type in filt_types:
-        for filt in filters_by_type(process, filt_type):
-            if filt.varTag.productInstanceLabel in absAbleVar:
-                if (filt.useAbs != cms.bool(True)):
-                    print('# TSG WARNING: check value of parameter "useAbs" in',filt,'(expect True but is False)!')
+def customizeHLTfor50303(process):
+    ''' Includes customization to run alpaka MDPF clustering
+    '''
+    old_hltParticleFlowClusterHCAL = process.hltParticleFlowClusterHCAL
+    old_hltParticleFlowClusterHCALSerialSync = process.hltParticleFlowClusterHCALSerialSync
+
+    process.hltPFMultiDepthClusterSoA = cms.EDProducer('PFMultiDepthClusterSoAProducer@alpaka',
+        clustersSrc = cms.InputTag("hltParticleFlowClusterHBHESoA"),
+        rhfracSrc   = cms.InputTag('hltParticleFlowClusterHBHESoA'),
+        rechitSrc   = cms.InputTag('hltParticleFlowRecHitHBHESoA')
+    )
+
+    process.hltParticleFlowClusterHCAL = cms.EDProducer('LegacyMultiDepthPFClusterProducer',
+        pfClusterSoA   = cms.InputTag('hltPFMultiDepthClusterSoA'),
+        pfRecHitFractionSoA = cms.InputTag('hltPFMultiDepthClusterSoA'),
+        pfRecHitsSoA        = cms.InputTag('hltParticleFlowRecHitHBHESoA'),
+        recHitsSource  = cms.InputTag('hltParticleFlowRecHitHBHE'),
+    )
+
+    process.HLTPFHcalClustering = cms.Sequence(
+        process.hltParticleFlowRecHitHBHESoA +
+        process.hltParticleFlowRecHitHBHE +
+        process.hltParticleFlowClusterHBHESoA +
+        process.hltPFMultiDepthClusterSoA +
+        process.hltParticleFlowClusterHCAL  # This now refers to LegacyMultiDepth producer
+    )
+
+    # Serial sync changes
+    process.hltPFMultiDepthClusterSoASerialSync = cms.EDProducer('alpaka_serial_sync::PFMultiDepthClusterSoAProducer',
+        clustersSrc = cms.InputTag("hltParticleFlowClusterHBHESoASerialSync"),
+        rhfracSrc   = cms.InputTag('hltParticleFlowClusterHBHESoASerialSync'),
+        rechitSrc   = cms.InputTag('hltParticleFlowRecHitHBHESoASerialSync')
+    )
+
+    process.hltParticleFlowClusterHCALSerialSync = cms.EDProducer('LegacyMultiDepthPFClusterProducer',
+        pfClusterSoA   = cms.InputTag('hltPFMultiDepthClusterSoASerialSync'),
+        pfRecHitFractionSoA = cms.InputTag('hltPFMultiDepthClusterSoASerialSync'),
+        pfRecHitsSoA        = cms.InputTag('hltParticleFlowRecHitHBHESoASerialSync'),
+        recHitsSource  = cms.InputTag('hltParticleFlowRecHitHBHESerialSync'),
+    )
+
+    process.HLTPFHcalClusteringSerialSync = cms.Sequence(
+        process.hltParticleFlowRecHitHBHESoASerialSync +
+        process.hltParticleFlowRecHitHBHESerialSync +
+        process.hltParticleFlowClusterHBHESoASerialSync +
+        process.hltPFMultiDepthClusterSoASerialSync +
+        process.hltParticleFlowClusterHCALSerialSync  # This now refers to LegacyMultiDepth producer
+    )
+
+    def replaceItemsInSequence(process, itemsToReplace, replacingSequence):
+        for sequence, items in process.sequences.items():
+            containsAll = all(items.contains(item) for item in itemsToReplace)
+            if(containsAll):
+                for item in itemsToReplace:
+                    if(item != itemsToReplace[-1]):
+                        items.remove(item)
+                    else:
+                        items.replace(item, replacingSequence)
+        return process
+
+    itemsList = [ old_hltParticleFlowClusterHCAL ]
+
+    serialItemsList = [ old_hltParticleFlowClusterHCALSerialSync ]
+
+    process = replaceItemsInSequence(process, itemsList, process.HLTPFHcalClustering)
+    process = replaceItemsInSequence(process, serialItemsList, process.HLTPFHcalClusteringSerialSync)
+
+    # Completely remove the old HBHE cluster module definitions from the process
+    if hasattr(process, 'hltParticleFlowClusterHBHE'):
+        del process.hltParticleFlowClusterHBHE
+
+    if hasattr(process, 'hltParticleFlowClusterHBHESerialSync'):
+        del process.hltParticleFlowClusterHBHESerialSync
 
     return process
-    
-def customizeHLTfor44576(process):
-    """Ensure TrackerAdditionalParametersPerDetRcd ESProducer is run when needed"""
-    for esprod in esproducers_by_type(process, 'TrackerGeometricDetESModule'):
-        process.load("Geometry.TrackerGeometryBuilder.TrackerAdditionalParametersPerDet_cfi")
-        break
+
+
+def replace_all_pixel_seed_inputtags(process):
+    import FWCore.ParameterSet.Config as cms
+
+    replacements = {
+        "hltEgammaElectronPixelSeeds": "hltEgammaFittedElectronPixelSeeds",
+        "hltEgammaElectronPixelSeedsUnseeded": "hltEgammaFittedElectronPixelSeedsUnseeded",
+        "hltEgammaElectronPixelSeedsForBParkingUnseeded": "hltEgammaFittedElectronPixelSeedsForBParkingUnseeded",
+    }
+
+    InputTag = cms.InputTag
+    skip_modules = set(replacements.values())
+
+    def replace_in_module(name, module):
+        # ! Skip the module that PRODUCES the product we are renaming
+        if name in skip_modules:
+            return
+
+        for pName in module.parameters_():
+            val = getattr(module, pName)
+
+            # --- Case 1: a single InputTag ---
+            if isinstance(val, InputTag):
+                old_mod = val.getModuleLabel()
+                if old_mod in replacements:
+                    setattr(module, pName,
+                            cms.InputTag(replacements[old_mod],
+                                         val.getProductInstanceLabel(),
+                                         val.getProcessName()))
+            # --- Case 2: VInputTag / list of InputTag ---
+            elif isinstance(val, (cms.VInputTag, list, tuple)):
+                new_list = []
+                changed = False
+                for it in val:
+                    if isinstance(it, InputTag) and it.getModuleLabel() in replacements:
+                        old_mod = it.getModuleLabel()
+                        it = cms.InputTag(replacements[old_mod],
+                                          it.getProductInstanceLabel(),
+                                          it.getProcessName())
+                        changed = True
+                    new_list.append(it)
+                if changed:
+                    setattr(module, pName, type(val)(new_list))
+
+            # --- Case 3: nested PSet ---
+            elif hasattr(val, "parameters_"):
+                replace_in_pset(val)
+
+    def replace_in_pset(pset):
+        for pName in pset.parameters_():
+            val = getattr(pset, pName)
+            if isinstance(val, InputTag):
+                old_mod = val.getModuleLabel()
+                if old_mod in replacements:
+                    setattr(pset, pName,
+                            cms.InputTag(replacements[old_mod],
+                                         val.getProductInstanceLabel(),
+                                         val.getProcessName()))
+            elif isinstance(val, (cms.VInputTag, list, tuple)):
+                new_list = []
+                changed = False
+                for it in val:
+                    if isinstance(it, InputTag) and it.getModuleLabel() in replacements:
+                        old_mod = it.getModuleLabel()
+                        it = cms.InputTag(replacements[old_mod],
+                                          it.getProductInstanceLabel(),
+                                          it.getProcessName())
+                        changed = True
+                    new_list.append(it)
+                if changed:
+                    setattr(pset, pName, type(val)(new_list))
+            elif hasattr(val, "parameters_"):
+                replace_in_pset(val)
+
+    # Apply to all modules
+    for name,mod in process.producers_().items():
+        replace_in_module(name,mod)
+    for name,mod in process.filters_().items():
+        replace_in_module(name,mod)
+    for name,mod in process.analyzers_().items():
+        replace_in_module(name,mod)
+
+    # also walk top-level PSets
+    for pset in process.psets_().values():
+        replace_in_pset(pset)
+
+def customizeHLTfor49436(process):
+
+    # Replace Ele Pixel Seeds Doublets/Triplets
+    replacements = {
+        "hltElePixelSeedsDoublets": ("hltElePixelHitDoublets"),
+        "hltElePixelSeedsDoubletsUnseeded": ("hltElePixelHitDoubletsUnseeded"),
+        "hltElePixelSeedsTriplets": ("hltElePixelHitTriplets"),
+        "hltElePixelSeedsTripletsUnseeded": ("hltElePixelHitTripletsUnseeded"),
+    }
+
+    for module_name, hitset in replacements.items():
+        if hasattr(process, module_name):
+            setattr(
+                process,
+                module_name,
+                cms.EDProducer(
+                    "FakeStateSeedCreatorFromRegionConsecutiveHitsEDProducer",
+                    seedingHitSets=cms.InputTag(hitset),
+                    SeedComparitorPSet=cms.PSet(
+                        ComponentName=cms.string("none")
+                    )
+                )
+            )
+
+    # Add new ElectronSeedFitter modules
+    fitter_configs = {
+        "hltEgammaFittedElectronPixelSeeds": "hltEgammaElectronPixelSeeds",
+        "hltEgammaFittedElectronPixelSeedsUnseeded": "hltEgammaElectronPixelSeedsUnseeded",
+        "hltEgammaFittedElectronPixelSeedsForBParkingUnseeded": "hltEgammaElectronPixelSeedsForBParkingUnseeded",
+    }
+
+    for mod_name, input_collection in fitter_configs.items():
+        setattr(
+            process,
+            mod_name,
+            cms.EDProducer(
+                "ElectronSeedFitter",
+                eleSeedCollection=cms.InputTag(input_collection),
+                propagator=cms.string("PropagatorWithMaterialParabolicMf"),
+                SeedMomentumForBOFF=cms.double(5.0),
+                OriginTransverseErrorMultiplier=cms.double(1.0),
+                MinOneOverPtError=cms.double(1.0),
+                TTRHBuilder=cms.string("hltESPTTRHBWithTrackAngle"),
+                magneticField=cms.string("ParabolicMf"),
+                beamSpot=cms.InputTag("hltOnlineBeamSpot")
+            )
+        )
+
+    # Global replacements of pixel seed producers
+    replace_all_pixel_seed_inputtags(process)
+
+    # Insert new modules into the 3 sequences
+    # Mapping of sequences -> (new module, pixelMatchVars module)
+    seq_updates = [
+        ("HLTElePixelMatchSequence",
+         "hltEgammaFittedElectronPixelSeeds",
+         "hltEgammaPixelMatchVars"),
+
+        ("HLTElePixelMatchUnseededSequence",
+         "hltEgammaFittedElectronPixelSeedsUnseeded",
+         "hltEgammaPixelMatchVarsUnseeded"),
+
+        ("HLTElePixelMatchUnseededSequenceForBParking",
+         "hltEgammaFittedElectronPixelSeedsForBParkingUnseeded",
+         "hltEgammaPixelMatchVarsForBParkingUnseeded"),
+    ]
+
+    for seq_name, new_mod, match_mod in seq_updates:
+        if hasattr(process, seq_name) and hasattr(process, new_mod) and hasattr(process, match_mod):
+            seq = getattr(process, seq_name)
+            new_module = getattr(process, new_mod)
+            match_module = getattr(process, match_mod)
+            # Insert the new module immediately before pixelMatchVars
+            seq.replace(match_module, new_module + match_module)
+
+    return process
+
+def customizeHLTfor49476(process):
+
+    for prod in producers_by_type(process, "GEMRecHitProducer"):
+        if hasattr(prod,"ge21Off") : delattr(prod,"ge21Off")
+        prod.ge21Container = cms.bool( True )
+
     return process
 
 # CMSSW version specific customizations
 def customizeHLTforCMSSW(process, menuType="GRun"):
 
     process = customiseForOffline(process)
-
     # add call to action function in proper order: newest last!
     # process = customiseFor12718(process)
 
-    process = checkHLTfor43774(process)
-    process = customizeHLTfor44576(process)
+    # process = customizeHLTfor49436(process)
+
+    process = customizeHLTfor49476(process)
 
     return process

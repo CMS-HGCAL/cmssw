@@ -50,10 +50,11 @@
 
 namespace pat {
 
-  class PATTriggerEventProducer : public edm::stream::EDProducer<> {
+  class PATTriggerEventProducer
+      : public edm::stream::EDProducer<edm::stream::WatchRuns, edm::stream::WatchLuminosityBlocks> {
   public:
     explicit PATTriggerEventProducer(const edm::ParameterSet& iConfig);
-    ~PATTriggerEventProducer() override{};
+    ~PATTriggerEventProducer() override {}
 
   private:
     void beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup) override;
@@ -144,7 +145,7 @@ PATTriggerEventProducer::PATTriggerEventProducer(const ParameterSet& iConfig)
   triggerMatcherTokens_ = vector_transform(
       tagsTriggerMatcher_, [this](InputTag const& tag) { return mayConsume<TriggerObjectStandAloneMatch>(tag); });
 
-  callWhenNewProductsRegistered([this](BranchDescription const& bd) {
+  callWhenNewProductsRegistered([this](ProductDescription const& bd) {
     if (not(this->autoProcessName_ and bd.processName() == this->moduleDescription().processName())) {
       triggerResultsGetter_(bd);
     }

@@ -13,9 +13,9 @@
 
 class EcalTBEventHeader {
 public:
-  EcalTBEventHeader(){};
+  EcalTBEventHeader() = default;
 
-  ~EcalTBEventHeader(){};
+  ~EcalTBEventHeader() {}
 
   typedef struct magnetsMeasurement {
     int magnet6IRead_ampere;

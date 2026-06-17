@@ -1,31 +1,34 @@
-#include "CommonTools/TrackerMap/interface/TrackerMap.h"
-#include "CommonTools/TrackerMap/interface/TmModule.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "FWCore/ParameterSet/interface/FileInPath.h"
-#include "CondFormats/SiStripObjects/interface/FedChannelConnection.h"
-#include "CalibFormats/SiStripObjects/interface/SiStripFecCabling.h"
-#include "CalibFormats/SiStripObjects/interface/SiStripDetCabling.h"
-#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
-#include "CommonTools/TrackerMap/interface/TmApvPair.h"
-#include "CommonTools/TrackerMap/interface/TmCcu.h"
-#include "CommonTools/TrackerMap/interface/TmPsu.h"
 #include <fstream>
-#include <vector>
 #include <iostream>
 #include <sstream>
-#include "TCanvas.h"
-#include "TPolyLine.h"
-#include "TStyle.h"
-#include "TColor.h"
-#include "TROOT.h"
-#include "TGaxis.h"
-#include "TLatex.h"
+#include <vector>
+
+#include "CalibFormats/SiStripObjects/interface/SiStripDetCabling.h"
+#include "CalibFormats/SiStripObjects/interface/SiStripFecCabling.h"
+#include "CommonTools/TrackerMap/interface/TmApvPair.h"
+#include "CommonTools/TrackerMap/interface/TmCcu.h"
+#include "CommonTools/TrackerMap/interface/TmModule.h"
+#include "CommonTools/TrackerMap/interface/TmPsu.h"
+#include "CommonTools/TrackerMap/interface/TrackerMap.h"
+#include "CondFormats/SiStripObjects/interface/FedChannelConnection.h"
+#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
+#include "FWCore/ParameterSet/interface/FileInPath.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/Utilities/interface/isFinite.h"
+
 #include "TArrow.h"
-#include "TLegend.h"
+#include "TCanvas.h"
+#include "TColor.h"
+#include "TGaxis.h"
+#include "TGraph.h"
 #include "TH1F.h"
 #include "TH2Poly.h"
-#include "TGraph.h"
+#include "TLatex.h"
+#include "TLegend.h"
 #include "TPaletteAxis.h"
+#include "TPolyLine.h"
+#include "TROOT.h"
+#include "TStyle.h"
 
 /**********************************************************
 Allocate all the modules in a map of TmModule
@@ -36,6 +39,7 @@ when the user starts to fill it.
 TrackerMap::TrackerMap(const edm::ParameterSet &tkmapPset,
                        const SiStripFedCabling *tkFed,
                        const TrackerTopology *const topology) {
+  padColor_ = 38;
   psetAvailable = true;
   xsize = 340;
   ysize = 200;
@@ -416,6 +420,7 @@ TrackerMap::TrackerMap(const edm::ParameterSet &tkmapPset,
 }
 
 TrackerMap::TrackerMap(const edm::ParameterSet &tkmapPset) {
+  padColor_ = 38;
   psetAvailable = true;
   xsize = 340;
   ysize = 200;
@@ -441,6 +446,7 @@ TrackerMap::TrackerMap(const edm::ParameterSet &tkmapPset) {
 }
 
 TrackerMap::TrackerMap(std::string s, int xsize1, int ysize1) {
+  padColor_ = 38;
   psetAvailable = false;
   xsize = xsize1;
   ysize = ysize1;
@@ -693,7 +699,7 @@ void TrackerMap::drawModule(TmModule *mod, int key, int mlay, bool print_total, 
 
   //Get value and name for TH2Poly bin
   float vals = mod->value;
-  if (std::isnan(vals))
+  if (edm::isNotFinite(vals))
     vals = 0;  //Avoid nan values
   std::string nams = mod->name;
 
@@ -728,14 +734,13 @@ void TrackerMap::drawModule(TmModule *mod, int key, int mlay, bool print_total, 
     nams.erase(found, 1);
     found = nams.find("  ", found);
   }
-  std::replace_if(
-      nams.begin(), nams.end(), [](char c) { return c == ' '; }, '_');
+  std::replace_if(nams.begin(), nams.end(), [](char c) { return c == ' '; }, '_');
 
   if (mod->red < 0) {  //use count to compute color
     int color = getcolor(mod->value, palette);
     red = (color >> 16) & 0xFF;
     green = (color >> 8) & 0xFF;
-    blue = (color)&0xFF;
+    blue = (color) & 0xFF;
 
     if (!print_total)
       mod->value = mod->value * mod->count;  //restore mod->value
@@ -967,7 +972,7 @@ void TrackerMap::save(bool print_total, float minval, float maxval, std::string 
       double x[4], y[4];
       std::ifstream tempfile(tempfilename.c_str(), std::ios::in);
       TCanvas *MyC = new TCanvas("MyC", "TrackerMap", width, height);
-      gPad->SetFillColor(38);
+      gPad->SetFillColor(padColor_);
 
       if (addPixelFlag) {
         gPad->Range(0, 0, 3800, 1600);
@@ -1289,7 +1294,7 @@ void TrackerMap::drawApvPair(
         color = getcolor(apvPair->value, palette);
         red = (color >> 16) & 0xFF;
         green = (color >> 8) & 0xFF;
-        blue = (color)&0xFF;
+        blue = (color) & 0xFF;
         if (!print_total)
           apvPair->value = apvPair->value * apvPair->count;  //restore mod->value
         if (temporary_file)
@@ -1344,7 +1349,7 @@ void TrackerMap::drawApvPair(
         color = getcolor(apvPair->mod->value, palette);
         red = (color >> 16) & 0xFF;
         green = (color >> 8) & 0xFF;
-        blue = (color)&0xFF;
+        blue = (color) & 0xFF;
         if (temporary_file)
           *svgfile << nams << " " << vals << " " << red << " " << green << " " << blue << " ";
         else
@@ -1453,7 +1458,7 @@ void TrackerMap::drawCcu(
       color = getcolor(ccu->value, palette);
       red = (color >> 16) & 0xFF;
       green = (color >> 8) & 0xFF;
-      blue = (color)&0xFF;
+      blue = (color) & 0xFF;
       if (!print_total)
         ccu->value = ccu->value * ccu->count;  //restore mod->value
       if (temporary_file)
@@ -1564,7 +1569,7 @@ void TrackerMap::drawPsu(
       color = getcolor(psu->value, palette);
       red = (color >> 16) & 0xFF;
       green = (color >> 8) & 0xFF;
-      blue = (color)&0xFF;
+      blue = (color) & 0xFF;
       if (!print_total)
         psu->value = psu->value * psu->count;  //restore mod->value
       if (temporary_file)
@@ -1668,7 +1673,7 @@ void TrackerMap::drawHV2(
       color = getcolor(psu->valueHV2, palette);
       redHV2 = (color >> 16) & 0xFF;
       greenHV2 = (color >> 8) & 0xFF;
-      blueHV2 = (color)&0xFF;
+      blueHV2 = (color) & 0xFF;
       if (!print_total)
         psu->valueHV2 = psu->valueHV2 * psu->countHV2;  //restore mod->value
       if (temporary_file)
@@ -1771,7 +1776,7 @@ void TrackerMap::drawHV3(
       color = getcolor(psu->valueHV3, palette);
       redHV3 = (color >> 16) & 0xFF;
       greenHV3 = (color >> 8) & 0xFF;
-      blueHV3 = (color)&0xFF;
+      blueHV3 = (color) & 0xFF;
       if (!print_total)
         psu->valueHV3 = psu->valueHV3 * psu->countHV3;  //restore mod->value
       if (temporary_file)
@@ -2119,7 +2124,7 @@ void TrackerMap::save_as_fectrackermap(
       }
 
     }  //if(temporary_file)
-  }    //if(enabledFecProcessing)
+  }  //if(enabledFecProcessing)
 }
 void TrackerMap::save_as_HVtrackermap(
     bool print_total, float minval, float maxval, std::string s, int width, int height) {
@@ -2441,7 +2446,7 @@ void TrackerMap::save_as_HVtrackermap(
       }
 
     }  //if(temporary_file)
-  }    //if(enabledHVProcessing)
+  }  //if(enabledHVProcessing)
 }
 
 void TrackerMap::save_as_psutrackermap(
@@ -2749,7 +2754,7 @@ void TrackerMap::save_as_psutrackermap(
       }
 
     }  //if(temporary_file)
-  }    //if(enabledFedProcessing)
+  }  //if(enabledFedProcessing)
 }
 
 void TrackerMap::save_as_fedtrackermap(
@@ -2919,7 +2924,8 @@ void TrackerMap::save_as_fedtrackermap(
       }
     }
     if (filetype == "svg") {
-      *savefile << "</g> </svg> </svg> " << std::endl;
+      // savefile is only deleted for filetype "xml"
+      [[clang::suppress]] * savefile << "</g> </svg> </svg> " << std::endl;
       savefile->close();
       delete savefile;
     }
@@ -2941,9 +2947,11 @@ void TrackerMap::save_as_fedtrackermap(
 
     if (temporary_file) {
       if (printflag && !saveWebInterface)
+          // savefile is only deleted for filetype "xml", for this filetype temporary_file is false
+          [[clang::suppress]]
         drawPalette(savefile, rangex - 140, rangey - 100);
-      savefile->close();
-      delete savefile;
+      [[clang::suppress]] savefile->close();
+      [[clang::suppress]] delete savefile;
 
       float content;
       std::string named;
@@ -3056,7 +3064,7 @@ void TrackerMap::save_as_fedtrackermap(
       }
 
     }  //if(temporary_file)
-  }    //if(enabledFedProcessing)
+  }  //if(enabledFedProcessing)
 }
 
 void TrackerMap::load(std::string inputfilename) {
@@ -3089,6 +3097,9 @@ void TrackerMap::load(std::string inputfilename) {
   inputfile->close();
   delete inputfile;
 }
+
+//sets the background color
+void TrackerMap::setBackgroundColor(Color_t color) { padColor_ = color; }
 
 //print in svg format tracker map
 //print_total = true represent in color the total stored in the module
@@ -3180,7 +3191,7 @@ void TrackerMap::drawPalette(std::ofstream *svgfile, int xoffset, int yoffset) {
     color = getcolor(val, palette);
     red = (color >> 16) & 0xFF;
     green = (color >> 8) & 0xFF;
-    blue = (color)&0xFF;
+    blue = (color) & 0xFF;
     //   if(!temporary_file)*svgfile <<"<svg:rect  x=\"3010\" y=\""<<(1550-6*i)<<"\" width=\"50\" height=\"6\" fill=\"rgb("<<red<<","<<green<<","<<blue<<")\" />\n";
     //  else *svgfile << red << " " << green << " " << blue << " 4 " << (6*i)+40 << " 3010. " <<//
     //           (6*i)+40 << " 3060. " <<//
@@ -3775,8 +3786,8 @@ void TrackerMap::printonline() {
 
             *txtfile << "</pre><h4>" << outs.str() << "</h4>" << std::endl;
           }  //ifccu->nmod==0
-        }    //if ccu!=0
-      }      //for i_ccu
+        }  //if ccu!=0
+      }  //for i_ccu
       *txtfile << "</body></html>" << std::endl;
       txtfile->close();
       delete txtfile;
@@ -4158,8 +4169,8 @@ void TrackerMap::printall(bool print_total, float minval1, float maxval1, std::s
 
               *txtfile << "</pre><h4>" << outs.str() << "</h4>" << std::endl;
             }  //ifccu->nmod==0
-          }    //if ccu!=0
-        }      //for i_ccu
+          }  //if ccu!=0
+        }  //for i_ccu
         *txtfile << "</body></html>" << std::endl;
         txtfile->close();
       }  //for int crate

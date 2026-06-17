@@ -1,9 +1,9 @@
 #ifndef HeterogeneousCore_AlpakaCore_interface_alpaka_EDGetToken_h
 #define HeterogeneousCore_AlpakaCore_interface_alpaka_EDGetToken_h
 
+#include "DataFormats/AlpakaCommon/interface/alpaka/DeviceProductType.h"
 #include "DataFormats/Common/interface/DeviceProduct.h"
 #include "FWCore/Utilities/interface/EDGetToken.h"
-#include "HeterogeneousCore/AlpakaCore/interface/alpaka/DeviceProductType.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::device {
@@ -23,7 +23,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::device {
    */
   template <typename TProduct>
   class EDGetToken {
-    using ProductType = typename detail::DeviceProductType<TProduct>::type;
+    using ProductType = detail::DeviceProductType<TProduct>;
 
   public:
     constexpr EDGetToken() = default;

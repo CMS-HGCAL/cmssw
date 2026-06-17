@@ -20,19 +20,22 @@
 #include "Geometry/Records/interface/MuonGeometryRecord.h"
 #include "RPCRecHitBaseAlgo.h"
 
-class RPCRecHitProducer : public edm::stream::EDProducer<> {
+class RPCRecHitProducer : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   /// Constructor
   RPCRecHitProducer(const edm::ParameterSet& config);
 
   /// Destructor
-  ~RPCRecHitProducer() override{};
+  ~RPCRecHitProducer() override = default;
 
   // Method that access the EventSetup for each run
   void beginRun(const edm::Run&, const edm::EventSetup&) override;
 
   /// The method which produces the rechits
   void produce(edm::Event& event, const edm::EventSetup& setup) override;
+
+  /// fillDescriptions
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
 private:
   // The label to be used to retrieve RPC digis from the event

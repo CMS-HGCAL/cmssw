@@ -44,6 +44,13 @@
 #include "FWCore/Utilities/interface/propagate_const.h"
 #include "DataFormats/Common/interface/Wrapper.h"
 
+// With gcc 13.4.0, some summary routines are failing with unreachable program point
+// UBSAN errors.  No UB has been identified, so for now this workaround suppresses
+// UBSAN checking for the routines that are failing.
+//
+// details at https://github.com/cms-sw/cmssw/issues/49151
+#include "FWCore/Utilities/interface/disable_ubsan.h"
+
 // forward declarations
 
 namespace edm {
@@ -92,7 +99,7 @@ namespace edm {
         RunWatcher() = default;
         RunWatcher(RunWatcher const&) = delete;
         RunWatcher& operator=(RunWatcher const&) = delete;
-        ~RunWatcher() noexcept(false) override{};
+        ~RunWatcher() noexcept(false) override {}
 
       private:
         void doBeginRun_(Run const& rp, EventSetup const& c) final;
@@ -108,7 +115,7 @@ namespace edm {
         LuminosityBlockWatcher() = default;
         LuminosityBlockWatcher(LuminosityBlockWatcher const&) = delete;
         LuminosityBlockWatcher& operator=(LuminosityBlockWatcher const&) = delete;
-        ~LuminosityBlockWatcher() noexcept(false) override{};
+        ~LuminosityBlockWatcher() noexcept(false) override {}
 
       private:
         void doBeginLuminosityBlock_(LuminosityBlock const& rp, EventSetup const& c) final;
@@ -140,7 +147,7 @@ namespace edm {
         BeginProcessBlockProducer() = default;
         BeginProcessBlockProducer(BeginProcessBlockProducer const&) = delete;
         BeginProcessBlockProducer& operator=(BeginProcessBlockProducer const&) = delete;
-        ~BeginProcessBlockProducer() noexcept(false) override{};
+        ~BeginProcessBlockProducer() noexcept(false) override {}
 
       private:
         void doBeginProcessBlockProduce_(ProcessBlock&) final;
@@ -154,7 +161,7 @@ namespace edm {
         EndProcessBlockProducer() = default;
         EndProcessBlockProducer(EndProcessBlockProducer const&) = delete;
         EndProcessBlockProducer& operator=(EndProcessBlockProducer const&) = delete;
-        ~EndProcessBlockProducer() noexcept(false) override{};
+        ~EndProcessBlockProducer() noexcept(false) override {}
 
       private:
         void doEndProcessBlockProduce_(ProcessBlock&) final;
@@ -168,7 +175,7 @@ namespace edm {
         BeginRunProducer() = default;
         BeginRunProducer(BeginRunProducer const&) = delete;
         BeginRunProducer& operator=(BeginRunProducer const&) = delete;
-        ~BeginRunProducer() noexcept(false) override{};
+        ~BeginRunProducer() noexcept(false) override {}
 
       private:
         void doBeginRunProduce_(Run& rp, EventSetup const& c) final;
@@ -182,7 +189,7 @@ namespace edm {
         EndRunProducer() = default;
         EndRunProducer(EndRunProducer const&) = delete;
         EndRunProducer& operator=(EndRunProducer const&) = delete;
-        ~EndRunProducer() noexcept(false) override{};
+        ~EndRunProducer() noexcept(false) override {}
 
       private:
         void doEndRunProduce_(Run& rp, EventSetup const& c) final;
@@ -196,7 +203,7 @@ namespace edm {
         BeginLuminosityBlockProducer() = default;
         BeginLuminosityBlockProducer(BeginLuminosityBlockProducer const&) = delete;
         BeginLuminosityBlockProducer& operator=(BeginLuminosityBlockProducer const&) = delete;
-        ~BeginLuminosityBlockProducer() noexcept(false) override{};
+        ~BeginLuminosityBlockProducer() noexcept(false) override {}
 
       private:
         void doBeginLuminosityBlockProduce_(LuminosityBlock& lbp, EventSetup const& c) final;
@@ -210,7 +217,7 @@ namespace edm {
         EndLuminosityBlockProducer() = default;
         EndLuminosityBlockProducer(EndLuminosityBlockProducer const&) = delete;
         EndLuminosityBlockProducer& operator=(EndLuminosityBlockProducer const&) = delete;
-        ~EndLuminosityBlockProducer() noexcept(false) override{};
+        ~EndLuminosityBlockProducer() noexcept(false) override {}
 
       private:
         void doEndLuminosityBlockProduce_(LuminosityBlock& lbp, EventSetup const& c) final;
@@ -271,7 +278,7 @@ namespace edm {
         RunCacheHolder() = default;
         RunCacheHolder(RunCacheHolder<T, C> const&) = delete;
         RunCacheHolder<T, C>& operator=(RunCacheHolder<T, C> const&) = delete;
-        ~RunCacheHolder() noexcept(false) override{};
+        ~RunCacheHolder() noexcept(false) override {}
 
       protected:
         void preallocRuns(unsigned int iNRuns) final { caches_.reset(new std::shared_ptr<C>[iNRuns]); }
@@ -280,7 +287,9 @@ namespace edm {
         C const* runCache(edm::RunIndex iID) const { return caches_[iID].get(); }
 
       private:
-        void doBeginRun_(Run const& rp, EventSetup const& c) final { caches_[rp.index()] = globalBeginRun(rp, c); }
+        void doBeginRun_(Run const& rp, EventSetup const& c) final DISABLE_UBSAN {
+          caches_[rp.index()] = globalBeginRun(rp, c);
+        }
         void doEndRun_(Run const& rp, EventSetup const& c) final {
           globalEndRun(rp, c);
           caches_[rp.index()].reset();
@@ -298,7 +307,7 @@ namespace edm {
         LuminosityBlockCacheHolder() = default;
         LuminosityBlockCacheHolder(LuminosityBlockCacheHolder<T, C> const&) = delete;
         LuminosityBlockCacheHolder<T, C>& operator=(LuminosityBlockCacheHolder<T, C> const&) = delete;
-        ~LuminosityBlockCacheHolder() noexcept(false) override{};
+        ~LuminosityBlockCacheHolder() noexcept(false) override {}
 
       protected:
         void preallocLumis(unsigned int iNLumis) final { caches_.reset(new std::shared_ptr<C>[iNLumis]); }
@@ -307,7 +316,7 @@ namespace edm {
         C* luminosityBlockCache(edm::LuminosityBlockIndex iID) { return caches_[iID].get(); }
 
       private:
-        void doBeginLuminosityBlock_(LuminosityBlock const& lp, EventSetup const& c) final {
+        void doBeginLuminosityBlock_(LuminosityBlock const& lp, EventSetup const& c) final DISABLE_UBSAN {
           caches_[lp.index()] = globalBeginLuminosityBlock(lp, c);
         }
         void doEndLuminosityBlock_(LuminosityBlock const& lp, EventSetup const& c) final {
@@ -327,7 +336,7 @@ namespace edm {
         Accumulator() = default;
         Accumulator(Accumulator const&) = delete;
         Accumulator& operator=(Accumulator const&) = delete;
-        ~Accumulator() noexcept(false) override{};
+        ~Accumulator() noexcept(false) override {}
 
       private:
         bool hasAccumulator() const noexcept override { return true; }
@@ -343,7 +352,7 @@ namespace edm {
         Transformer() = default;
         Transformer(Transformer const&) = delete;
         Transformer& operator=(Transformer const&) = delete;
-        ~Transformer() noexcept(false) override{};
+        ~Transformer() noexcept(false) override {}
 
         template <typename G, typename F>
         void registerTransform(ProductRegistryHelper::BranchAliasSetterT<G> iSetter,
@@ -354,17 +363,18 @@ namespace edm {
 
         template <typename G, typename F>
         void registerTransform(edm::EDPutTokenT<G> iToken, F iF, std::string productInstance = std::string()) {
-          using ReturnTypeT = decltype(iF(std::declval<G>()));
+          using ReturnTypeT = decltype(iF(std::declval<edm::StreamID>(), std::declval<G>()));
           TypeID returnType(typeid(ReturnTypeT));
-          TransformerBase::registerTransformImp(*this,
-                                                EDPutToken(iToken),
-                                                returnType,
-                                                std::move(productInstance),
-                                                [f = std::move(iF)](edm::WrapperBase const& iGotProduct) {
-                                                  return std::make_unique<edm::Wrapper<ReturnTypeT>>(
-                                                      WrapperBase::Emplace{},
-                                                      f(*static_cast<edm::Wrapper<G> const&>(iGotProduct).product()));
-                                                });
+          TransformerBase::registerTransformImp(
+              *this,
+              EDPutToken(iToken),
+              returnType,
+              std::move(productInstance),
+              [f = std::move(iF)](edm::StreamID id, std::any const& iGotProduct) {
+                auto pGotProduct = std::any_cast<edm::WrapperBase const*>(iGotProduct);
+                return std::make_unique<edm::Wrapper<ReturnTypeT>>(
+                    WrapperBase::Emplace{}, f(id, *static_cast<edm::Wrapper<G> const*>(pGotProduct)->product()));
+              });
         }
 
         template <typename G, typename P, typename F>
@@ -372,25 +382,27 @@ namespace edm {
                                     P iPre,
                                     F iF,
                                     std::string productInstance = std::string()) {
-          using CacheTypeT = decltype(iPre(std::declval<G>(), WaitingTaskWithArenaHolder()));
-          using ReturnTypeT = decltype(iF(std::declval<CacheTypeT>()));
+          using CacheTypeT =
+              decltype(iPre(std::declval<edm::StreamID>(), std::declval<G>(), WaitingTaskWithArenaHolder()));
+          using ReturnTypeT = decltype(iF(std::declval<edm::StreamID>(), std::declval<CacheTypeT>()));
           TypeID returnType(typeid(ReturnTypeT));
           TransformerBase::registerTransformAsyncImp(
               *this,
               EDPutToken(iToken),
               returnType,
               std::move(productInstance),
-              [p = std::move(iPre)](edm::WrapperBase const& iGotProduct, WaitingTaskWithArenaHolder iHolder) {
-                return std::any(p(*static_cast<edm::Wrapper<G> const&>(iGotProduct).product(), std::move(iHolder)));
+              [p = std::move(iPre)](
+                  edm::StreamID id, edm::WrapperBase const& iGotProduct, WaitingTaskWithArenaHolder iHolder) {
+                return std::any(p(id, *static_cast<edm::Wrapper<G> const&>(iGotProduct).product(), std::move(iHolder)));
               },
-              [f = std::move(iF)](std::any const& iCache) {
+              [f = std::move(iF)](edm::StreamID id, std::any const& iCache) {
                 auto cache = std::any_cast<CacheTypeT>(iCache);
-                return std::make_unique<edm::Wrapper<ReturnTypeT>>(WrapperBase::Emplace{}, f(cache));
+                return std::make_unique<edm::Wrapper<ReturnTypeT>>(WrapperBase::Emplace{}, f(id, cache));
               });
         }
 
       private:
-        size_t transformIndex_(edm::BranchDescription const& iBranch) const noexcept final {
+        size_t transformIndex_(edm::ProductDescription const& iBranch) const noexcept final {
           return TransformerBase::findMatchingIndex(*this, iBranch);
         }
         ProductResolverIndex transformPrefetch_(std::size_t iIndex) const noexcept final {
@@ -410,7 +422,7 @@ namespace edm {
         }
       };
     }  // namespace impl
-  }    // namespace one
+  }  // namespace one
 }  // namespace edm
 
 #endif

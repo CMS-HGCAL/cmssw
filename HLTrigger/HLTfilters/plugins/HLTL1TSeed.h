@@ -1,5 +1,5 @@
-#ifndef HLTfilters_HLTL1TSeed_h
-#define HLTfilters_HLTL1TSeed_h
+#ifndef HLTrigger_HLTfilters_HLTL1TSeed_h
+#define HLTrigger_HLTfilters_HLTL1TSeed_h
 
 /**
  * \class HLTL1TSeed
@@ -25,7 +25,9 @@
 #include "DataFormats/HLTReco/interface/TriggerFilterObjectWithRefs.h"
 
 #include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerReadoutSetupFwd.h"
+#include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerReadoutRecordFwd.h"
 #include "CondFormats/L1TObjects/interface/L1GtTriggerMenuFwd.h"
+#include "DataFormats/L1TGlobal/interface/GlobalObjectMapRecordFwd.h"
 #include "DataFormats/L1TGlobal/interface/GlobalLogicParser.h"
 #include "DataFormats/L1TGlobal/interface/GlobalObject.h"
 #include "DataFormats/L1TGlobal/interface/GlobalAlgBlk.h"
@@ -35,9 +37,7 @@
 // forward declarations
 class L1GtTriggerMenu;
 class L1GtTriggerMask;
-class L1GlobalTriggerReadoutRecord;
 
-class GlobalObjectMapRecord;
 namespace edm {
   class ConfigurationDescriptions;
 }
@@ -49,7 +49,7 @@ public:
   explicit HLTL1TSeed(const edm::ParameterSet&);
 
   /// destructor
-  ~HLTL1TSeed() override;
+  ~HLTL1TSeed() override = default;
 
   /// parameter description
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);

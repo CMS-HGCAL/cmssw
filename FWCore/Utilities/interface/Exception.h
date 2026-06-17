@@ -38,23 +38,17 @@
 #include <string>
 #include <exception>
 #include <type_traits>
+#include <string_view>
+#include <concepts>
+#include <utility>
+
+#include <format>
 
 #include "FWCore/Utilities/interface/thread_safety_macros.h"
 #include "FWCore/Utilities/interface/Likely.h"
 #include "FWCore/Utilities/interface/Visibility.h"
 
 namespace cms {
-
-  class Exception;
-  namespace detail {
-    // Used for SFINAE to control the instantiation of the stream insertion
-    // member template needed to support streaming output to an object
-    // of type cms::Exception, or a subclass of cms::Exception.
-    template <typename E>
-    using exception_type =
-        std::enable_if_t<std::is_base_of_v<Exception, std::remove_reference_t<E>>, std::remove_reference_t<E>>;
-
-  }  // namespace detail
 
   class dso_export Exception : public std::exception {
   public:
@@ -118,13 +112,20 @@ namespace cms {
     //
 
     template <typename E, typename T>
-    friend typename detail::exception_type<E>& operator<<(E&& e, T const& stuff);
+      requires std::derived_from<std::remove_reference_t<E>, Exception>
+    friend decltype(auto) operator<<(E&& e, T const& stuff);
 
     template <typename E>
-    friend typename detail::exception_type<E>& operator<<(E&& e, std::ostream& (*f)(std::ostream&));
+      requires std::derived_from<std::remove_reference_t<E>, Exception>
+    friend decltype(auto) operator<<(E&& e, std::ostream& (*f)(std::ostream&));
 
     template <typename E>
-    friend typename detail::exception_type<E>& operator<<(E&& e, std::ios_base& (*f)(std::ios_base&));
+      requires std::derived_from<std::remove_reference_t<E>, Exception>
+    friend decltype(auto) operator<<(E&& e, std::ios_base& (*f)(std::ios_base&));
+
+    template <typename... Args>
+    inline void format(std::format_string<Args...> format, Args&&... args);
+    inline void vformat(std::string_view fmt, std::format_args args);
 
     // This function is deprecated and we are in the process of removing
     // all code that uses it from CMSSW.  It will then be deleted.
@@ -132,7 +133,7 @@ namespace cms {
 
   private:
     void init(std::string const& message);
-    virtual void rethrow();
+    [[noreturn]] virtual void rethrow();
     virtual int returnCode_() const;
 
     // data members
@@ -152,22 +153,32 @@ namespace cms {
 
   // -------- implementation ---------
 
+  template <typename... Args>
+  inline void Exception::format(std::format_string<Args...> format, Args&&... args) {
+    ost_ << std::format(std::move(format), std::forward<Args>(args)...);
+  }
+
+  inline void Exception::vformat(std::string_view format, std::format_args args) { ost_ << std::vformat(format, args); }
+
   template <typename E, typename T>
-  inline typename detail::exception_type<E>& operator<<(E&& e, T const& stuff) {
+    requires std::derived_from<std::remove_reference_t<E>, Exception>
+  inline decltype(auto) operator<<(E&& e, T const& stuff) {
     e.ost_ << stuff;
-    return e;
+    return std::forward<E>(e);
   }
 
   template <typename E>
-  inline typename detail::exception_type<E>& operator<<(E&& e, std::ostream& (*f)(std::ostream&)) {
+    requires std::derived_from<std::remove_reference_t<E>, Exception>
+  inline decltype(auto) operator<<(E&& e, std::ostream& (*f)(std::ostream&)) {
     f(e.ost_);
-    return e;
+    return std::forward<E>(e);
   }
 
   template <typename E>
-  inline typename detail::exception_type<E>& operator<<(E&& e, std::ios_base& (*f)(std::ios_base&)) {
+    requires std::derived_from<std::remove_reference_t<E>, Exception>
+  inline decltype(auto) operator<<(E&& e, std::ios_base& (*f)(std::ios_base&)) {
     f(e.ost_);
-    return e;
+    return std::forward<E>(e);
   }
 
 }  // namespace cms

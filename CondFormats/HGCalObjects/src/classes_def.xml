@@ -8,6 +8,15 @@
     <field name="di_" mapping="blob"/>
   </class>
 
+  <class name="HGCalMappingCellIndexerTrigger" class_version="0">
+    <field name="typeCodeIndexer_" mapping="blob"/>
+    <field name="maxROC_" mapping="blob"/>
+    <field name="maxTrLink_" mapping="blob"/>
+    <field name="maxTCPerLink_" mapping="blob"/>
+    <field name="offsets_" mapping="blob"/>
+    <field name="di_" mapping="blob"/>
+  </class>
+  
   <class name="HGCalFEDReadoutSequence" class_version="0">
     <field name="readoutTypes_" mapping="blob"/>
     <field name="modOffsets_" mapping="blob"/>
@@ -15,10 +24,24 @@
     <field name="chDataOffsets_" mapping="blob"/>
   </class>
 
+  <class name="HGCalTriggerFEDReadoutSequence" class_version="0">
+    <field name="readoutTypes_" mapping="blob"/>
+    <field name="modOffsets_" mapping="blob"/>
+    <field name="TrLinkOffsets_" mapping="blob"/>
+    <field name="TCOffsets_" mapping="blob"/>
+  </class>
+
   <class name="HGCalMappingModuleIndexer" class_version="0">
     <field name="fedReadoutSequences_" mapping="blob"/>
     <field name="globalTypesCounter_" mapping="blob"/>
     <field name="globalTypesNWords_" mapping="blob"/>
+    <field name="globalTypesOffsets_" mapping="blob"/>
+  </class>
+
+  <class name="HGCalMappingModuleIndexerTrigger" class_version="0">
+    <field name="fedReadoutSequences_" mapping="blob"/>
+    <field name="globalTypesCounter_" mapping="blob"/>
+    <field name="globalTypesNTCs_" mapping="blob"/>
     <field name="globalTypesOffsets_" mapping="blob"/>
   </class>
 
@@ -30,6 +53,29 @@
     <field name="feds" mapping="blob"/>
   </class>
 
+  <!-- HGCal Trigger configuration -->
+  <class name="HGCalTriggerConfiguration" class_version="0">
+    <field name="feds" mapping="blob"/>
+  </class>
+  <class name="HGCalTriggerFedConfig" class_version="0">
+    <field name="tdaqs" mapping="blob"/>
+    <field name="econtSwapOffset" mapping="blob"/>
+  </class>
+  <class name="HGCalTDAQConfig" class_version="0">
+    <field name="tdaqBlockHeaderMarker" mapping="blob"/>
+    <field name="tdaqFlag" mapping="blob"/>
+    <field name="econts" mapping="blob"/>
+  </class>
+  <class name="HGCalECONTConfig" class_version="0">
+    <field name="density" mapping="blob"/>
+    <field name="dropLSB" mapping="blob"/>
+    <field name="select" mapping="blob"/>
+    <field name="stcType" mapping="blob"/>
+    <field name="eportTxNumen" mapping="blob"/>
+    <field name="calv" mapping="blob"/>
+    <field name="tcMux" mapping="blob"/>
+    <field name="offset" mapping="blob"/>
+  </class>
   <class name="HGCalFedConfig" class_version="0">
     <field name="passthroughMode" mapping="blob"/>
     <field name="cbHeaderMarker" mapping="blob"/>
@@ -43,10 +89,6 @@
 
   <class name="HGCalROCConfig" class_version="0">
     <field name="charMode" mapping="blob"/>
-    <field name="clockPhase" mapping="blob"/>
-    <field name="L1AcceptOffset" mapping="blob"/>
-    <field name="injChannels" mapping="blob"/>
-    <field name="injCharge" mapping="blob"/>
   </class>
 
   <class name="HGCalDenseIndexerBase" class_version="0">

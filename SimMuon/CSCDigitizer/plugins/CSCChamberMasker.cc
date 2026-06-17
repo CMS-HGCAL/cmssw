@@ -59,14 +59,14 @@
 #include "CondFormats/RecoMuonObjects/interface/MuonSystemAging.h"
 
 #include "CLHEP/Random/RandomEngine.h"
+#include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
 
 //
 // class declaration
 //
 
-class CSCChamberMasker : public edm::stream::EDProducer<> {
+class CSCChamberMasker : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   explicit CSCChamberMasker(const edm::ParameterSet &);
   ~CSCChamberMasker() override;

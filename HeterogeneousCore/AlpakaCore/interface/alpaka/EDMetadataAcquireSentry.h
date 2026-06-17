@@ -1,9 +1,11 @@
 #ifndef HeterogeneousCore_AlpakaCore_interface_alpaka_EDMetadataAcquireSentry_h
 #define HeterogeneousCore_AlpakaCore_interface_alpaka_EDMetadataAcquireSentry_h
 
+#include <memory>
+
+#include "DataFormats/AlpakaCommon/interface/alpaka/EDMetadata.h"
 #include "FWCore/Concurrency/interface/WaitingTaskWithArenaHolder.h"
 #include "FWCore/Utilities/interface/StreamID.h"
-#include "HeterogeneousCore/AlpakaCore/interface/alpaka/EDMetadata.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
   namespace detail {
@@ -16,10 +18,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     public:
       // TODO: WaitingTaskWithArenaHolder not really needed for host synchronous case
       // Constructor overload to be called from acquire()
-      EDMetadataAcquireSentry(edm::StreamID stream, edm::WaitingTaskWithArenaHolder holder);
+      EDMetadataAcquireSentry(edm::StreamID stream, edm::WaitingTaskWithArenaHolder holder, bool synchronize);
 
       // Constructor overload to be called from registerTransformAsync()
-      EDMetadataAcquireSentry(Device const& device, edm::WaitingTaskWithArenaHolder holder);
+      EDMetadataAcquireSentry(std::shared_ptr<Queue> queue,
+                              edm::WaitingTaskWithArenaHolder holder,
+                              bool synchronize = false);
 
       EDMetadataAcquireSentry(EDMetadataAcquireSentry const&) = delete;
       EDMetadataAcquireSentry& operator=(EDMetadataAcquireSentry const&) = delete;
@@ -37,9 +41,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 #endif
 
     private:
+#ifndef ALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED
+      // all asynchronous backends
+      void asyncWait();
+#endif
+
       std::shared_ptr<EDMetadata> metadata_;
 
       edm::WaitingTaskWithArenaHolder waitingTaskHolder_;
+      bool const synchronize_;
     };
   }  // namespace detail
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE

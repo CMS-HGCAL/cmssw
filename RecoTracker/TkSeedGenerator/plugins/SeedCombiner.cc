@@ -36,14 +36,12 @@ SeedCombiner::SeedCombiner(const edm::ParameterSet& cfg) {
     clusterRemovalInfos_ = cfg.getParameter<std::vector<edm::InputTag> >("clusterRemovalInfos");
     clusterRemovalTokens_.resize(clusterRemovalInfos_.size());
     for (unsigned int i = 0; i < clusterRemovalInfos_.size(); ++i)
-      if (!(clusterRemovalInfos_[i] == edm::InputTag("")))
+      if (!clusterRemovalInfos_[i].isUninitialized())
         clusterRemovalTokens_[i] = consumes<reco::ClusterRemovalInfo>(clusterRemovalInfos_[i]);
     if (!clusterRemovalInfos_.empty() && clusterRemovalInfos_.size() == inputCollections_.size())
       reKeing_ = true;
   }
 }
-
-SeedCombiner::~SeedCombiner() {}
 
 void SeedCombiner::produce(edm::Event& ev, const edm::EventSetup& es) {
   // Read inputs, and count total seeds
@@ -63,7 +61,7 @@ void SeedCombiner::produce(edm::Event& ev, const edm::EventSetup& es) {
   unsigned int iSC = 0, iSC_max = seedCollections.size();
   for (; iSC != iSC_max; ++iSC) {
     Handle<TrajectorySeedCollection>& collection = seedCollections[iSC];
-    if (reKeing_ && !(clusterRemovalInfos_[iSC] == edm::InputTag(""))) {
+    if (reKeing_ && !clusterRemovalInfos_[iSC].isUninitialized()) {
       ClusterRemovalRefSetter refSetter(ev, clusterRemovalTokens_[iSC]);
 
       for (TrajectorySeedCollection::const_iterator iS = collection->begin(); iS != collection->end(); ++iS) {
@@ -84,4 +82,11 @@ void SeedCombiner::produce(edm::Event& ev, const edm::EventSetup& es) {
 
   // Save result into the event
   ev.put(std::move(result));
+}
+
+void SeedCombiner::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+  edm::ParameterSetDescription desc;
+  desc.add<std::vector<edm::InputTag> >("seedCollections", {});
+  desc.addOptional<std::vector<edm::InputTag> >("clusterRemovalInfos", {});
+  descriptions.addWithDefaultLabel(desc);
 }

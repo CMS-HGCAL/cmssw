@@ -1,4 +1,4 @@
-#!/bin/sh -ex
+#!/bin/bash
 
 function die { echo $1: status $2 ;  exit $2; }
 
@@ -10,7 +10,7 @@ cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py || die "Failure using test
 
 # The old files read below were generated as follows.
 #
-#     testRun3Scouting_v3_v5_v3_v4_v5_v3_v5_v3_v3_CMSSW_12_4_0.root:
+#     testRun3Scouting_v3_v5_v3_v4_v5_v3_v5_v3_v3_CMSSW_12_4_0_split_99.root:
 #     Check out the 12_4_0 release and cherry pick the commit that
 #     adds the original version of the file
 #     DataFormats/Scouting/test/TestWriteRun3Scouting.cc
@@ -18,7 +18,7 @@ cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py || die "Failure using test
 #     minor conflicts or issues in test/BuildFile.xml that need to
 #     be resolved.
 #
-#     testRun3Scouting_v3_v6_v3_v4_v5_v3_v5_v3_v3_CMSSW_13_0_3.root:
+#     testRun3Scouting_v3_v6_v3_v4_v5_v3_v5_v3_v3_CMSSW_13_0_3_split_99.root:
 #     Check out the 13_0_3 release and cherry pick the commit that
 #     adds the original version of the file
 #     DataFormats/Scouting/test/TestWriteRun3Scouting.cc
@@ -27,17 +27,47 @@ cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py || die "Failure using test
 #     minor conflicts or issues in test/BuildFile.xml that need to
 #     be resolved.
 #
-#     testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_CMSSW_14_0_0_pre3.root:
+#     testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_CMSSW_14_0_0_pre3_split_99.root:
 #     Check out the 14_0_0_pre3 pre-release, no additional commits
+#     will be neeeded.
+#
+#     testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_v3_v3_v3_CMSSW_15_1_0_pre5_split_99.root:
+#     Check out the 15_1_0_pre5 pre-release, no additional commits
+#     will be neeeded.
+#
+#     testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_v3_v3_v4_CMSSW_16_1_0_pre1_split_99.root:
+#     Check out the 16_1_0_pre1 pre-release, no additional commits
 #     will be neeeded.
 #
 # Run the create_Run3Scouting_test_file_cfg.py configuration and
 # rename the file it creates.
 #
-# The versions of the classes are encoded in the filenames in
-# alphabetical order. This order is also the order the Run 3
-# Scouting files appear in classes_def.xml (in the master branch
-# of CMSSW).
+# The versions of the classes are encoded in the filenames
+# following the order in which the Run3Scouting classes appear in classes_def.xml.
+# That order is as follows.
+#
+#  Run3ScoutingCaloJet
+#  Run3ScoutingElectron
+#  Run3ScoutingHitPatternPOD
+#  Run3ScoutingMuon
+#  Run3ScoutingParticle
+#  Run3ScoutingPFJet
+#  Run3ScoutingPhoton
+#  Run3ScoutingTrack
+#  Run3ScoutingVertex
+#  Run3ScoutingEBRecHit
+#  Run3ScoutingEERecHit
+#  Run3ScoutingHBHERecHit
+#
+# The first 9 classes are the ones introduced since the start of Run 3 (listed in alphabetical order),
+# while the last 3 classes were introduced in 2025.
+# For files produced before the introduction of the latter 3 classes,
+# only the class versions of the former 9 classes are included in the name of the file.
+#
+# By default, split level 99 is used (maximum possible splitting).
+# If the suffix "_split_0" is near the end of the filename, the
+# following was added to the configuration of the output module:
+#     "splitLevel = cms.untracked.int32(0)"
 #
 # The only version that changed from 12_4_0
 # to 13_0_3 was the Run3ScoutingElectron class.
@@ -49,20 +79,59 @@ cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py || die "Failure using test
 # 13_0_3 was chosen because the 13_0_X release cycle was used
 # for 2023 data, and the scouting data formats and ROOT were
 # not updated after 13_0_3.
+#
+# Note that the 12_4_0 split 0 file was affected by the ROOT bug
+# that caused StreamerInfo objects to be dropped from the file.
+# (in later releases the bug was fixed and for a reason not completely
+# understood the bug didn't affect split 99 files, not sure
+# if ROOT handles the schema evolution without the StreamerInfo
+# with a high split level or for some reason with split 99
+# the StreamerInfos were written, doesn't matter really and no
+# one took the time to investigate that). When reading that file
+# the Service named "FixMissingStreamerInfos" needs to be used.
 
-file=testRun3Scouting_v3_v5_v3_v4_v5_v3_v5_v3_v3_CMSSW_12_4_0.root
+file=testRun3Scouting_v3_v5_v3_v4_v5_v3_v5_v3_v3_CMSSW_12_4_0_split_99.root
 inputfile=$(edmFileInPath DataFormats/Scouting/data/$file) || die "Failure edmFileInPath DataFormats/Scouting/data/$file" $?
 argsPassedToPython="--inputFile $inputfile --outputFileName testRun3Scouting2_CMSSW_12_4_0.root --electronVersion 5 --photonVersion 5 --vertexVersion 3"
+argsPassedToPython+=" --ebRecHitVersion -1 --eeRecHitVersion -1 --hbheRecHitVersion -1"
 cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py $argsPassedToPython || die "Failed to read old file $file" $?
 
-file=testRun3Scouting_v3_v6_v3_v4_v5_v3_v5_v3_v3_CMSSW_13_0_3.root
+file=testRun3Scouting_v3_v5_v3_v4_v5_v3_v5_v3_v3_CMSSW_12_4_0_split_0.root
 inputfile=$(edmFileInPath DataFormats/Scouting/data/$file) || die "Failure edmFileInPath DataFormats/Scouting/data/$file" $?
-argsPassedToPython="--inputFile $inputfile --outputFileName testRun3Scouting2_CMSSW_13_0_3.root --electronVersion 6 --photonVersion 5 --vertexVersion 3"
+argsPassedToPython="--inputFile $inputfile --outputFileName testRun3Scouting2_CMSSW_12_4_0.root --electronVersion 5 --photonVersion 5 --vertexVersion 3 --fixStreamerInfo"
+argsPassedToPython+=" --ebRecHitVersion -1 --eeRecHitVersion -1 --hbheRecHitVersion -1"
 cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py $argsPassedToPython || die "Failed to read old file $file" $?
 
-file=testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_CMSSW_14_0_0_pre3.root
-inputfile=$(edmFileInPath DataFormats/Scouting/data/$file) || die "Failure edmFileInPath DataFormats/Scouting/data/$file" $?
-argsPassedToPython="--inputFile $inputfile --outputFileName testRun3Scouting2_CMSSW_14_0_0_pre3.root --electronVersion 7 --photonVersion 6 --vertexVersion 4"
-cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py $argsPassedToPython || die "Failed to read old file $file" $?
+oldFiles="testRun3Scouting_v3_v6_v3_v4_v5_v3_v5_v3_v3_CMSSW_13_0_3_split_99.root testRun3Scouting_v3_v6_v3_v4_v5_v3_v5_v3_v3_CMSSW_13_0_3_split_0.root"
+for file in $oldFiles; do
+  inputfile=$(edmFileInPath DataFormats/Scouting/data/$file) || die "Failure edmFileInPath DataFormats/Scouting/data/$file" $?
+  argsPassedToPython="--inputFile $inputfile --outputFileName testRun3Scouting2_CMSSW_13_0_3.root --electronVersion 6 --photonVersion 5 --vertexVersion 3"
+  argsPassedToPython+=" --ebRecHitVersion -1 --eeRecHitVersion -1 --hbheRecHitVersion -1"
+  cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py $argsPassedToPython || die "Failed to read old file $file" $?
+done
+
+oldFiles="testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_CMSSW_14_0_0_pre3_split_99.root testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_CMSSW_14_0_0_pre3_split_0.root"
+for file in $oldFiles; do
+  inputfile=$(edmFileInPath DataFormats/Scouting/data/$file) || die "Failure edmFileInPath DataFormats/Scouting/data/$file" $?
+  argsPassedToPython="--inputFile $inputfile --outputFileName testRun3Scouting2_CMSSW_14_0_0_pre3.root --electronVersion 7 --photonVersion 6 --vertexVersion 4"
+  argsPassedToPython+=" --ebRecHitVersion -1 --eeRecHitVersion -1 --hbheRecHitVersion -1"
+  cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py $argsPassedToPython || die "Failed to read old file $file" $?
+done
+
+oldFiles="testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_v3_v3_v3_CMSSW_15_1_0_pre5_split_99.root testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_v3_v3_v3_CMSSW_15_1_0_pre5_split_0.root"
+for file in $oldFiles; do
+  inputfile=$(edmFileInPath DataFormats/Scouting/data/$file) || die "Failure edmFileInPath DataFormats/Scouting/data/$file" $?
+  argsPassedToPython="--inputFile $inputfile --outputFileName testRun3Scouting2_CMSSW_15_1_0_pre5.root --electronVersion 7 --photonVersion 6 --vertexVersion 4"
+  argsPassedToPython+=" --ebRecHitVersion 3 --eeRecHitVersion 3 --hbheRecHitVersion 3"
+  cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py $argsPassedToPython || die "Failed to read old file $file" $?
+done
+
+oldFiles="testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_v3_v3_v4_CMSSW_16_1_0_pre1_split_99.root testRun3Scouting_v3_v7_v3_v4_v5_v3_v6_v3_v4_v3_v3_v4_CMSSW_16_1_0_pre1_split_0.root"
+for file in $oldFiles; do
+  inputfile=$(edmFileInPath DataFormats/Scouting/data/$file) || die "Failure edmFileInPath DataFormats/Scouting/data/$file" $?
+  argsPassedToPython="--inputFile $inputfile --outputFileName testRun3Scouting2_CMSSW_16_1_0_pre1.root --electronVersion 7 --photonVersion 6 --vertexVersion 4"
+  argsPassedToPython+=" --ebRecHitVersion 3 --eeRecHitVersion 3 --hbheRecHitVersion 4"
+  cmsRun ${LOCAL_TEST_DIR}/test_readRun3Scouting_cfg.py $argsPassedToPython || die "Failed to read old file $file" $?
+done
 
 exit 0

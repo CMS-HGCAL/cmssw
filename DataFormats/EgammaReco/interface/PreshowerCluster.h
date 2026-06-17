@@ -7,9 +7,9 @@
  */
 //
 #include "DataFormats/Math/interface/Point3D.h"
-#include "DataFormats/CaloRecHit/interface/CaloClusterFwd.h"
+#include "DataFormats/CaloRecHit/interface/CaloCluster.h"
+#include "DataFormats/CaloRecHit/interface/CaloClusterCollection.h"
 #include "DataFormats/EgammaReco/interface/PreshowerClusterFwd.h"
-
 #include <cmath>
 
 namespace reco {
@@ -19,7 +19,7 @@ namespace reco {
     typedef math::XYZPoint Point;
 
     /// default constructor
-    PreshowerCluster() : CaloCluster(0., Point(0., 0., 0.)){};
+    PreshowerCluster() : CaloCluster(0., Point(0., 0., 0.)) {}
 
     ~PreshowerCluster() override;
 

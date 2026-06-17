@@ -73,7 +73,7 @@ void CastorDigiMonitor::bookHistograms(DQMStore::IBooker &ibooker,
       "average E(digi) in BX", "Castor average E (digi);Event.BX;fC", 3601, -0.5, 3600.5, 0., 1.e10, "");
   hBX->getTProfile()->SetOption("hist");
 
-  string trname = HltPaths_[0];
+  const string &trname = HltPaths_[0];
   hpBXtrig = ibooker.bookProfile("average E(digi) in BXtrig",
                                  "Castor average E (digi) trigger:'" + trname + "';Event.BX;fC",
                                  3601,
@@ -249,6 +249,7 @@ void CastorDigiMonitor::processEvent(edm::Event const &event,
         capid1 = 0;
     }
     h2digierr->Fill(module, sector, err);
+    assert(digi.size() > 0);
     h2repsum->Fill(module, sector, 1. - err2 / digi.size());
   }  // end for(CastorDigiCollection::const_iterator ...
 

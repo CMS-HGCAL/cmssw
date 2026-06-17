@@ -10,8 +10,7 @@
 #include <string>
 #include <iostream>
 #include "DataFormats/SiPixelDetId/interface/PXFDetId.h"
-
-class DetId;
+#include "DataFormats/DetId/interface/DetIdFwd.h"
 
 class PixelEndcapNameUpgrade : public PixelModuleName {
 public:
@@ -54,6 +53,10 @@ public:
 
   /// check equality of modules from datamemebers
   bool operator==(const PixelModuleName &) const override;
+  bool operator==(const PixelEndcapNameUpgrade &other) const {
+    return (thePart == other.thePart && theDisk == other.theDisk && theBlade == other.theBlade &&
+            thePannel == other.thePannel && thePlaquette == other.thePlaquette);
+  }
 
 private:
   HalfCylinder thePart;

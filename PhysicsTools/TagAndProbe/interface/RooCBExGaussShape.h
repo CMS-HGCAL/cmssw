@@ -13,7 +13,7 @@
 
 class RooCBExGaussShape : public RooAbsPdf {
 public:
-  RooCBExGaussShape(){};
+  RooCBExGaussShape() {}
   RooCBExGaussShape(const char* name,
                     const char* title,
                     RooAbsReal& _m,
@@ -29,11 +29,11 @@ public:
   inline ~RooCBExGaussShape() override {}
   Double_t evaluate() const override;
 
-  ClassDefOverride(RooCBExGaussShape, 1)
+ClassDefOverride(RooCBExGaussShape, 1)
 
-      protected :
+    protected :
 
-      RooRealProxy m;
+    RooRealProxy m;
   RooRealProxy m0;
   RooRealProxy sigma;
   RooRealProxy alpha;

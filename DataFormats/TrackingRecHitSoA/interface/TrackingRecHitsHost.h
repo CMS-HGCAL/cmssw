@@ -5,48 +5,113 @@
 
 #include <alpaka/alpaka.hpp>
 
+#include "DataFormats/Common/interface/Uninitialized.h"
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
+#include "DataFormats/SiPixelClusterSoA/interface/SiPixelClustersHost.h"
 #include "DataFormats/TrackingRecHitSoA/interface/TrackingRecHitsSoA.h"
+#include "DataFormats/TrivialSerialisation/interface/MemoryCopyTraits.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 
-template <typename TrackerTraits>
-class TrackingRecHitHost : public PortableHostCollection<TrackingRecHitLayout<TrackerTraits>> {
-public:
-  using hitSoA = TrackingRecHitSoA<TrackerTraits>;
+// TODO: The class is created via inheritance of the PortableCollection.
+// This is generally discouraged, and should be done via composition.
+// See: https://github.com/cms-sw/cmssw/pull/40465#discussion_r1067364306
 
-  // Need to decorate the class with the inherited portable accessors being now a template
-  using PortableHostCollection<TrackingRecHitLayout<TrackerTraits>>::view;
-  using PortableHostCollection<TrackingRecHitLayout<TrackerTraits>>::const_view;
-  using PortableHostCollection<TrackingRecHitLayout<TrackerTraits>>::buffer;
+namespace reco {
 
-  TrackingRecHitHost() = default;
+  using HitPortableCollectionHost = PortableHostCollection<reco::TrackingBlocksSoA>;
 
-  // Constructor which specifies only the SoA size, to be used when copying the results from the device to the host
-  template <typename TQueue>
-  explicit TrackingRecHitHost(TQueue queue, uint32_t nHits)
-      : PortableHostCollection<TrackingRecHitLayout<TrackerTraits>>(nHits, queue) {}
+  class TrackingRecHitHost : public HitPortableCollectionHost {
+  public:
+    explicit TrackingRecHitHost(edm::Uninitialized)
+        : PortableHostCollection<reco::TrackingBlocksSoA>{edm::kUninitialized} {}
 
-  // Constructor which specifies the SoA size, number of BPIX1 hits, and the modules entry points
-  template <typename TQueue>
-  explicit TrackingRecHitHost(TQueue queue, uint32_t nHits, int32_t offsetBPIX2, uint32_t const* hitsModuleStart)
-      : PortableHostCollection<TrackingRecHitLayout<TrackerTraits>>(nHits, queue) {
-    std::copy(hitsModuleStart, hitsModuleStart + TrackerTraits::numberOfModules + 1, view().hitsModuleStart().data());
-    view().offsetBPIX2() = offsetBPIX2;
-  }
+    // Constructor which specifies only the SoA size, to be used when copying
+    // the results from the device to the host.
+    // Construct the object in pageable system memory.
+    explicit TrackingRecHitHost(alpaka_common::DevHost const& host, uint32_t nHits, uint32_t nModules)
+        : HitPortableCollectionHost(host, nHits, nModules + 1) {}
+    // Why this +1? See TrackingRecHitDevice.h constructor for an explanation
 
-  uint32_t nHits() const { return view().metadata().size(); }
+    // Constructor which specifies only the SoA size, to be used when copying
+    // the results from the device to the host.
+    // Construct the object in pinned host memory associated to the given work
+    // queue, accessible by the queue's device.
+    template <typename TQueue>
+      requires(alpaka::isQueue<TQueue>)
+    explicit TrackingRecHitHost(TQueue queue, uint32_t nHits, uint32_t nModules)
+        : HitPortableCollectionHost(queue, nHits, nModules + 1) {}
+    // Why this +1? See TrackingRecHitDevice.h constructor for an explanation
 
-  int32_t offsetBPIX2() const { return view().offsetBPIX2(); }
+    // Constructor from clusters
+    template <typename TQueue>
+      requires(alpaka::isQueue<TQueue>)
+    explicit TrackingRecHitHost(TQueue queue, SiPixelClustersHost const& clusters)
+        : HitPortableCollectionHost(queue, clusters.nClusters(), clusters.view().metadata().size()) {
+      auto hitsView = view().trackingHits();
+      auto modsView = view().hitModules();
 
-  uint32_t const* hitsModuleStart() const { return view().hitsModuleStart().data(); }
+      auto nModules = clusters.view().metadata().size();
 
-  // do nothing for a host collection
-  template <typename TQueue>
-  void updateFromDevice(TQueue) {}
-};
+      auto clusters_m = cms::alpakatools::make_host_view(clusters.view().clusModuleStart(), nModules);
+      auto hits_m = cms::alpakatools::make_host_view(modsView.moduleStart(), nModules);
 
-using TrackingRecHitHostPhase1 = TrackingRecHitHost<pixelTopology::Phase1>;
-using TrackingRecHitHostPhase2 = TrackingRecHitHost<pixelTopology::Phase2>;
-using TrackingRecHitHostHIonPhase1 = TrackingRecHitHost<pixelTopology::HIonPhase1>;
+      alpaka::memcpy(queue, hits_m, clusters_m);
+
+      hitsView.offsetBPIX2() = clusters.offsetBPIX2();
+    }
+
+    uint32_t nHits() const { return this->view().trackingHits().metadata().size(); }
+    uint32_t nModules() const { return this->view().hitModules().metadata().size() - 1; }
+
+    int32_t offsetBPIX2() const { return this->view().trackingHits().offsetBPIX2(); }
+
+    // do nothing for a host collection
+    template <typename TQueue>
+    void updateFromDevice(TQueue) {}
+  };
+
+}  // namespace reco
+
+namespace ngt {
+
+  template <>
+  struct MemoryCopyTraits<reco::TrackingRecHitHost> {
+    using value_type = reco::TrackingRecHitHost;
+
+    struct Properties {
+      uint32_t nHits;
+      uint32_t nModules;
+    };
+
+    static Properties properties(value_type const& object) { return {object.nHits(), object.nModules()}; }
+
+    static void initialize(value_type& object, Properties const& prop) {
+      // Replace the default-constructed empty object with one where the buffer
+      // has been allocated in pageable host memory.
+      object = value_type(cms::alpakatools::host(), prop.nHits, prop.nModules);
+    }
+
+    template <typename TQueue>
+      requires(alpaka::isQueue<TQueue>)
+    static void initialize(TQueue& queue, value_type& object, Properties const& prop) {
+      // Replace the default-constructed empty object with one where the buffer
+      // has been allocated in pinned host memory.
+      object = value_type(queue, prop.nHits, prop.nModules);
+    }
+
+    static std::vector<std::span<std::byte>> regions(value_type& object) {
+      std::byte* address = reinterpret_cast<std::byte*>(object.buffer().data());
+      size_t size = alpaka::getExtentProduct(object.buffer());
+      return {{address, size}};
+    }
+
+    static std::vector<std::span<const std::byte>> regions(value_type const& object) {
+      const std::byte* address = reinterpret_cast<const std::byte*>(object.buffer().data());
+      size_t size = alpaka::getExtentProduct(object.buffer());
+      return {{address, size}};
+    }
+  };
+
+}  // namespace ngt
 
 #endif  // DataFormats_TrackingRecHitSoA_interface_TrackingRecHitsHost_h

@@ -19,7 +19,7 @@
 template <class T1, class T2>
 class PixelForwardLayerBuilder {
 public:
-  PixelForwardLayerBuilder(){};
+  PixelForwardLayerBuilder() {}
   ForwardDetLayer* build(const GeometricDet* aPixelForwardLayer, const TrackerGeometry* theGeomDetGeometry)
       __attribute__((cold));
 };
@@ -27,7 +27,7 @@ public:
 template <class T1, class T2>
 ForwardDetLayer* PixelForwardLayerBuilder<T1, T2>::build(const GeometricDet* aPixelForwardLayer,
                                                          const TrackerGeometry* theGeomDetGeometry) {
-  std::vector<const GeometricDet*> theGeometricPanels = aPixelForwardLayer->components();
+  const std::vector<const GeometricDet*>& theGeometricPanels = aPixelForwardLayer->components();
   int panelsSize = theGeometricPanels.size();
 
   /*

@@ -22,7 +22,7 @@
 #include "SimDataFormats/Associations/interface/L1TrackTruthPair.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingParticle.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingParticleFwd.h"
-#include "SimTracker/TrackTriggerAssociation/interface/TTTrackAssociationMap.h"
+#include "SimDataFormats/Associations/interface/TTTrackAssociationMap.h"
 
 #include "Geometry/CaloGeometry/interface/CaloGeometry.h"
 #include "Geometry/CaloGeometry/interface/CaloSubdetectorGeometry.h"
@@ -276,7 +276,7 @@ void EgammaHLTPhase2ExtraProducer::produce(edm::StreamID streamID,
   auto l1TrkExtraColl = std::make_unique<L1TrackTruthPairCollection>();
 
   for (size_t l1TrkNr = 0; l1TrkNr < orgL1TrkRefs.size(); l1TrkNr++) {
-    auto orgTrkRef = orgL1TrkRefs[l1TrkNr];
+    const auto& orgTrkRef = orgL1TrkRefs[l1TrkNr];
     auto orgTrkPtr = edm::refToPtr(orgTrkRef);
     int flags = 0;
     if (l1TrkToTrkPartMap->isGenuine(orgTrkPtr))

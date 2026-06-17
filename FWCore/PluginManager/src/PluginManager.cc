@@ -29,6 +29,8 @@
 #include "FWCore/Utilities/interface/Exception.h"
 #include "FWCore/Utilities/interface/thread_safety_macros.h"
 
+#include "PauseMaxMemoryPreloadSentry.h"
+
 namespace edmplugin {
   //
   // constants, enums and typedefs
@@ -47,6 +49,7 @@ namespace edmplugin {
         throw cms::Exception("PluginMangerCacheProblem")
             << "Unable to open the cache file '" << cacheFile.string() << "'. Please check permissions on file";
       }
+      edm::PauseMaxMemoryPreloadSentry pauseSentry;
       CacheParser::read(file, dir, categoryToInfos);
       return true;
     }
@@ -227,7 +230,7 @@ namespace edmplugin {
   }  // namespace
 
   const SharedLibrary& PluginManager::load(const std::string& iCategory, const std::string& iPlugin) {
-    askedToLoadCategoryWithPlugin_(iCategory, iPlugin);
+    askedToLoadCategoryWithPlugin_.emit(iCategory, iPlugin);
     const std::filesystem::path& p = loadableFor(iCategory, iPlugin);
 
     //have we already loaded this?
@@ -239,7 +242,7 @@ namespace edmplugin {
       itLoaded = loadables_.find(p);
       if (itLoaded == loadables_.end()) {
         //try to make one
-        goingToLoad_(p);
+        goingToLoad_.emit(p);
         Sentry s(loadingLibraryNamed_(), p.string());
         //std::filesystem::path native(p.string());
         std::shared_ptr<SharedLibrary> ptr;
@@ -255,7 +258,7 @@ namespace edmplugin {
           }
         }
         loadables_.emplace(p, ptr);
-        justLoaded_(*ptr);
+        justLoaded_.emit(*ptr);
         return *ptr;
       }
     }
@@ -263,7 +266,7 @@ namespace edmplugin {
   }
 
   const SharedLibrary* PluginManager::tryToLoad(const std::string& iCategory, const std::string& iPlugin) {
-    askedToLoadCategoryWithPlugin_(iCategory, iPlugin);
+    askedToLoadCategoryWithPlugin_.emit(iCategory, iPlugin);
     bool ioThrowIfFailElseSucceedStatus = false;
     const std::filesystem::path& p = loadableFor_(iCategory, iPlugin, ioThrowIfFailElseSucceedStatus);
 
@@ -280,7 +283,7 @@ namespace edmplugin {
       itLoaded = loadables_.find(p);
       if (itLoaded == loadables_.end()) {
         //try to make one
-        goingToLoad_(p);
+        goingToLoad_.emit(p);
         Sentry s(loadingLibraryNamed_(), p.string());
         //std::filesystem::path native(p.string());
         std::shared_ptr<SharedLibrary> ptr;
@@ -296,7 +299,7 @@ namespace edmplugin {
           }
         }
         loadables_[p] = ptr;
-        justLoaded_(*ptr);
+        justLoaded_.emit(*ptr);
         return ptr.get();
       }
     }

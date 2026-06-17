@@ -58,18 +58,26 @@ elif tGeometry == 'T15':
     tag = 'SiPixelLorentzAngle_Phase2_T15' 
 
 elif tGeometry == 'T25':
-    geometry_cff = 'GeometryExtended2026D97_cff'
-    recoGeometry_cff = 'GeometryExtended2026D97Reco_cff'
+    geometry_cff = 'GeometryExtendedRun4D97_cff'
+    recoGeometry_cff = 'GeometryExtendedRun4D97Reco_cff'
     has3DinL1 = True
     LA_value = 0.0503
     tag = 'SiPixelLorentzAngle_Phase2_T25_v1'
 
 elif tGeometry == 'T33':
-    geometry_cff = 'GeometryExtended2026D102_cff'
-    recoGeometry_cff = 'GeometryExtended2026D102Reco_cff'
+    geometry_cff = 'GeometryExtendedRun4D102_cff'
+    recoGeometry_cff = 'GeometryExtendedRun4D102Reco_cff'
     has3DinL1 = True
     LA_value = 0.0503
     tag = 'SiPixelLorentzAngle_Phase2_T33_v1'
+
+elif tGeometry == 'T35':
+    geometry_cff = 'GeometryExtendedRun4D110_cff'
+    recoGeometry_cff = 'GeometryExtendedRun4D110Reco_cff'
+    has3DinL1 = True
+    LA_value = 0.0503
+    tag = 'SiPixelLorentzAngle_Phase2_T35_v1'
+
 else:
     print("Unknown tracker geometry")
     print("What are you doing ?!?!?!?!")
@@ -82,7 +90,6 @@ if opt.isEmpty:
 sqlite_file = 'sqlite_file:' + tag + '.db'
 geometry_cff = 'Configuration.Geometry.' + geometry_cff
 recoGeometry_cff = 'Configuration.Geometry.' + recoGeometry_cff
-
 
 process.load(recoGeometry_cff)
 process.load(geometry_cff)

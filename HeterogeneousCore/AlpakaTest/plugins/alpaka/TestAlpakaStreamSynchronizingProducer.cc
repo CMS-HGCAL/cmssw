@@ -25,7 +25,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   class TestAlpakaStreamSynchronizingProducer : public stream::SynchronizingEDProducer<> {
   public:
     TestAlpakaStreamSynchronizingProducer(edm::ParameterSet const& iConfig)
-        : esTokenDevice_(esConsumes()),
+        : SynchronizingEDProducer<>(iConfig),
+          esTokenDevice_(esConsumes()),
           putToken_{produces()},
           putTokenMulti2_{produces()},
           putTokenMulti3_{produces()},
@@ -61,8 +62,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   private:
     const device::ESGetToken<AlpakaESTestDataDDevice, AlpakaESTestRecordD> esTokenDevice_;
     const edm::EDPutTokenT<portabletest::TestHostCollection> putToken_;
-    const edm::EDPutTokenT<portabletest::TestHostMultiCollection2> putTokenMulti2_;
-    const edm::EDPutTokenT<portabletest::TestHostMultiCollection3> putTokenMulti3_;
+    const edm::EDPutTokenT<portabletest::TestHostCollection2> putTokenMulti2_;
+    const edm::EDPutTokenT<portabletest::TestHostCollection3> putTokenMulti3_;
 
     TestHelperClass helper_;
     cms::alpakatest::TestHostOnlyHelperClass const hostHelper_;

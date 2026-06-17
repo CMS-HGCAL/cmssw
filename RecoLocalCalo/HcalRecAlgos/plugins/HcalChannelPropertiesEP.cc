@@ -1,29 +1,25 @@
-#include "FWCore/Framework/interface/ESProducer.h"
-#include "FWCore/Utilities/interface/ESGetToken.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
-
-#include "CalibFormats/HcalObjects/interface/HcalDbService.h"
 #include "CalibFormats/HcalObjects/interface/HcalDbRecord.h"
-
+#include "CalibFormats/HcalObjects/interface/HcalDbService.h"
+#include "CondFormats/DataRecord/interface/HcalPFCutsRcd.h"
+#include "CondFormats/DataRecord/interface/HcalRecoParamsRcd.h"
+#include "CondFormats/HcalObjects/interface/HcalPFCuts.h"
+#include "CondFormats/HcalObjects/interface/HcalRecoParams.h"
 #include "DataFormats/HcalDetId/interface/HcalGenericDetId.h"
 #include "DataFormats/HcalDetId/interface/HcalSubdetector.h"
-
-#include "CondFormats/HcalObjects/interface/HcalRecoParams.h"
-#include "CondFormats/DataRecord/interface/HcalRecoParamsRcd.h"
-
-#include "CondFormats/HcalObjects/interface/HcalPFCuts.h"
-#include "CondFormats/DataRecord/interface/HcalPFCutsRcd.h"
-
+#include "FWCore/Framework/interface/ESProducer.h"
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/Utilities/interface/ESGetToken.h"
 #include "Geometry/CaloGeometry/interface/CaloGeometry.h"
-#include "Geometry/Records/interface/CaloGeometryRecord.h"
 #include "Geometry/CaloTopology/interface/HcalTopology.h"
 #include "Geometry/HcalTowerAlgo/interface/HcalGeometry.h"
-
-#include "RecoLocalCalo/HcalRecAlgos/interface/HcalSeverityLevelComputer.h"
-#include "RecoLocalCalo/HcalRecAlgos/interface/HcalSeverityLevelComputerRcd.h"
+#include "Geometry/Records/interface/CaloGeometryRecord.h"
 #include "RecoLocalCalo/HcalRecAlgos/interface/HcalChannelProperties.h"
 #include "RecoLocalCalo/HcalRecAlgos/interface/HcalChannelPropertiesAuxRecord.h"
 #include "RecoLocalCalo/HcalRecAlgos/interface/HcalChannelPropertiesRecord.h"
+#include "RecoLocalCalo/HcalRecAlgos/interface/HcalSeverityLevelComputer.h"
+#include "RecoLocalCalo/HcalRecAlgos/interface/HcalSeverityLevelComputerRcd.h"
 
 class HcalChannelPropertiesEP : public edm::ESProducer {
 public:
@@ -52,9 +48,14 @@ public:
 
   inline ~HcalChannelPropertiesEP() override {}
 
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+    edm::ParameterSetDescription desc;
+    descriptions.addWithDefaultLabel(desc);
+  }
+
   ReturnType1 produce1(const HcalChannelPropertiesAuxRecord& rcd) {
-    const HcalTopology& htopo = rcd.getRecord<HcalRecNumberingRecord>().get(topoToken_);
-    const HcalRecoParams& params = rcd.getRecord<HcalRecoParamsRcd>().get(paramsToken_);
+    const HcalTopology& htopo = rcd.get(topoToken_);
+    const HcalRecoParams& params = rcd.get(paramsToken_);
 
     ReturnType1 prod = std::make_unique<HcalRecoParams>(params);
     prod->setTopo(&htopo);
@@ -72,10 +73,10 @@ public:
     // Retrieve various event setup records and data products
     const HcalDbRecord& dbRecord = rcd.getRecord<HcalDbRecord>();
     const HcalDbService& cond = dbRecord.get(condToken_);
-    const HcalRecoParams& params = rcd.getRecord<HcalChannelPropertiesAuxRecord>().get(myParamsToken_);
-    const HcalSeverityLevelComputer& severity = rcd.getRecord<HcalSeverityLevelComputerRcd>().get(sevToken_);
-    const HcalChannelQuality& qual = dbRecord.getRecord<HcalChannelQualityRcd>().get(qualToken_);
-    const CaloGeometry& geom = rcd.getRecord<CaloGeometryRecord>().get(geomToken_);
+    const HcalRecoParams& params = rcd.get(myParamsToken_);
+    const HcalSeverityLevelComputer& severity = rcd.get(sevToken_);
+    const HcalChannelQuality& qual = dbRecord.get(qualToken_);
+    const CaloGeometry& geom = rcd.get(geomToken_);
 
     // HcalTopology is taken from "params" created by the "produce1" method
     const HcalTopology& htopo(*params.topo());

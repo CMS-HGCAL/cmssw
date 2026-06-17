@@ -1,4 +1,4 @@
-#include "DataFormats/Provenance/interface/BranchDescription.h"
+#include "DataFormats/Provenance/interface/ProductDescription.h"
 
 #include "FWCore/Utilities/interface/EDMException.h"
 #include "FWCore/Utilities/interface/Exception.h"
@@ -17,14 +17,10 @@ class TClass;
 
 namespace edm {
   BranchDescription::Transients::Transients()
-      : parameterSetID_(),
-        moduleName_(),
-        branchName_(),
+      : branchName_(),
         wrappedName_(),
         wrappedType_(),
         unwrappedType_(),
-        splitLevel_(),
-        basketSize_(),
         produced_(false),
         onDemand_(false),
         isTransform_(false),
@@ -52,12 +48,8 @@ namespace edm {
   BranchDescription::BranchDescription(BranchType const& branchType,
                                        std::string const& moduleLabel,
                                        std::string const& processName,
-                                       std::string const& className,
-                                       std::string const& friendlyClassName,
                                        std::string const& productInstanceName,
-                                       std::string const& moduleName,
-                                       ParameterSetID const& parameterSetID,
-                                       TypeWithDict const& theTypeWithDict,
+                                       edm::TypeID const& theType,
                                        bool produced,
                                        bool availableOnlyAtEndTransition,
                                        std::set<std::string> const& aliases)
@@ -65,18 +57,15 @@ namespace edm {
         moduleLabel_(moduleLabel),
         processName_(processName),
         branchID_(),
-        fullClassName_(className),
-        friendlyClassName_(friendlyClassName),
+        fullClassName_(theType.className()),
+        friendlyClassName_(theType.friendlyClassName()),
         productInstanceName_(productInstanceName),
         branchAliases_(aliases),
         transient_() {
     setDropped(false);
     setProduced(produced);
     setOnDemand(false);
-    transient_.moduleName_ = moduleName;
-    transient_.parameterSetID_ = parameterSetID;
     transient_.availableOnlyAtEndTransition_ = availableOnlyAtEndTransition;
-    setUnwrappedType(theTypeWithDict);
     init();
   }
 
@@ -97,9 +86,7 @@ namespace edm {
     setProduced(aliasForBranch.produced());
     setOnDemand(false);  // will be re-set externally to the aliasForBranch.onDemand() after that one has been set
     transient_.availableOnlyAtEndTransition_ = aliasForBranch.availableOnlyAtEndTransition();
-    transient_.moduleName_ = aliasForBranch.moduleName();
-    transient_.parameterSetID_ = aliasForBranch.parameterSetID();
-    setUnwrappedType(aliasForBranch.unwrappedType());
+    transient_.unwrappedType_ = aliasForBranch.unwrappedType();
     init();
   }
 
@@ -162,10 +149,8 @@ namespace edm {
     try {
       setWrappedName(wrappedClassName(fullClassName()));
       // unwrapped type.
-      setUnwrappedType(TypeWithDict::byName(fullClassName()));
+      transient_.unwrappedType_ = TypeWithDict::byName(fullClassName());
       if (!bool(unwrappedType())) {
-        setSplitLevel(invalidSplitLevel);
-        setBasketSize(invalidBasketSize);
         setTransient(false);
         return;
       }
@@ -176,10 +161,8 @@ namespace edm {
 
     edm::TypeWithDict wrType(TypeWithDict::byName(wrappedName()));
     try {
-      setWrappedType(wrType);
+      transient_.wrappedType_ = wrType;
       if (!bool(wrappedType())) {
-        setSplitLevel(invalidSplitLevel);
-        setBasketSize(invalidBasketSize);
         return;
       }
     } catch (edm::Exception& caughtException) {
@@ -188,8 +171,6 @@ namespace edm {
     }
 
     setTransient(false);
-    setSplitLevel(invalidSplitLevel);
-    setBasketSize(invalidBasketSize);
     TDictAttributeMap* wp = wrappedType().getClass()->GetAttributeMap();
     if (wp && wp->HasKey("persistent") && !strcmp(wp->GetPropertyAsString("persistent"), "false")) {
       // Set transient if persistent == "false".
@@ -207,52 +188,10 @@ namespace edm {
             << "' contains an underscore ('_'), which is illegal in a module label.\n";
       }
     }
-
-    if (wp && wp->HasKey("splitLevel")) {
-      setSplitLevel(strtol(wp->GetPropertyAsString("splitLevel"), nullptr, 0));
-      if (splitLevel() < 0) {
-        throw cms::Exception("IllegalSplitLevel") << "' An illegal ROOT split level of " << splitLevel()
-                                                  << " is specified for class " << wrappedName() << ".'\n";
-      }
-      setSplitLevel(splitLevel() + 1);  //Compensate for wrapper
-    }
-    if (wp && wp->HasKey("basketSize")) {
-      setBasketSize(strtol(wp->GetPropertyAsString("basketSize"), nullptr, 0));
-      if (basketSize() <= 0) {
-        throw cms::Exception("IllegalBasketSize") << "' An illegal ROOT basket size of " << basketSize()
-                                                  << " is specified for class " << wrappedName() << "'.\n";
-      }
-    }
   }
 
   void BranchDescription::merge(BranchDescription const& other) {
     branchAliases_.insert(other.branchAliases().begin(), other.branchAliases().end());
-    if (splitLevel() == invalidSplitLevel)
-      setSplitLevel(other.splitLevel());
-    if (basketSize() == invalidBasketSize)
-      setBasketSize(other.basketSize());
-  }
-
-  void BranchDescription::setSwitchAliasForBranch(BranchDescription const& aliasForBranch) {
-    if (branchType_ != aliasForBranch.branchType()) {
-      throw Exception(errors::LogicError) << "BranchDescription::setSwitchAliasForBranch: branchType (" << branchType_
-                                          << ") differs from aliasForBranch (" << aliasForBranch.branchType()
-                                          << ").\nPlease report this error to the FWCore developers";
-    }
-    if (produced() != aliasForBranch.produced()) {
-      throw Exception(errors::LogicError) << "BranchDescription::setSwitchAliasForBranch: produced differs from "
-                                             "aliasForBranch.\nPlease report this error to the FWCore developers";
-    }
-    if (unwrappedTypeID().typeInfo() != aliasForBranch.unwrappedType().typeInfo()) {
-      throw Exception(errors::LogicError)
-          << "BranchDescription::setSwitchAliasForBranch: unwrapped type info (" << unwrappedTypeID().name()
-          << ") differs from aliasForBranch (" << aliasForBranch.unwrappedType().typeInfo().name()
-          << ").\nPlease report this error to the FWCore developers";
-    }
-
-    branchAliases_ = aliasForBranch.branchAliases();
-    transient_.switchAliasForBranchID_ = aliasForBranch.originalBranchID();
-    transient_.availableOnlyAtEndTransition_ = aliasForBranch.availableOnlyAtEndTransition();
   }
 
   void BranchDescription::write(std::ostream& os) const {
@@ -287,9 +226,6 @@ namespace edm {
 
     if (friendlyClassName_.empty())
       throwExceptionWithText("Friendly class name is not allowed to be empty");
-
-    if (produced() && !parameterSetID().isValid())
-      throwExceptionWithText("Invalid ParameterSetID detected");
   }
 
   void BranchDescription::updateFriendlyClassName() {

@@ -13,6 +13,7 @@
 #include "DataFormats/GeometryVector/interface/GlobalPoint.h"
 #include "DataFormats/RPCDigi/interface/RPCDigiCollection.h"
 #include "DataFormats/RPCRecHit/interface/RPCRecHit.h"
+#include "DataFormats/MuonDetId/interface/RPCDetIdFwd.h"
 #include "DataFormats/Common/interface/OwnVector.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -20,7 +21,6 @@
 
 class RPCCluster;
 class RPCRoll;
-class RPCDetId;
 
 namespace edm {
   class EventSetup;
@@ -32,7 +32,7 @@ public:
   RPCRecHitBaseAlgo(const edm::ParameterSet& config);
 
   /// Destructor
-  virtual ~RPCRecHitBaseAlgo(){};
+  virtual ~RPCRecHitBaseAlgo() {}
 
   /// Pass the Event Setup to the algo at each event
   virtual void setES(const edm::EventSetup& setup) = 0;

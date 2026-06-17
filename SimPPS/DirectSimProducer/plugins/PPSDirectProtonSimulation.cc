@@ -45,8 +45,8 @@
 #include "CondFormats/PPSObjects/interface/PPSPixelTopology.h"
 #include "CondFormats/DataRecord/interface/PPSPixelTopologyRcd.h"
 
+#include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
 
 #include "CLHEP/Random/RandGauss.h"
 #include "CLHEP/Units/GlobalPhysicalConstants.h"
@@ -256,15 +256,15 @@ void PPSDirectProtonSimulation::produce(edm::Event &iEvent, const edm::EventSetu
   auto const &directSimuData = iSetup.getData(tokenDirectSimuData_);
 
   if (directSimuDataRcdWatcher_.check(iSetup)) {
-    timeResolutionDiamonds45_ =
-        std::make_unique<TF1>(TF1("timeResolutionDiamonds45", directSimuData.getTimeResolutionDiamonds45().c_str()));
-    timeResolutionDiamonds56_ =
-        std::make_unique<TF1>(TF1("timeResolutionDiamonds56", directSimuData.getTimeResolutionDiamonds56().c_str()));
+    timeResolutionDiamonds45_ = std::make_unique<TF1>(
+        "timeResolutionDiamonds45", directSimuData.getTimeResolutionDiamonds45().c_str(), 0., 1., TF1::EAddToList::kNo);
+    timeResolutionDiamonds56_ = std::make_unique<TF1>(
+        "timeResolutionDiamonds56", directSimuData.getTimeResolutionDiamonds56().c_str(), 0., 1., TF1::EAddToList::kNo);
 
-    empiricalAperture45_ =
-        std::make_unique<TF2>(TF2("empiricalAperture45", directSimuData.getEmpiricalAperture45().c_str()));
-    empiricalAperture56_ =
-        std::make_unique<TF2>(TF2("empiricalAperture56", directSimuData.getEmpiricalAperture56().c_str()));
+    empiricalAperture45_ = std::make_unique<TF2>(
+        "empiricalAperture45", directSimuData.getEmpiricalAperture45().c_str(), 0., 1., 0., 1., "NL");
+    empiricalAperture56_ = std::make_unique<TF2>(
+        "empiricalAperture56", directSimuData.getEmpiricalAperture56().c_str(), 0., 1., 0., 1., "NL");
 
     // load the efficiency maps
     if (useTrackingEfficiencyPerRP_ || useTimingEfficiencyPerRP_)

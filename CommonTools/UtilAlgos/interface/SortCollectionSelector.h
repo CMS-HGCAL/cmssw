@@ -14,6 +14,7 @@
 
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "CommonTools/UtilAlgos/interface/SelectionAdderTrait.h"
 #include "CommonTools/UtilAlgos/interface/StoreContainerTrait.h"
 #include "CommonTools/UtilAlgos/interface/ParameterAdapter.h"
@@ -48,6 +49,7 @@ public:
   const_iterator end() const { return selected_.end(); }
   void select(const edm::Handle<InputCollection> &c, const edm::Event &, const edm::EventSetup &) {
     std::vector<pair> v;
+    v.reserve(c->size());
     for (size_t idx = 0; idx < c->size(); ++idx)
       v.push_back(std::make_pair(&(*c)[idx], idx));
     std::sort(v.begin(), v.end(), compare_);
@@ -55,6 +57,8 @@ public:
     for (size_t i = 0; i < maxNumber_ && i < v.size(); ++i)
       addRef_(selected_, c, v[i].second);
   }
+
+  static void fillPSetDescription(edm::ParameterSetDescription &desc) { desc.add<unsigned int>("maxNumber", 1); }
 
 private:
   struct PairComparator {

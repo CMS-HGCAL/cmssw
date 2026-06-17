@@ -1,4 +1,4 @@
-#include "catch.hpp"
+#include "catch2/catch_all.hpp"
 #include <iostream>
 #include <numeric>  // std::accumulate
 #include "TCanvas.h"
@@ -25,5 +25,14 @@ TEST_CASE("SiStripTkMaps testing", "[SiStripTkMaps]") {
     c.SaveAs("SiStripsTkMaps.png");
     std::cout << "SiStripTkMaps filled " << filledIds.size() << " DetIds" << std::endl;
     REQUIRE(filledIds.size() == count);
+  }
+  //_____________________________________________________________
+  SECTION("Check empty SiStripTkMaps") {
+    SiStripTkMaps theMap("COLZA L");
+    theMap.bookMap("testing SiStripTkMaps", "counts");
+    TCanvas c = TCanvas("c", "c");
+    theMap.drawMap(c, "");
+    c.SaveAs("SiStripsEmptyTkMaps.png");
+    REQUIRE(true);
   }
 }

@@ -113,6 +113,7 @@ const int GlobalCondition::nrObjects() const {
     case l1t::TypeHTT:
     case l1t::TypeHTM:
     case l1t::TypeETMHF:
+    case l1t::TypeHTMHF:
     case l1t::TypeTowerCount:
     case l1t::TypeMinBiasHFP0:
     case l1t::TypeMinBiasHFM0:
@@ -121,6 +122,7 @@ const int GlobalCondition::nrObjects() const {
     case l1t::TypeZDCP:
     case l1t::TypeZDCM:
     case l1t::TypeAXOL1TL:
+    case l1t::TypeTOPO:
     case l1t::TypeAsymEt:
     case l1t::TypeAsymHt:
     case l1t::TypeAsymEtHF:
@@ -210,6 +212,12 @@ void GlobalCondition::print(std::ostream& myCout) const {
     case l1t::CondAXOL1TL: {
       myCout << "  Condition category: "
              << "CondAXOL1TL" << std::endl;
+    }
+
+    break;
+    case l1t::CondTOPO: {
+      myCout << "  Condition category: "
+             << "CondTOPO" << std::endl;
     }
 
     break;
@@ -321,6 +329,12 @@ void GlobalCondition::print(std::ostream& myCout) const {
     case l1t::TypeETMHF: {
       myCout << "  Condition type:     "
              << "TypeETMHF" << std::endl;
+    }
+
+    break;
+    case l1t::TypeHTMHF: {
+      myCout << "  Condition type:     "
+             << "TypeHTMHF" << std::endl;
     }
 
     break;
@@ -498,6 +512,11 @@ void GlobalCondition::print(std::ostream& myCout) const {
 
       case l1t::gtETMHF: {
         myCout << " ETMHF ";
+      }
+
+      break;
+      case l1t::gtHTMHF: {
+        myCout << " HTMHF ";
       }
 
       break;

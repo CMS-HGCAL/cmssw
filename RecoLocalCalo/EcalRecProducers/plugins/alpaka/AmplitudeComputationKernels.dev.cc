@@ -55,8 +55,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ecal::multifit {
   ///
   class Kernel_minimize {
   public:
-    template <typename TAcc, typename = std::enable_if_t<alpaka::isAccelerator<TAcc>>>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc,
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   InputProduct::ConstView const& digisDevEB,
                                   InputProduct::ConstView const& digisDevEE,
                                   OutputProduct::View uncalibRecHitsEB,
@@ -85,7 +84,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ecal::multifit {
       auto const nchannels = nchannelsEB + digisDevEE.size();
       auto const offsetForHashes = conditionsDev.offsetEE();
 
-      auto const* pulse_covariance = reinterpret_cast<const EcalPulseCovariance*>(conditionsDev.pulseCovariance());
+      auto const* pulse_covariance =
+          reinterpret_cast<const EcalPulseCovariance*>(conditionsDev.pulseCovariance().data());
 
       // shared memory
       DataType* shrmem = alpaka::getDynSharedMem<DataType>(acc);
@@ -102,15 +102,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ecal::multifit {
         DataType* shrAtAStorage =
             shrmem + calo::multifit::MapSymM<DataType, NPULSES>::total * (elemIdx + elemsPerBlock);
 
+        // uncalibRecHitsEE.outOfTimeAmplitudes() returns a span<EcalOotAmpArray>, where EcalOotAmpArray is an array of float
+        // uncalibRecHitsEE.outOfTimeAmplitudes().data() returns a pointer to the first EcalOotAmpArray of the data column
+        // uncalibRecHitsEE.outOfTimeAmplitudes().data()->data() returns a pointer to the first float of the first EcalOotAmpArray of the data column
         auto* amplitudes =
-            reinterpret_cast<SampleVector*>(idx >= nchannelsEB ? uncalibRecHitsEE.outOfTimeAmplitudes()->data()
-                                                               : uncalibRecHitsEB.outOfTimeAmplitudes()->data());
-        auto* energies = idx >= nchannelsEB ? uncalibRecHitsEE.amplitude() : uncalibRecHitsEB.amplitude();
-        auto* chi2s = idx >= nchannelsEB ? uncalibRecHitsEE.chi2() : uncalibRecHitsEB.chi2();
+            reinterpret_cast<SampleVector*>(idx >= nchannelsEB ? uncalibRecHitsEE.outOfTimeAmplitudes().data()->data()
+                                                               : uncalibRecHitsEB.outOfTimeAmplitudes().data()->data());
+        auto energies = idx >= nchannelsEB ? uncalibRecHitsEE.amplitude() : uncalibRecHitsEB.amplitude();
+        auto chi2s = idx >= nchannelsEB ? uncalibRecHitsEE.chi2() : uncalibRecHitsEB.chi2();
 
         // get the hash
         int const inputCh = idx >= nchannelsEB ? idx - nchannelsEB : idx;
-        auto const* dids = idx >= nchannelsEB ? digisDevEE.id() : digisDevEB.id();
+        auto const dids = idx >= nchannelsEB ? digisDevEE.id() : digisDevEB.id();
         auto const did = DetId{dids[inputCh]};
         auto const isBarrel = did.subdetId() == EcalBarrel;
         auto const hashedId = isBarrel ? ecal::reconstruction::hashedIndexEB(did.rawId())
@@ -293,23 +296,25 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::ecal::multifit {
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::ecal::multifit
 
 namespace alpaka::trait {
+  using namespace ALPAKA_ACCELERATOR_NAMESPACE;
   using namespace ALPAKA_ACCELERATOR_NAMESPACE::ecal::multifit;
 
   //! The trait for getting the size of the block shared dynamic memory for Kernel_minimize.
-  template <typename TAcc>
-  struct BlockSharedMemDynSizeBytes<Kernel_minimize, TAcc> {
+  template <>
+  struct BlockSharedMemDynSizeBytes<Kernel_minimize, Acc1D> {
     //! \return The size of the shared memory allocated for a block.
     template <typename TVec, typename... TArgs>
     ALPAKA_FN_HOST_ACC static auto getBlockSharedMemDynSizeBytes(Kernel_minimize const&,
                                                                  TVec const& threadsPerBlock,
                                                                  TVec const& elemsPerThread,
                                                                  TArgs const&...) -> std::size_t {
-      using ScalarType = ecal::multifit::SampleVector::Scalar;
+      using ScalarType = ::ecal::multifit::SampleVector::Scalar;
 
       // return the amount of dynamic shared memory needed
-      std::size_t bytes = 2 * threadsPerBlock[0u] * elemsPerThread[0u] *
-                          calo::multifit::MapSymM<ScalarType, ecal::multifit::SampleVector::RowsAtCompileTime>::total *
-                          sizeof(ScalarType);
+      std::size_t bytes =
+          2 * threadsPerBlock[0u] * elemsPerThread[0u] *
+          calo::multifit::MapSymM<ScalarType, ::ecal::multifit::SampleVector::RowsAtCompileTime>::total *
+          sizeof(ScalarType);
       return bytes;
     }
   };

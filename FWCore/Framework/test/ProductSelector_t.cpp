@@ -1,4 +1,4 @@
-#include "catch.hpp"
+#include "catch2/catch_all.hpp"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -8,13 +8,16 @@
 #include "FWCore/Framework/interface/ProductSelectorRules.h"
 #include "FWCore/Framework/interface/ProductSelector.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "DataFormats/Provenance/interface/BranchDescription.h"
+#include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "DataFormats/Provenance/interface/ModuleDescription.h"
 #include "DataFormats/Provenance/interface/ProcessConfiguration.h"
 #include "FWCore/Utilities/interface/EDMException.h"
 #include "FWCore/Reflection/interface/TypeWithDict.h"
 
-typedef std::vector<edm::BranchDescription const*> VCBDP;
+struct ProdTypeA {};
+struct ProdTypeB {};
+
+typedef std::vector<edm::ProductDescription const*> VCBDP;
 
 void apply_gs(edm::ProductSelector const& gs, VCBDP const& allbranches, std::vector<bool>& results) {
   VCBDP::const_iterator it = allbranches.begin();
@@ -43,10 +46,7 @@ TEST_CASE("test ProductSelector", "[ProductSelector]") {
   auto processConfiguration = std::make_shared<edm::ProcessConfiguration>();
   processConfiguration->setParameterSetID(dummyProcessPset.id());
 
-  edm::ParameterSet pset;
-  pset.registerIt();
-
-  edm::TypeWithDict dummyTypeWithDict;
+  edm::TypeID dummyTypeID(typeid(ProdTypeA));
   // We pretend to have one module, with two products. The products
   // are of the same and, type differ in instance name.
   std::set<edm::ParameterSetID> psetsA;
@@ -56,10 +56,8 @@ TEST_CASE("test ProductSelector", "[ProductSelector]") {
   modAparams.registerIt();
   psetsA.insert(modAparams.id());
 
-  edm::BranchDescription b1(
-      edm::InEvent, "modA", "PROD", "UglyProdTypeA", "ProdTypeA", "i1", "", pset.id(), dummyTypeWithDict);
-  edm::BranchDescription b2(
-      edm::InEvent, "modA", "PROD", "UglyProdTypeA", "ProdTypeA", "i2", "", pset.id(), dummyTypeWithDict);
+  edm::ProductDescription b1(edm::InEvent, "modA", "PROD", "i1", dummyTypeID);
+  edm::ProductDescription b2(edm::InEvent, "modA", "PROD", "i2", dummyTypeID);
 
   // Our second pretend module has only one product, and gives it no
   // instance name.
@@ -69,16 +67,13 @@ TEST_CASE("test ProductSelector", "[ProductSelector]") {
   modBparams.registerIt();
   psetsB.insert(modBparams.id());
 
-  edm::BranchDescription b3(
-      edm::InEvent, "modB", "HLT", "UglyProdTypeB", "ProdTypeB", "", "", pset.id(), dummyTypeWithDict);
+  edm::ProductDescription b3(edm::InEvent, "modB", "HLT", "", edm::TypeID(typeid(ProdTypeB)));
 
   // Our third pretend is like modA, except it hass processName_ of
   // "USER"
 
-  edm::BranchDescription b4(
-      edm::InEvent, "modA", "USER", "UglyProdTypeA", "ProdTypeA", "i1", "", pset.id(), dummyTypeWithDict);
-  edm::BranchDescription b5(
-      edm::InEvent, "modA", "USER", "UglyProdTypeA", "ProdTypeA", "i2", "", pset.id(), dummyTypeWithDict);
+  edm::ProductDescription b4(edm::InEvent, "modA", "USER", "i1", dummyTypeID);
+  edm::ProductDescription b5(edm::InEvent, "modA", "USER", "i2", dummyTypeID);
 
   // These are pointers to all the branches that are available. In a
   // framework program, these would come from the ProductRegistry
@@ -248,9 +243,9 @@ TEST_CASE("test ProductSelector", "[ProductSelector]") {
     cmds.push_back(bad_rule);
     bad.addUntrackedParameter<std::vector<std::string> >("outputCommands", cmds);
     bad.registerIt();
-    REQUIRE_THROWS_MATCHES(
-        edm::ProductSelectorRules(bad, "outputCommands", "ProductSelectorTest"),
-        edm::Exception,
-        Catch::Predicate<edm::Exception>([](auto const& x) { return x.categoryCode() == edm::errors::Configuration; }));
+    REQUIRE_THROWS_MATCHES(edm::ProductSelectorRules(bad, "outputCommands", "ProductSelectorTest"),
+                           edm::Exception,
+                           Catch::Matchers::Predicate<edm::Exception>(
+                               [](auto const& x) { return x.categoryCode() == edm::errors::Configuration; }));
   }
 }

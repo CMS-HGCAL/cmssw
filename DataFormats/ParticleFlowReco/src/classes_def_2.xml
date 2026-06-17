@@ -20,6 +20,7 @@
     <version ClassVersion="3" checksum="1942695459"/>
   </class>
   <class name="std::vector<reco::HGCalMultiCluster>"/>
+  <class name="edm::RefProd<vector<reco::HGCalMultiCluster> >" />
   <class name="edm::Wrapper<std::vector<reco::HGCalMultiCluster> >"/>  
 
   <class name="std::pair<edm::Ptr<reco::CaloCluster>::key_type,edm::Ptr<reco::PFCluster> >"/>
@@ -149,7 +150,7 @@
   </class>
   <class name="std::map<reco::PFBlockElement::Type,reco::PFMultiLinksTC>" />
   <class name="std::vector<reco::PFBlockElement *>" />
-  <class name="edm::OwnVector<reco::PFBlockElement, edm::ClonePolicy<reco::PFBlockElement> >"/>
+  <class name="edm::OwnVector<reco::PFBlockElement, edm::ClonePolicy<reco::PFBlockElement> >" rntupleStreamerMode="true"/>
   <class name="edm::Wrapper<edm::OwnVector<reco::PFBlockElement, edm::ClonePolicy<reco::PFBlockElement> > >" />
 
   <class name="reco::PFBlockElementTrack" ClassVersion="16">
@@ -212,6 +213,7 @@
 
   <class name="std::vector<reco::PFBlock>"/>
   <class name="edm::Wrapper<std::vector<reco::PFBlock> >"/>
+  <class name="edm::refhelper::FindUsingAdvance<std::vector<reco::PFBlock>,reco::PFBlock>"/>
   <class name="edm::Ref< std::vector<reco::PFBlock>, reco::PFBlock, edm::refhelper::FindUsingAdvance<std::vector<reco::PFBlock>,reco::PFBlock> >"/>
   <class name="edm::Ref<std::vector<reco::PFRecTrack>,reco::PFRecTrack,edm::refhelper::FindUsingAdvance<std::vector<reco::PFRecTrack>,reco::PFRecTrack> >"/>
   <class name="edm::RefVector<std::vector<reco::PFRecTrack>,reco::PFRecTrack,edm::refhelper::FindUsingAdvance<std::vector<reco::PFRecTrack>,reco::PFRecTrack> >"/>

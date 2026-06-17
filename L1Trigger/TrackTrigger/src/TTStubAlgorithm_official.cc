@@ -123,7 +123,7 @@ void TTStubAlgorithm_official<Ref_Phase2TrackerDigi_>::PatternHitCorrelation(
     aDisplacement = dispI;                                                     /// In HALF-STRIP units!
     anOffset = offsetI;                                                        /// In HALF-STRIP units!
     anHardBend = this->degradeBend(isPS, window, (aDisplacement - anOffset));  // In strips units
-  }                                                                            /// End of stub is accepted
+  }  /// End of stub is accepted
 }
 
 //--- Does the actual work of degrading the bend. (based on I.Tomalin's code)
@@ -169,6 +169,7 @@ float TTStubAlgorithm_official<Ref_Phase2TrackerDigi_>::degradeBend(bool psModul
     // Then you alternate large-small-large-small....large. In the middle, you
     // put either large or small, depending if group size is odd or not
 
+    groups.reserve(numLargeGroups / 2);
     for (unsigned int i = 0; i < numLargeGroups / 2; i++)
       groups.push_back(inLargeGroup);
     for (unsigned int i = 0; i < numSmallGroups / 2; i++)

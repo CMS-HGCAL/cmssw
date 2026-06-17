@@ -89,6 +89,35 @@ namespace l1ScoutingRun3 {
     };
   }  // namespace demux
 
+  namespace bmtf {
+    struct masksStubs {
+      static constexpr uint64_t valid = 0x0001;
+      static constexpr uint64_t phi = 0x0fff;
+      static constexpr uint64_t phiB = 0x03ff;
+      static constexpr uint64_t qual = 0x0007;
+      static constexpr uint64_t eta = 0x007f;
+      static constexpr uint64_t qeta = 0x007f;
+      static constexpr uint64_t station = 0x0003;
+      static constexpr uint64_t wheel = 0x0007;
+      static constexpr uint64_t reserved = 0x0007;
+      static constexpr uint64_t bx = 0xffff;
+    };
+  }  // namespace bmtf
+
+  namespace calol1 {
+    struct masksCaloTowers {
+      static constexpr uint32_t ET = 0x01ff;
+      static constexpr uint32_t erBits = 0x0007;
+      static constexpr uint32_t miscBits = 0x000f;
+      static constexpr uint32_t zeroFlag = 0x0001;
+      static constexpr uint32_t eohrFlag = 0x0001;
+      static constexpr uint32_t hcalFlag = 0x0001;
+      static constexpr uint32_t ecalFlag = 0x0001;
+      static constexpr uint32_t phi = 0x00ff;
+      static constexpr uint32_t eta = 0x00ff;
+    };
+  }  // namespace calol1
+
   struct header_masks {
     static constexpr uint32_t bxmatch = 0x00ff << header_shifts::bxmatch;
     static constexpr uint32_t mAcount = 0x000f << header_shifts::mAcount;

@@ -34,7 +34,6 @@ Monitoring source for general quantities related to tracks.
 #include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
 #include "TrackingTools/Records/interface/TransientTrackRecord.h"
 
-class BeamSpot;
 namespace tadqm {
   class TrackAnalyzer {
   public:
@@ -474,7 +473,7 @@ namespace tadqm {
       int det;
       int subdet;
       int monitoring;
-      explicit Key(int det, int subdet, int monitoring) : det(det), subdet(subdet), monitoring(monitoring){};
+      explicit Key(int det, int subdet, int monitoring) : det(det), subdet(subdet), monitoring(monitoring) {}
       bool operator==(const Key& other) const {
         return (det == other.det && subdet == other.subdet && monitoring == other.monitoring);
       }

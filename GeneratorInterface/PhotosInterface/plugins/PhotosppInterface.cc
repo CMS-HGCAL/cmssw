@@ -16,6 +16,7 @@ using namespace std;
 
 #include "Photos/Photos.h"
 #include "Photos/PhotosHepMCEvent.h"
+#include "Photos/PhotosHepMC3Event.h"
 
 CLHEP::HepRandomEngine* PhotosppInterface::fRandomEngine = nullptr;
 
@@ -26,7 +27,7 @@ PhotosppInterface::PhotosppInterface(const edm::ParameterSet& pset)
   fPSet = new ParameterSet(pset);
   std::vector<std::string> par = fPSet->getParameter<std::vector<std::string> >("parameterSets");
   for (unsigned int ip = 0; ip < par.size(); ++ip) {
-    std::string curSet = par[ip];
+    const std::string& curSet = par[ip];
     // Physics settings
     if (curSet == "UseHadronizerQEDBrem")
       UseHadronizerQEDBrem = true;
@@ -52,7 +53,7 @@ void PhotosppInterface::init() {
   Photospp::Photos::createHistoryEntries(true, 746);  // P-H-O
   std::vector<std::string> par = fPSet->getParameter<std::vector<std::string> >("parameterSets");
   for (unsigned int ip = 0; ip < par.size(); ++ip) {
-    std::string curSet = par[ip];
+    const std::string& curSet = par[ip];
 
     // Physics settings
     if (curSet == "maxWtInterference")
@@ -106,7 +107,7 @@ void PhotosppInterface::init() {
       edm::ParameterSet cfg = fPSet->getParameter<edm::ParameterSet>(curSet);
       std::vector<std::string> v = cfg.getParameter<std::vector<std::string> >("parameterSets");
       for (unsigned int i = 0; i < v.size(); i++) {
-        std::string vs = v[i];
+        const std::string& vs = v[i];
         std::vector<int> vpar = cfg.getParameter<std::vector<int> >(vs);
         if (vpar.size() == 1)
           Photospp::Photos::suppressBremForBranch(0, vpar[0]);
@@ -137,7 +138,7 @@ void PhotosppInterface::init() {
       edm::ParameterSet cfg = fPSet->getParameter<edm::ParameterSet>(curSet);
       std::vector<std::string> v = cfg.getParameter<std::vector<std::string> >("parameterSets");
       for (unsigned int i = 0; i < v.size(); i++) {
-        std::string vs = v[i];
+        const std::string& vs = v[i];
         std::vector<int> vpar = cfg.getParameter<std::vector<int> >(vs);
         if (vpar.size() == 1)
           Photospp::Photos::suppressBremForDecay(0, vpar[0]);
@@ -169,7 +170,7 @@ void PhotosppInterface::init() {
       edm::ParameterSet cfg = fPSet->getParameter<edm::ParameterSet>(curSet);
       std::vector<std::string> v = cfg.getParameter<std::vector<std::string> >("parameterSets");
       for (unsigned int i = 0; i < v.size(); i++) {
-        std::string vs = v[i];
+        const std::string& vs = v[i];
         std::vector<int> vpar = cfg.getParameter<std::vector<int> >(vs);
         if (vpar.size() == 1)
           Photospp::Photos::forceBremForBranch(0, vpar[0]);
@@ -199,7 +200,7 @@ void PhotosppInterface::init() {
       edm::ParameterSet cfg = fPSet->getParameter<edm::ParameterSet>(curSet);
       std::vector<std::string> v = cfg.getParameter<std::vector<std::string> >("parameterSets");
       for (unsigned int i = 0; i < v.size(); i++) {
-        std::string vs = v[i];
+        const std::string& vs = v[i];
         std::vector<int> vpar = cfg.getParameter<std::vector<int> >(vs);
         if (vpar.size() == 1)
           Photospp::Photos::forceBremForDecay(0, vpar[0]);
@@ -230,7 +231,7 @@ void PhotosppInterface::init() {
       edm::ParameterSet cfg = fPSet->getParameter<edm::ParameterSet>(curSet);
       std::vector<std::string> v = cfg.getParameter<std::vector<std::string> >("parameterSets");
       for (unsigned int i = 0; i < v.size(); i++) {
-        std::string vs = v[i];
+        const std::string& vs = v[i];
         std::vector<double> vpar = cfg.getParameter<std::vector<double> >(vs);
         if (vpar.size() == 2)
           Photospp::Photos::forceMass((int)vpar[0], vpar[1]);
@@ -282,6 +283,15 @@ HepMC::GenEvent* PhotosppInterface::apply(HepMC::GenEvent* evt) {
       }
     }
   }
+  return evt;
+}
+
+HepMC3::GenEvent* PhotosppInterface::apply(HepMC3::GenEvent* evt) {
+  Photospp::Photos::setRandomGenerator(PhotosppInterface::flat);
+  if (!fIsInitialized)
+    return evt;
+  Photospp::PhotosHepMC3Event PhotosEvt(evt);
+  PhotosEvt.process();
   return evt;
 }
 

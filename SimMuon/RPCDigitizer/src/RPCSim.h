@@ -16,12 +16,12 @@
 
 #include "DataFormats/Common/interface/DetSet.h"
 #include "SimDataFormats/TrackerDigiSimLink/interface/StripDigiSimLink.h"
+#include "SimDataFormats/TrackingHit/interface/PSimHitFwd.h"
 #include "SimDataFormats/RPCDigiSimLink/interface/RPCDigiSimLink.h"
 
 class RPCRoll;
 class RPCGeometry;
 class RPCSimSetUp;
-class PSimHit;
 
 namespace CLHEP {
   class HepRandomEngine;
@@ -32,7 +32,7 @@ public:
   typedef edm::DetSet<StripDigiSimLink> DigiSimLinks;
   typedef edm::DetSet<RPCDigiSimLink> RPCDigiSimLinks;
 
-  virtual ~RPCSim(){};
+  virtual ~RPCSim() {}
 
   virtual void simulate(const RPCRoll* roll, const edm::PSimHitContainer& rpcHits, CLHEP::HepRandomEngine*) = 0;
 

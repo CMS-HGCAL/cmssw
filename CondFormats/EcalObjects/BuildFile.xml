@@ -5,13 +5,11 @@
 <use name="DataFormats/Math"/>
 <use name="DataFormats/Portable"/>
 <use name="DataFormats/SoATemplate"/>
-<use name="HeterogeneousCore/CUDACore"/>
-<use name="HeterogeneousCore/CUDAUtilities"/>
 <use name="boost"/>
 <use name="boost_serialization"/>
 <use name="rootmath"/>
 <use name="clhep"/>
-<use name="cuda"/>
+<use name="eigen"/>
 <use name="HeterogeneousCore/AlpakaInterface"/>
 <flags ALPAKA_BACKENDS="!serial"/>
 <export>

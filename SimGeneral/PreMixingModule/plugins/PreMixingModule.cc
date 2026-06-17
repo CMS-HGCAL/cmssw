@@ -7,6 +7,7 @@
  ************************************************************/
 #include "Mixing/Base/interface/BMixingModule.h"
 
+#include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventPrincipal.h"
@@ -15,12 +16,11 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/EDMException.h"
 #include "FWCore/Utilities/interface/transform.h"
-#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
 #include "FWCore/ServiceRegistry/interface/InternalContext.h"
 #include "FWCore/ServiceRegistry/interface/ModuleCallingContext.h"
 #include "FWCore/ServiceRegistry/interface/ParentContext.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-
+#include "FWCore/Sources/interface/SciTagCategoryForEmbeddedSources.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "SimDataFormats/CrossingFrame/interface/CrossingFramePlaybackInfoNew.h"
 #include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
@@ -42,7 +42,7 @@ namespace edm {
 
     ~PreMixingModule() override = default;
 
-    void checkSignal(const edm::Event& e) override{};
+    void checkSignal(const edm::Event& e) override {}
     void createnewEDProduct() override {}
     void addSignals(const edm::Event& e, const edm::EventSetup& ES) override;
     void doPileUp(edm::Event& e, const edm::EventSetup& ES) override;
@@ -103,7 +103,7 @@ namespace edm {
   };
 
   PreMixingModule::PreMixingModule(const edm::ParameterSet& ps, MixingCache::Config const* globalConf)
-      : BMixingModule(ps, globalConf),
+      : BMixingModule(ps, globalConf, SciTagCategoryForEmbeddedSources::PreMixedPileup),
         puWorker_(ps.getParameter<edm::ParameterSet>("workers").getParameter<edm::ParameterSet>("pileup"),
                   producesCollector(),
                   consumesCollector()),

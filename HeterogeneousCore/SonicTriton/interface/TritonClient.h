@@ -3,6 +3,7 @@
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/ServiceRegistry/interface/ServiceToken.h"
 #include "HeterogeneousCore/SonicCore/interface/SonicClient.h"
 #include "HeterogeneousCore/SonicTriton/interface/TritonData.h"
 #include "HeterogeneousCore/SonicTriton/interface/TritonService.h"
@@ -49,6 +50,8 @@ public:
   void reset() override;
   TritonServerType serverType() const { return serverType_; }
   bool isLocal() const { return isLocal_; }
+  const TritonService* service() const;
+  const TritonService* localService() const;
 
   //for fillDescriptions
   static void fillPSetDescription(edm::ParameterSetDescription& iDesc);
@@ -86,6 +89,7 @@ protected:
   std::unique_ptr<triton::client::InferenceServerGrpcClient> client_;
   //stores timeout, model name and version
   std::vector<triton::client::InferOptions> options_;
+  edm::ServiceToken token_;
 
 private:
   friend TritonInputData;

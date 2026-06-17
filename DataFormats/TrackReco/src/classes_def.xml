@@ -29,16 +29,16 @@
   </class>
  <ioread
     sourceClass="reco::HitPattern"
-      source="uint16_t hitPattern[50]; uint8_t hitCount; uint8_t beginTrackHits; uint8_t endTrackHits;uint8_t beginInner; uint8_t endInner; uint8_t beginOuter; uint8_t endOuter;"
+      source="uint8_t hitCount; uint8_t beginTrackHits; uint8_t endTrackHits;uint8_t beginInner; uint8_t endInner; uint8_t beginOuter; uint8_t endOuter; uint16_t hitPattern[50];"
       targetClass="reco::HitPattern"
-      target=""
+      target="hitPattern,hitCount,beginTrackHits,endTrackHits,beginInner,endInner,beginOuter,endOuter"
       version="[12]"
       >
    <![CDATA[
-            (void) reco::HitPattern::fillNewHitPatternWithOldHitPattern_v12(onfile.hitPattern, *onfile.hitCount,
-                    *onfile.beginTrackHits, *onfile.endTrackHits,
-                    *onfile.beginInner,  *onfile.endInner,
-                    *onfile.beginOuter, *onfile.endOuter,
+            (void) reco::HitPattern::fillNewHitPatternWithOldHitPattern_v12(onfile.hitPattern, onfile.hitCount,
+                    onfile.beginTrackHits, onfile.endTrackHits,
+                    onfile.beginInner,  onfile.endInner,
+                    onfile.beginOuter, onfile.endOuter,
                     newObj);
       ]]>
  </ioread>
@@ -363,6 +363,10 @@
   <class name="edm::Association<reco::TrackCollection>"/>
   <class name="edm::Wrapper<edm::Association<reco::TrackCollection> >"/>
 
+  <class name="edm::AtomicPtrCache<reco::TrackRefVector>">
+     <field name="m_data" transient="true"/>
+  </class>
+
   <!-- <class pattern="edm::Wrapper<edm::AssociationMap<*>" /> -->
   <class name="edm::Wrapper<edm::AssociationMap<edm::OneToMany<vector<reco::Track>,vector<TrajectorySeed>,unsigned int> > >" />
   <class name="edm::Wrapper<edm::AssociationMap<edm::OneToOne<vector<reco::Track>,vector<reco::Track>,unsigned int> > >" />
@@ -393,16 +397,19 @@
  
   <class name="edm::helpers::KeyVal<edm::RefProd<std::vector<reco::Track> >,edm::RefProd<std::vector<reco::Track> > >" />
 
+  <class name="edm::OneToOne<std::vector<reco::Track>,std::vector<reco::Track>,unsigned int>"/>
   <class name="edm::AssociationMap<edm::OneToOne<std::vector<reco::Track>,std::vector<reco::Track>,unsigned int> >">
     <field name="transientMap_" transient="true" />
   </class>
 
 
-      <class name="reco::DeDxHit"  ClassVersion="12">
+      <class name="reco::DeDxHit"  ClassVersion="13">
        <version ClassVersion="11" checksum="2617380234"/>
        <version ClassVersion="12" checksum="3747851168"/>       
+       <version ClassVersion="13" checksum="781849298"/>
       </class>
       <class name="reco::DeDxHitCollection" />
+      <class name="std::vector<reco::DeDxHitCollection>" />
 
   <!-- <class pattern="edm::AssociationVector<*>">
     <field name="transientVector_" transient="true"/>
@@ -422,8 +429,10 @@
   <class name="edm::AssociationVector<edm::RefProd<std::vector<reco::Track> >,std::vector<std::vector<reco::DeDxHit> >,edm::Ref<std::vector<reco::Track>,reco::Track,edm::refhelper::FindUsingAdvance<std::vector<reco::Track>,reco::Track> >,unsigned int,edm::helper::AssociationIdenticalKeyReference>" >
     <field name="transientVector_" transient="true"/>
   </class>
+  <class name="std::pair<edm::Ref<std::vector<reco::Track>,reco::Track,edm::refhelper::FindUsingAdvance<std::vector<reco::Track>,reco::Track> >,std::vector<reco::DeDxHit> >" />
      <!--   <class name="reco::DeDxDataCollection"/> -->
-     <class name="reco::DeDxData" ClassVersion="10">
+     <class name="reco::DeDxData" ClassVersion="11">
+      <version ClassVersion="11" checksum="30657010"/>
       <version ClassVersion="10" checksum="204721063"/>
      </class>
      <class name="reco::DeDxDataCollection"/>
@@ -436,7 +445,7 @@
 
 
      <!-- RefToBase<reco::Track> -->
-     <class name="edm::RefToBase<reco::Track>"/>
+     <class name="edm::RefToBase<reco::Track>" rntupleStreamerMode="true"/>
      <class name="edm::reftobase::IndirectHolder<reco::Track>"/>
      <class name="edm::reftobase::BaseHolder<reco::Track>"/>
      <class name="edm::reftobase::RefHolder<reco::TrackRef>"/>
@@ -490,8 +499,9 @@
     <class name="edm::Association<std::vector<reco::TrackExtra>>"/>
     <class name="edm::Wrapper<edm::Association<std::vector<reco::TrackExtra>>>"/>
 
-   <class name="reco::DeDxHitInfo::DeDxHitInfoContainer" ClassVersion="2">
+   <class name="reco::DeDxHitInfo::DeDxHitInfoContainer" ClassVersion="3">
     <version ClassVersion="2" checksum="3964047764"/>
+    <version ClassVersion="3" checksum="4148946944"/>
    </class>
    <class name="reco::DeDxHitInfo::DeDxHitInfoContainerCollection"/>
 

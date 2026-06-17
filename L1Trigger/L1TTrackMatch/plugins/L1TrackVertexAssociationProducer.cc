@@ -204,7 +204,7 @@ private:
       inputAssoc.tensor<float, 2>()(0, 3) = dZEmulation_rescale.to_double();
 
       // Run Association Network:
-      tensorflow::run(AssociationSesh_, {{"assoc:0", inputAssoc}}, {"Identity:0"}, &outputAssoc);
+      tensorflow::run(AssociationSesh_, {{"NNvtx_track_association:0", inputAssoc}}, {"Identity:0"}, &outputAssoc);
 
       double NNOutput = (double)outputAssoc[0].tensor<float, 2>()(0, 0);
 
@@ -458,7 +458,7 @@ void L1TrackVertexAssociationProducer::printTrackInfo(edm::LogInfo& log,
                                                       const TTTrackType& track,
                                                       bool printEmulation) const {
   log << "\t(" << track.momentum().perp() << ", " << track.momentum().eta() << ", " << track.momentum().phi() << ", "
-      << track.getStubRefs().size() << ", " << track.stubPtConsistency() << ", " << track.chi2ZRed() << ", "
+      << track.getStubRefs().size() << ", " << track.chi2BendRed() << ", " << track.chi2ZRed() << ", "
       << track.chi2XYRed() << ", " << track.z0() << ")\n";
 
   if (printEmulation) {
@@ -559,9 +559,9 @@ void L1TrackVertexAssociationProducer::produce(edm::StreamID, edm::Event& iEvent
         if (passLinkLimitEmu && passSelectionEmu && deltaZSelEmu(track, l1VerticesEmulationHandle->at(0))) {
           vTTTrackAssociatedEmulationOutput->push_back(TTTrackRef(l1TracksHandle, i));
         }  //end block for satisfying LinkLimitEmu and SelectionEmu criteria
-      }    //end if use track association NN
-    }      //end if (processEmulatedTracks_)
-  }        //end loop over input converted tracks
+      }  //end if use track association NN
+    }  //end if (processEmulatedTracks_)
+  }  //end loop over input converted tracks
 
   if (processSimulatedTracks_ && processEmulatedTracks_ && debug_ >= 2) {
     printDebugInfo(l1SelectedTracksHandle,

@@ -1,23 +1,30 @@
-import ROOT
+import ROOT as R
 
-def drawHisto(histo,title,ymin,ymax,option="HISTOP",draw=True):
+def drawHisto(histo,yaxis_title,ymin,ymax,option="HISTOP",draw=True):
+    R.gStyle.SetPadRightMargin(0.02)
+    R.gStyle.SetPadLeftMargin(0.07)
+    
     histo.SetStats(0)
     histo.SetLineWidth(3)
     histo.SetMarkerStyle(20)
     histo.SetMarkerSize(0.9)
     histo.GetYaxis().SetRangeUser(ymin,ymax)
-    histo.GetYaxis().SetTitle(title)
+    histo.GetYaxis().SetTitleOffset(1.)
+    histo.GetYaxis().SetDecimals(1)
+    histo.GetYaxis().SetMaxDigits(4)
+    histo.GetYaxis().SetTitle(yaxis_title)
     histo.GetXaxis().SetLabelSize(0.04)
     histo.GetXaxis().SetTickLength(0.)
     histo.LabelsOption("d","X")
- 
+    
     fillColor = 0
     canvas = None 
     if draw:
-        canvas = ROOT.TCanvas("c_" + histo.GetName())
+        canvas = R.TCanvas("c_" + histo.GetName(), "Default Canvas", 1000, 500)
         canvas.SetGridy()
         canvas.SetFillColor(fillColor)
-    if draw: histo.Draw(option)
+        histo.Draw(option)
+        
 
     linesWh = {}
     linesSt = {}
@@ -29,7 +36,7 @@ def drawHisto(histo,title,ymin,ymax,option="HISTOP",draw=True):
             xline = (idx_st - 1)*60 + (idx_wh + 2)*nSectors
             if xline >= histo.GetNbinsX(): continue 
 
-            linesWh[(idx_st,idx_wh)] = ROOT.TLine(xline,ymin,xline,ymax)
+            linesWh[(idx_st,idx_wh)] = R.TLine(xline,ymin,xline,ymax)
             linesWh[(idx_st,idx_wh)].SetLineStyle(2)
             if draw: linesWh[(idx_st,idx_wh)].Draw("SAME")
 
@@ -37,7 +44,7 @@ def drawHisto(histo,title,ymin,ymax,option="HISTOP",draw=True):
         xline = idx*60
         if xline >= histo.GetNbinsX(): continue
 
-        linesSt[idx] = ROOT.TLine(xline,ymin,xline,ymax)
+        linesSt[idx] = R.TLine(xline,ymin,xline,ymax)
         linesSt[idx].SetLineStyle(2)
         linesSt[idx].SetLineWidth(2)
         if draw: linesSt[idx].Draw("SAME")
@@ -48,9 +55,11 @@ def drawHisto(histo,title,ymin,ymax,option="HISTOP",draw=True):
         if xlabel >= histo.GetNbinsX(): continue
 
         strSt = "MB%d" % idx
-        labels[idx] = ROOT.TPaveLabel(xlabel,ylabel,(xlabel+20),(ylabel + 0.10*(ymax -ymin)),strSt)
+        labels[idx] = R.TPaveLabel(xlabel,ylabel,(xlabel+20),(ylabel + 0.10*(ymax -ymin)),strSt)
         labels[idx].SetTextSize(0.5)
         labels[idx].SetFillColor(fillColor)
+        labels[idx].SetFillStyle(0)
+        labels[idx].SetBorderSize(0)
         if draw: labels[idx].Draw("SAME")
 
     objects = []

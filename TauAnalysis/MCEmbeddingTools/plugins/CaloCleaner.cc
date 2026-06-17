@@ -1,4 +1,4 @@
-#include "TauAnalysis/MCEmbeddingTools/plugins/CaloCleaner.h"
+#include "TauAnalysis/MCEmbeddingTools/interface/CaloCleaner.h"
 
 #include "DataFormats/EcalRecHit/interface/EcalRecHit.h"
 #include "DataFormats/HcalRecHit/interface/HBHERecHit.h"
@@ -60,7 +60,7 @@ void CaloCleaner<T>::produce(edm::Event &iEvent, const edm::EventSetup &iSetup) 
   }
 
   // Copy the old collection and correct if necessary
-  for (auto input_ : inputs_) {
+  for (const auto &input_ : inputs_) {
     std::unique_ptr<RecHitCollection> recHitCollection_output(new RecHitCollection());
     edm::Handle<RecHitCollection> recHitCollection;
     iEvent.getByToken(input_.second, recHitCollection);

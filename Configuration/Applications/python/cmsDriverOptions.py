@@ -10,6 +10,7 @@ import Configuration.Applications
 from Configuration.Applications.ConfigBuilder import ConfigBuilder, defaultOptions
 import traceback
 from functools import reduce
+import shlex
 
 def checkModifier(era):
     from FWCore.ParameterSet.Config import Modifier, ModifierChain
@@ -35,7 +36,7 @@ def OptionsFromCommandLine():
     import sys
     options=OptionsFromItems(sys.argv[1:])
     # memorize the command line arguments
-    options.arguments = reduce(lambda x, y: x+' '+y, sys.argv[1:])
+    options.arguments = " ".join(shlex.quote(arg) for arg in sys.argv[1:])
     return options
 
 def OptionsFromItems(items):
@@ -84,6 +85,7 @@ def OptionsFromItems(items):
                  "DIGI":"SIM",
                  "reDIGI":"DIGI",
                  "L1REPACK":"RAW",
+                 "L1P2GT":"RAW",
                  "HLT":"RAW",
                  "RECO":"DIGI",
                  "ALCA":"RECO",
@@ -143,10 +145,12 @@ def OptionsFromItems(items):
             print("This is a deprecated way of selecting lhe files from article number. Please use lhe:article argument to --filein")
             options.filein=options.filein.replace('mcdb:','lhe:')
             options.filetype="LHE"
+        elif options.filein.lower().endswith(".rntpl"):
+            options.filetype="EDM_RNTUPLE"
         else:
             options.filetype="EDM"
 
-    filesuffix = {"LHE": "lhe", "EDM": "root", "MCDB": "", "DQM":"root"}[options.filetype]
+    filesuffix = {"LHE": "lhe", "EDM": "root", "MCDB": "", "DQM":"root", "EDM_RNTUPLE":"rntpl"}[options.filetype]
 
     if options.filein=="" and not (first_step in ("ALL","GEN","LHE","SIM_CHAIN")):
         options.dirin="file:"+options.dirin.replace('file:','')
@@ -254,6 +258,11 @@ def OptionsFromItems(items):
         if options.prefix:
             raise Exception("--maxmem_profile and --prefix are incompatible")
         options.prefix = "env LD_PRELOAD=libPerfToolsAllocMonitorPreload.so:libPerfToolsMaxMemoryPreload.so "
+
+    if options.alloc_monitor:
+        if options.prefix:
+            raise Exception("--alloc_monitor and --prefix are incompatible")
+        options.prefix = "env LD_PRELOAD=libPerfToolsAllocMonitorPreload.so"
 
     # If an "era" argument was supplied make sure it is one of the valid possibilities
     if options.era :

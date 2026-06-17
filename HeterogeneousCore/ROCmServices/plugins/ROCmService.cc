@@ -14,12 +14,12 @@
 #endif  // HIP_VERSION_MAJOR
 #include <rocm_smi/rocm_smi.h>
 
+#include "FWCore/AbstractServices/interface/ResourceInformation.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "FWCore/Utilities/interface/ResourceInformation.h"
 #include "HeterogeneousCore/ROCmServices/interface/ROCmInterface.h"
 #include "HeterogeneousCore/ROCmUtilities/interface/hipCheck.h"
 #include "HeterogeneousCore/ROCmUtilities/interface/rsmiCheck.h"
@@ -286,12 +286,9 @@ ROCmService::ROCmService(edm::ParameterSet const& config) : verbose_(config.getU
   if (resourceInformationService.isAvailable()) {
     std::vector<std::string> modelsV(models.begin(), models.end());
     resourceInformationService->setGPUModels(modelsV);
-    /*
-    std::string nvidiaDriverVersion{systemDriverVersion};
-    resourceInformationService->setNvidiaDriverVersion(nvidiaDriverVersion);
-    resourceInformationService->setCudaDriverVersion(driverVersion);
-    resourceInformationService->setCudaRuntimeVersion(runtimeVersion);
-    */
+    resourceInformationService->setRocmDriverVersion(driverVersion);
+    resourceInformationService->setRocmRuntimeVersion(runtimeVersion);
+    resourceInformationService->setAMDDriverVersion(systemDriverVersion);
   }
 
   if (verbose_) {
@@ -331,12 +328,6 @@ void ROCmService::fillDescriptions(edm::ConfigurationDescriptions& descriptions)
 
   descriptions.add("ROCmService", desc);
 }
-
-namespace edm {
-  namespace service {
-    inline bool isProcessWideService(ROCmService const*) { return true; }
-  }  // namespace service
-}  // namespace edm
 
 #include "FWCore/ServiceRegistry/interface/ServiceMaker.h"
 using ROCmServiceMaker = edm::serviceregistry::ParameterSetMaker<ROCmInterface, ROCmService>;

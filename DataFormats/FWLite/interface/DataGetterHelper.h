@@ -20,6 +20,7 @@
 
 // user include files
 #include "DataFormats/Common/interface/EDProductGetter.h"
+#include "DataFormats/Provenance/interface/ProductDescriptionFwd.h"
 #include "DataFormats/FWLite/interface/HistoryGetterBase.h"
 #include "DataFormats/FWLite/interface/InternalDataKey.h"
 #include "FWCore/FWLite/interface/BranchMapReader.h"
@@ -35,17 +36,16 @@
 #include <typeinfo>
 #include <vector>
 #include <functional>
+#include <optional>
 
 // forward declarations
 class TTreeCache;
 class TTree;
 
 namespace edm {
-  class BranchDescription;
   class BranchID;
   class ObjectWithDict;
   class ProductID;
-  class ThinnedAssociation;
   class WrapperBase;
 }  // namespace edm
 
@@ -71,18 +71,6 @@ namespace fwlite {
 
     edm::WrapperBase const* getByProductID(edm::ProductID const& pid, Long_t eventEntry) const;
     edm::WrapperBase const* getByBranchID(edm::BranchID const& bid, Long_t eventEntry) const;
-    std::optional<std::tuple<edm::WrapperBase const*, unsigned int>> getThinnedProduct(edm::ProductID const& pid,
-                                                                                       unsigned int key,
-                                                                                       Long_t eventEntry) const;
-    void getThinnedProducts(edm::ProductID const& pid,
-                            std::vector<edm::WrapperBase const*>& foundContainers,
-                            std::vector<unsigned int>& keys,
-                            Long_t eventEntry) const;
-    edm::OptionalThinnedKey getThinnedKeyFrom(edm::ProductID const& parent,
-                                              unsigned int key,
-                                              edm::ProductID const& thinned,
-                                              Long_t eventEntry) const;
-
     // ---------- static member functions --------------------
 
     // ---------- member functions ---------------------------
@@ -99,9 +87,8 @@ namespace fwlite {
 
     internal::Data& getBranchDataFor(std::type_info const&, char const*, char const*, char const*) const;
     void getBranchData(edm::EDProductGetter const*, Long64_t, internal::Data&) const;
-    bool getByBranchDescription(edm::BranchDescription const&, Long_t eventEntry, KeyToDataMap::iterator&) const;
+    bool getByProductDescription(edm::ProductDescription const&, Long_t eventEntry, KeyToDataMap::iterator&) const;
     edm::WrapperBase const* wrapperBasePtr(edm::ObjectWithDict const&) const;
-    edm::ThinnedAssociation const* getThinnedAssociation(edm::BranchID const& branchID, Long_t eventEntry) const;
 
     // ---------- member data --------------------------------
     TTree* tree_;

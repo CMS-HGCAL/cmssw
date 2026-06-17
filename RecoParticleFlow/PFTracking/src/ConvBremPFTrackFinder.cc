@@ -57,7 +57,7 @@ void ConvBremPFTrackFinder::runConvBremFinder(const Handle<PFRecTrackCollection>
   float refGsfPtMode = refGsf->ptMode();
 
   const reco::PFRecTrackRef& pfTrackRef = gsfpfrectk.kfPFRecTrackRef();
-  vector<PFBrem> primPFBrem = gsfpfrectk.PFRecBrem();
+  const vector<PFBrem>& primPFBrem = gsfpfrectk.PFRecBrem();
 
   const PFRecTrackCollection& PfRTkColl = *(thePfRecTrackCol.product());
   reco::PFRecTrackCollection::const_iterator pft = PfRTkColl.begin();
@@ -373,6 +373,6 @@ void ConvBremPFTrackFinder::runConvBremFinder(const Handle<PFRecTrackCollection>
           pfRecTrRef_vec_.push_back(AllPFRecTracks[iPF]);
         }
       }  // end MinDIST
-    }    // end selection kf - brem tangents
-  }      // loop on the kf tracks
+    }  // end selection kf - brem tangents
+  }  // loop on the kf tracks
 }

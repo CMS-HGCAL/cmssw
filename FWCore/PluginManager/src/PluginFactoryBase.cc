@@ -60,7 +60,7 @@ namespace edmplugin {
     PluginInfo info;
     info.loadable_ = std::filesystem::path(PluginManager::loadingFile());
     info.name_ = iName;
-    newPluginAdded_(category(), info);
+    newPluginAdded_.emit(category(), info);
   }
 
   void* PluginFactoryBase::findPMaker(const std::string& iName) const {
@@ -72,7 +72,7 @@ namespace edmplugin {
       if (itFound == m_plugins.end()) {
         throw cms::Exception("PluginCacheError")
             << "The plugin '" << iName << "' should have been in loadable\n '" << lib
-            << "'\n but was not there.  This means the plugin cache is incorrect.  Please run 'EdmPluginRefresh " << lib
+            << "'\n but was not there.  This means the plugin cache is incorrect.  Please run 'edmPluginRefresh " << lib
             << "'";
       }
       //The item in the container can still be under construction so wait until the m_ptr has been set since that is done last
@@ -100,7 +100,7 @@ namespace edmplugin {
         if (itFound == m_plugins.end()) {
           throw cms::Exception("PluginCacheError")
               << "The plugin '" << iName << "' should have been in loadable\n '" << lib
-              << "'\n but was not there.  This means the plugin cache is incorrect.  Please run 'EdmPluginRefresh "
+              << "'\n but was not there.  This means the plugin cache is incorrect.  Please run 'edmPluginRefresh "
               << lib << "'";
         }
       }

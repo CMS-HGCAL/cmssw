@@ -55,19 +55,8 @@ namespace trklet {
 
   class Settings {
   public:
-    Settings() {
-      //Comment out to run tracklet-only algorithm
-#ifdef CMSSW_GIT_HASH
-#ifndef CMS_DICT_IMPL  // Don't print message if genreflex being run.
-#ifndef USEHYBRID
-#pragma message "USEHYBRID is undefined, so Hybrid L1 tracking disabled."
-#endif
-#endif
-#endif
-    }
-
+    Settings() {};
     ~Settings() = default;
-
     void passSetup(const tt::Setup* setup) { setup_ = setup; }
     const tt::Setup* setup() const { return setup_; }
 
@@ -76,8 +65,6 @@ namespace trklet {
     std::string const& processingModulesFile() const { return processingModulesFile_; }
     std::string const& memoryModulesFile() const { return memoryModulesFile_; }
     std::string const& wiresFile() const { return wiresFile_; }
-    std::string const& tableTEDFile() const { return tableTEDFile_; }
-    std::string const& tableTREFile() const { return tableTREFile_; }
 
     void setFitPatternFile(std::string fitPatternFileName) { fitPatternFile_ = fitPatternFileName; }
     void setProcessingModulesFile(std::string processingModulesFileName) {
@@ -85,8 +72,6 @@ namespace trklet {
     }
     void setMemoryModulesFile(std::string memoryModulesFileName) { memoryModulesFile_ = memoryModulesFileName; }
     void setWiresFile(std::string wiresFileName) { wiresFile_ = wiresFileName; }
-    void setTableTEDFile(std::string tableTEDFileName) { tableTEDFile_ = tableTEDFileName; }
-    void setTableTREFile(std::string tableTREFileName) { tableTREFile_ = tableTREFileName; }
 
     unsigned int nzbitsstub(unsigned int layerdisk) const { return nzbitsstub_[layerdisk]; }
     unsigned int nphibitsstub(unsigned int layerdisk) const { return nphibitsstub_[layerdisk]; }
@@ -158,6 +143,7 @@ namespace trklet {
     }
 
     unsigned int teunits(unsigned int iSeed) const { return teunits_[iSeed]; }
+    unsigned int trpunits(unsigned int iSeed) const { return trpunits_[iSeed]; }
 
     unsigned int NTC(int seed) const { return ntc_[seed]; }
 
@@ -210,9 +196,6 @@ namespace trklet {
     bool writeHLSInvTable() const { return writeHLSInvTable_; }
 
     unsigned int writememsect() const { return writememsect_; }
-
-    bool enableTripletTables() const { return enableTripletTables_; }
-    bool writeTripletTables() const { return writeTripletTables_; }
 
     bool writeoutReal() const { return writeoutReal_; }
 
@@ -267,6 +250,13 @@ namespace trklet {
 
     bool extended() const { return extended_; }
     void setExtended(bool extended) { extended_ = extended; }
+    bool duplicateMPs() const { return duplicateMPs_; }
+    const std::array<bool, N_LAYER + N_DISK>& layersDisksDuplicatedEqualProjBalance() const {
+      return layersDisksDuplicatedEqualProjBalance_;
+    }
+    const std::array<bool, N_LAYER + N_DISK>& layersDisksDuplicatedWeightedProjBalance() const {
+      return layersDisksDuplicatedWeightedProjBalance_;
+    }
     bool combined() const { return combined_; }
     void setCombined(bool combined) { combined_ = combined; }
     bool reduced() const { return reduced_; }
@@ -509,8 +499,6 @@ namespace trklet {
     std::string processingModulesFile_;
     std::string memoryModulesFile_;
     std::string wiresFile_;
-    std::string tableTEDFile_;
-    std::string tableTREFile_;
 
     double rcrit_{55.0};  // critical radius for the hourglass configuration
 
@@ -659,7 +647,8 @@ namespace trklet {
     int chisqphifactbits_{14};
     int chisqzfactbits_{14};
 
-    std::array<unsigned int, N_SEED> teunits_{{5, 2, 5, 3, 3, 2, 3, 2, 0, 0, 0, 0}};  //teunits used by seed
+    std::array<unsigned int, N_SEED> teunits_{{5, 2, 5, 3, 3, 2, 3, 2, 0, 0, 0, 0}};       //teunits used by seed
+    std::array<unsigned int, N_SEED> trpunits_{{0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10}};  //trpunits used by seed
 
     std::array<unsigned int, N_LAYER + N_DISK> vmrlutzbits_{
         {7, 7, 7, 7, 7, 7, 3, 3, 3, 3, 3}};  // zbits used by LUT in VMR
@@ -890,6 +879,7 @@ namespace trklet {
         {"TB", 108},
         {"MP", 108},
         {"TP", 108},
+        {"TPD", 108},
         {"TRE", 108},
         {"DR", 108}};  //Specifies how many tracks allowed per bin in DR
 
@@ -957,14 +947,6 @@ namespace trklet {
 
     unsigned int writememsect_{3};  //writemem only for this sector (note that the files will have _4 extension)
 
-    bool enableTripletTables_{false};  //Enable the application of the TED and
-                                       //TRE tables; when this flag is false,
-                                       //the tables will not be read from disk
-    bool writeTripletTables_{false};   //Train and write the TED and TRE tables. N.B.: the tables
-                                       //cannot be applied while they are being trained, i.e.,
-                                       //this flag effectively turns off the cuts in
-                                       //TrackletEngineDisplaced and TripletEngine
-
     bool writeoutReal_{false};
 
     //set to true/false to turn on/off histogram booking internal to the tracking (class "HistBase/HistImp", does nothing in central CMSSW)
@@ -1028,11 +1010,33 @@ namespace trklet {
     bool reduced_{false};        // use reduced (Summer Chain) config
     bool inventStubs_{false};    // invent seeding stub coordinates based on tracklet traj
 
-    // Use combined TP (TE+TC) and MP (PR+ME+MC) configuration (with prompt tracking)
-    bool combined_{false};
-    // N.B. To use combined modules with extended tracking, edit
-    // Tracklet_cfi.py to refer to *_hourglassExtendedCombined.dat,
-    // but leave combined_=false.
+    // Use combined TP (TE+TC) & MP (PR+ME+MC) config (with prompt tracking)
+    bool combined_{true};
+    // N.B. For extended tracking, this combined_ is overridden by python cfg
+    // to false, but combined modules are nonetheless used by default.
+    // If you don't want them, edit l1tTTTracksFromTrackletEmulation_cfi.py
+    // to refer to *_hourglassExtended.dat .
+
+    // Use chain with duplicated MPs for L3,L4 to reduce truncation issue
+    // Balances load from projections roughly in half for each of the two MPs
+    bool duplicateMPs_{false};
+
+    // Determines which layers, disks the MatchProcessor is duplicated for
+    // (note: in TCB by default always duplicated for phi B, C as truncation is significantly worse than A, D)
+    // All layers, disks disabled by default, also is overwritten by above duplicateMPs bool
+
+    // EqualProjBalancing is for layers for which the projections to each duplicated MP are split in half sequentially
+    std::array<bool, N_LAYER + N_DISK> layersDisksDuplicatedEqualProjBalance_{
+        {false, false, false, false, false, false, false, false, false, false, false}};
+
+    // Weighted proj balancing is for specifically L4, L5 where the split of the projections is weighted to account for
+    // Higher occupancy in the L1L2 seed to minimize truncation
+    std::array<bool, N_LAYER + N_DISK> layersDisksDuplicatedWeightedProjBalance_{
+        {false, false, false, false, false, false, false, false, false, false, false}};
+
+    // Example use where for L3, L4, L5, D2, D3, the layers/disks where truncation is worst
+    //std::array<bool, N_LAYER + N_DISK> layersDisksDuplicatedEqualProjBalance_{{0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0}};
+    //std::array<bool, N_LAYER + N_DISK> layersDisksDuplicatedWeightedProjBalance_{{0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0}};
 
     std::string skimfile_{""};  //if not empty events will be written out in ascii format to this file
 

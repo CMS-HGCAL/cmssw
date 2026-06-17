@@ -40,26 +40,26 @@ namespace edm {
 
   ParameterDescriptionNode* ParameterSetDescription::addNode(ParameterDescriptionNode const& node) {
     std::unique_ptr<ParameterDescriptionNode> clonedNode(node.clone());
-    return addNode(std::move(clonedNode), false, true);
+    return addNode(std::move(clonedNode), Modifier::kNone, true);
   }
 
   ParameterDescriptionNode* ParameterSetDescription::addNode(std::unique_ptr<ParameterDescriptionNode> node) {
-    return addNode(std::move(node), false, true);
+    return addNode(std::move(node), Modifier::kNone, true);
   }
 
   ParameterDescriptionNode* ParameterSetDescription::addOptionalNode(ParameterDescriptionNode const& node,
                                                                      bool writeToCfi) {
     std::unique_ptr<ParameterDescriptionNode> clonedNode(node.clone());
-    return addNode(std::move(clonedNode), true, writeToCfi);
+    return addNode(std::move(clonedNode), Modifier::kOptional, writeToCfi);
   }
 
   ParameterDescriptionNode* ParameterSetDescription::addOptionalNode(std::unique_ptr<ParameterDescriptionNode> node,
                                                                      bool writeToCfi) {
-    return addNode(std::move(node), true, writeToCfi);
+    return addNode(std::move(node), Modifier::kOptional, writeToCfi);
   }
 
   ParameterDescriptionNode* ParameterSetDescription::addNode(std::unique_ptr<ParameterDescriptionNode> node,
-                                                             bool optional,
+                                                             Modifier modifier,
                                                              bool writeToCfi) {
     std::set<std::string> nodeLabels;
     std::set<ParameterTypes> nodeParameterTypes;
@@ -69,19 +69,20 @@ namespace edm {
     throwIfWildcardCollision(nodeParameterTypes, nodeWildcardTypes);
 
     SetDescriptionEntry entry;
-    entry.setOptional(optional);
+    entry.setModifier(modifier);
     entry.setWriteToCfi(writeToCfi);
     entries_.push_back(entry);
     return entries_.back().setNode(std::move(node));
   }
 
   void ParameterSetDescription::validate(ParameterSet& pset) const {
-    using std::placeholders::_1;
     if (unknown_)
       return;
 
     std::set<std::string> validatedLabels;
-    for_all(entries_, std::bind(&ParameterSetDescription::validateNode, _1, std::ref(pset), std::ref(validatedLabels)));
+    for (auto const& entry : entries_) {
+      validateNode(entry, pset, validatedLabels);
+    }
 
     std::vector<std::string> parameterNames = pset.getParameterNames();
     if (validatedLabels.size() != parameterNames.size()) {
@@ -158,7 +159,7 @@ namespace edm {
   void ParameterSetDescription::validateNode(SetDescriptionEntry const& entry,
                                              ParameterSet& pset,
                                              std::set<std::string>& validatedLabels) {
-    entry.node()->validate(pset, validatedLabels, entry.optional());
+    entry.node()->validate(pset, validatedLabels, entry.modifier());
   }
 
   void ParameterSetDescription::print(std::ostream& os, DocFormatHelper& dfh) const {
@@ -226,12 +227,14 @@ namespace edm {
       throw edm::Exception(errors::Configuration)
           << "Illegal parameter found in configuration.  The parameter is named:\n"
           << ss.str() << "You could be trying to use a parameter name that is not\n"
-          << "allowed for this plugin or it could be misspelled.\n";
+          << "allowed for this plugin, or it could be misspelled, or this parameter\n"
+          << "needs to be defined in the fillDescriptions() method of the plugin.\n";
     } else {
       throw edm::Exception(errors::Configuration)
           << "Illegal parameters found in configuration.  The parameters are named:\n"
           << ss.str() << "You could be trying to use parameter names that are not\n"
-          << "allowed for this plugin or they could be misspelled.\n";
+          << "allowed for this plugin, or they could be misspelled, or these parameters\n"
+          << "need to be defined in the fillDescriptions() method of the plugin.\n";
     }
   }
 
@@ -242,7 +245,7 @@ namespace edm {
                                           CfiOptions& options,
                                           bool& wroteSomething) {
     if (entry.writeToCfi()) {
-      entry.node()->writeCfi(os, entry.optional(), startWithComma, indentation, options, wroteSomething);
+      entry.node()->writeCfi(os, entry.modifier(), startWithComma, indentation, options, wroteSomething);
     } else {
       //The simplest way to handle this is to force all items to be full in this PSet
       cfi::parameterMustBeTyped(options);
@@ -251,10 +254,23 @@ namespace edm {
 
   void ParameterSetDescription::printNode(SetDescriptionEntry const& entry, std::ostream& os, DocFormatHelper& dfh) {
     if (dfh.pass() < 2) {
-      entry.node()->print(os, entry.optional(), entry.writeToCfi(), dfh);
+      entry.node()->print(os, entry.modifier(), entry.writeToCfi(), dfh);
     } else {
       entry.node()->printNestedContent(os, entry.optional(), dfh);
     }
+  }
+
+  cfi::Trackiness ParameterSetDescription::trackiness(std::string_view path) const {
+    for (auto const& e : entries_) {
+      cfi::Trackiness t = e.node()->trackiness(path);
+      if (t != cfi::Trackiness::kNotAllowed) {
+        return t;
+      }
+    }
+    if (anythingAllowed()) {
+      return cfi::Trackiness::kUnknown;
+    }
+    return cfi::Trackiness::kNotAllowed;
   }
 
   void ParameterSetDescription::throwIfLabelsAlreadyUsed(std::set<std::string> const& nodeLabels) {
@@ -343,9 +359,9 @@ namespace edm {
 
   ParameterDescriptionNode* ParameterSetDescription::ifExists(ParameterDescriptionNode const& node1,
                                                               ParameterDescriptionNode const& node2,
-                                                              bool optional,
+                                                              Modifier modifier,
                                                               bool writeToCfi) {
     std::unique_ptr<ParameterDescriptionNode> pdIfExists = std::make_unique<IfExistsDescription>(node1, node2);
-    return addNode(std::move(pdIfExists), optional, writeToCfi);
+    return addNode(std::move(pdIfExists), modifier, writeToCfi);
   }
 }  // namespace edm

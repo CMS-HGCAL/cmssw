@@ -15,15 +15,15 @@
 #include <atomic>
 #include "DataFormats/EcalDetId/interface/EBDetId.h"
 #include "DataFormats/EcalDetId/interface/EEDetId.h"
+#include "DataFormats/DetId/interface/DetIdFwd.h"
 #include "FWCore/Utilities/interface/thread_safety_macros.h"
 
-class DetId;
 class CaloGeometry;
 
 class EcalRingCalibrationTools {
 public:
-  EcalRingCalibrationTools(){};
-  ~EcalRingCalibrationTools(){};
+  EcalRingCalibrationTools() {}
+  ~EcalRingCalibrationTools() {}
 
   /// Retrieve the phi-ring index corresponding to a DetId
   static short getRingIndex(DetId aDetId);

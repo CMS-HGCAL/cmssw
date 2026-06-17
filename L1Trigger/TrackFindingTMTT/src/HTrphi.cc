@@ -160,13 +160,13 @@ namespace tmtt {
     }
     text << "\n";
     static std::once_flag printOnce;
-    std::call_once(
-        printOnce, [](string t) { PrintL1trk() << t; }, text.str());
+    std::call_once(printOnce, [](string t) { PrintL1trk() << t; }, text.str());
 
     // Note helix parameters at the centre of each HT cell.
     cellCenters_.clear();
     for (unsigned int m = 0; m < nBinsQoverPtAxis_; m++) {
       std::vector<std::pair<float, float> > binCenters;
+      binCenters.reserve(nBinsPhiTrkAxis_);
       for (unsigned int c = 0; c < nBinsPhiTrkAxis_; c++)
         binCenters.push_back(this->helix2Dhough(m, c));
       cellCenters_.push_back(binCenters);

@@ -42,7 +42,7 @@ namespace HcalObjRepresent {
       PlotMode_ = "Map";
     }
 
-    virtual ~HcalDataContainer(){};
+    virtual ~HcalDataContainer() {}
     // For easier channel mapping
     typedef std::tuple<int, int, int> Coord;
     typedef std::map<Coord, Item> tHcalValCont;
@@ -74,7 +74,7 @@ namespace HcalObjRepresent {
       std::string subDetName;
       std::vector<Item> itemsVec;
       std::pair<std::string, int> depthKey;
-      const char* histLabel;
+      std::string histLabel;
       for (std::pair<std::string, std::vector<Item> > cont : (*payload_).getAllContainers()) {
         subDetName = std::get<0>(cont);
         itemsVec = std::get<1>(cont);
@@ -95,9 +95,10 @@ namespace HcalObjRepresent {
 
             auto depthVal = depths_.find(depthKey);
             if (depthVal == depths_.end()) {
-              histLabel = ("run" + std::to_string(run_) + "_" + subDetName + "_d" + std::to_string(depth)).c_str();
-              depths_.insert(std::make_pair(std::make_pair(subDetName, depth),
-                                            new TH2F(histLabel, histLabel, 83, -42.5, 41.5, 71, 0.5, 71.5)));
+              histLabel = "run" + std::to_string(run_) + "_" + subDetName + "_d" + std::to_string(depth);
+              depths_.insert(
+                  std::make_pair(std::make_pair(subDetName, depth),
+                                 new TH2F(histLabel.c_str(), histLabel.c_str(), 83, -42.5, 41.5, 71, 0.5, 71.5)));
             }
             depths_[depthKey]->Fill(ieta, iphi, getValue(&item));
           }
@@ -108,10 +109,14 @@ namespace HcalObjRepresent {
       setTopoModeFromValConts();
     }
 
+    const std::vector<std::pair<std::string, std::vector<Item> > > getAllItems() {
+      return (*payload_).getAllContainers();
+    }
+
     ////NOTE to be implemented in PayloadInspector classes
-    virtual float getValue(Item* item) {
+    virtual float getValue(const Item* item) {
       throw cms::Exception("Value definition not found") << "getValue definition not found for " << payload_->myname();
-    };
+    }
 
     //Gets Hcal Object at given coordinate
     //Currently unused but remains as a potentially useful function
@@ -286,7 +291,7 @@ namespace HcalObjRepresent {
                   int startDepth = 1,
                   int startCanv = 1,
                   std::string plotForm = "2DHist") {
-      const char* newName;
+      std::string newName;
       std::pair<float, float> range;
       int padNum;
       int maxDepth = (subDetName == "HO") ? 4 : subDetDepths_[subDetName];
@@ -325,11 +330,10 @@ namespace HcalObjRepresent {
           canvas->GetPad(padNum)->SetLeftMargin(0.152);
           canvas->GetPad(padNum)->SetRightMargin(0.02);
           //gStyle->SetTitleOffset(1.6,"Y");
-          newName = ("run_" + std::to_string(run_) + "_" + subDetName + "_d" + std::to_string(i) + "_" +
-                     (plotForm == "EtaProfile" ? "ieta" : "iphi"))
-                        .c_str();
-          //projection = ((TH2F*)(depths_[std::make_pair(subDetName,i)]->Clone("temp")))->ProjectionX(newName);
-          projection = GetProjection(depths_[std::make_pair(subDetName, i)], plotForm, newName, subDetName, i);
+          newName = "run_" + std::to_string(run_) + "_" + subDetName + "_d" + std::to_string(i) + "_" +
+                    (plotForm == "EtaProfile" ? "ieta" : "iphi");
+          //projection = ((TH2F*)(depths_[std::make_pair(subDetName,i)]->Clone("temp")))->ProjectionX(newName.c_str());
+          projection = GetProjection(depths_[std::make_pair(subDetName, i)], plotForm, newName.c_str(), subDetName, i);
           range = GetRange(projection);
           projection->Draw("hist");
           projection->GetXaxis()->SetTitle((plotForm == "EtaProfile" ? "ieta" : "iphi"));
@@ -1002,8 +1006,8 @@ namespace HcalObjRepresent {
             hh[d].SetBinContent(eta + 1, (iphi + 2) % 72 + 1, hh[d].GetBinContent(eta + 1, iphi));
           }
         }  // for (int phi...)
-      }    // for (int eta...)
-    }      // for (int d=0;...)
+      }  // for (int eta...)
+    }  // for (int d=0;...)
     // no corrections needed for HO (depth 4)
     return;
   }  // FillUnphysicalHEHFBins(MonitorElement* hh)
@@ -1033,7 +1037,7 @@ namespace HcalObjRepresent {
         {
           binval = hh.GetBinContent(eta + 1, iphi);
           hh.SetBinContent(eta + 1, iphi + 1, binval);
-        }                                                       // if (iphi%2==1...)
+        }  // if (iphi%2==1...)
         else if (abs(ieta) > 39 && iphi % 4 == 3 && iphi < 73)  // 20 degree phi binning condition
         {
           // Set last two eta strips where each cell spans 20 degrees in phi
@@ -1042,7 +1046,7 @@ namespace HcalObjRepresent {
           hh.SetBinContent(eta + 1, (iphi + 1) % 72 + 1, hh.GetBinContent(eta + 1, iphi));
           hh.SetBinContent(eta + 1, (iphi + 2) % 72 + 1, hh.GetBinContent(eta + 1, iphi));
         }  // else if (abs(ieta)>39 ...)
-      }    // for (int phi=0;phi<72;++phi)
+      }  // for (int phi=0;phi<72;++phi)
 
     }  // for (int eta=0; eta< (etaBins_-2);++eta)
 
@@ -1203,8 +1207,8 @@ namespace HcalObjRepresent {
   class ADataRepr  //Sample base class for c++ inheritance tutorial
   {
   public:
-    ADataRepr(unsigned int d) : m_total(d){};
-    virtual ~ADataRepr(){};
+    ADataRepr(unsigned int d) : m_total(d) {}
+    virtual ~ADataRepr() {}
     unsigned int nr, id;
     std::stringstream filename, rootname, plotname;
 

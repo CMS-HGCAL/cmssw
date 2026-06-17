@@ -8,7 +8,6 @@
 #include "DataFormats/ForwardDetId/interface/HGCScintillatorDetId.h"
 #include "SimG4CMS/Calo/interface/HGCScintSD.h"
 #include "SimG4CMS/Calo/interface/CaloSimUtils.h"
-#include "SimG4Core/Notification/interface/TrackInformation.h"
 #include "SimDataFormats/CaloTest/interface/HGCalTestNumbering.h"
 #include "FWCore/ParameterSet/interface/FileInPath.h"
 #include "FWCore/Utilities/interface/Exception.h"
@@ -25,6 +24,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <memory>
 
 //#define EDM_ML_DEBUG
@@ -94,7 +94,7 @@ HGCScintSD::HGCScintSD(const std::string& name,
 
   if (!fileName_.empty()) {
     edm::FileInPath filetmp("SimG4CMS/Calo/data/" + fileName_);
-    std::string fileName = filetmp.fullPath();
+    const std::string& fileName = filetmp.fullPath();
     std::ifstream fInput(fileName.c_str());
     if (!fInput.good()) {
       edm::LogVerbatim("HGCSim") << "Cannot open file " << fileName;
@@ -162,7 +162,9 @@ uint32_t HGCScintSD::setDetUnitId(const G4Step* aStep) {
   int iz(globalZ > 0 ? 1 : -1);
 
   int layer(0), module(-1), cell(-1);
-  if ((geom_mode_ == HGCalGeometryMode::TrapezoidModule) || (geom_mode_ == HGCalGeometryMode::TrapezoidCassette)) {
+  if (hgcons_->trapeoidFine()) {
+    layer = touch->GetReplicaNumber(0);
+  } else if (hgcons_->tileTrapezoidModule()) {
     layer = touch->GetReplicaNumber(1);
   } else if ((touch->GetHistoryDepth() == levelT1_) || (touch->GetHistoryDepth() == levelT2_)) {
     layer = touch->GetReplicaNumber(0);
@@ -234,6 +236,13 @@ uint32_t HGCScintSD::setDetUnitId(const G4Step* aStep) {
                           << xy.second << ") distance " << diff << " Valid " << valid
                           << " Rho = " << hitPoint.perp() / CLHEP::cm;
   }
+#ifdef EDM_ML_DEBUG
+  std::ostringstream st1;
+  st1 << "HGCScintSD::Final ID " << std::hex << id << std::dec;
+  if (id != 0)
+    st1 << " " << HGCScintillatorDetId(id);
+  edm::LogVerbatim("HGCSim") << st1.str();
+#endif
   return id;
 }
 

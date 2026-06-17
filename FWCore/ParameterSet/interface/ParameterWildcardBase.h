@@ -42,13 +42,15 @@ namespace edm {
                                     std::set<ParameterTypes>& wildcardTypes) const override;
 
     void writeCfi_(std::ostream& os,
-                   bool optional,
+                   Modifier modifier,
                    bool& startWithComma,
                    int indentation,
                    CfiOptions&,
                    bool& wroteSomething) const override;
 
-    void print_(std::ostream& os, bool optional, bool writeToCfi, DocFormatHelper& dfh) const override;
+    void print_(std::ostream& os, Modifier modifier, bool writeToCfi, DocFormatHelper& dfh) const override;
+
+    cfi::Trackiness trackiness_(std::string_view path) const override;
 
     bool partiallyExists_(ParameterSet const& pset) const override;
 

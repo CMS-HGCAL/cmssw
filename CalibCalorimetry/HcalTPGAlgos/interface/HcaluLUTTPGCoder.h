@@ -6,6 +6,7 @@
 #include "Geometry/CaloTopology/interface/HcalTopology.h"
 #include "DataFormats/HcalDetId/interface/HcalDetId.h"
 #include "CalibCalorimetry/HcalAlgos/interface/HcalPulseContainmentManager.h"
+#include "CondFormats/HcalObjects/interface/HcalElectronicsMap.h"
 
 #include <bitset>
 #include <vector>
@@ -32,13 +33,12 @@ class HcalDbService;
 class HcaluLUTTPGCoder : public HcalTPGCoder {
 public:
   static const float lsb_;
-  static const float zdc_lsb_;
 
   HcaluLUTTPGCoder();
-  HcaluLUTTPGCoder(const HcalTopology* topo, const HcalTimeSlew* delay);
+  HcaluLUTTPGCoder(const HcalTopology* topo, const HcalElectronicsMap* emap, const HcalTimeSlew* delay);
   ~HcaluLUTTPGCoder() override;
 
-  void init(const HcalTopology* top, const HcalTimeSlew* delay);
+  void init(const HcalTopology* top, const HcalElectronicsMap* emap, const HcalTimeSlew* delay);
 
   void adc2Linear(const HBHEDataFrame& df, IntegerCaloSamples& ics) const override;
   void adc2Linear(const HFDataFrame& df, IntegerCaloSamples& ics) const override;
@@ -60,7 +60,10 @@ public:
   void update(const char* filename, bool appendMSB = false);
   void updateXML(const char* filename);
   void setLUTGenerationMode(bool gen) { LUTGenerationMode_ = gen; };
-  void setFGHFthresholds(const std::vector<uint32_t>& fgthresholds) { FG_HF_thresholds_ = fgthresholds; };
+  void setOverrideFGHF(bool overrideFGHF) { overrideFGHF_ = overrideFGHF; };
+  void setFGHFthresholds(const std::array<uint32_t, 2>& fgthresholds) { FG_HF_thresholds_ = fgthresholds; };
+  void setOverrideHBLLP(bool overrideHBLLP) { overrideHBLLP_ = overrideHBLLP; };
+  void setHBLLPthresholds(const std::array<uint32_t, 4>& llpthresholds) { HB_LLP_thresholds_ = llpthresholds; };
   void setMaskBit(int bit) { bitToMask_ = bit; };
   void setAllLinear(bool linear, double lsb8, double lsb11, double lsb11overlap) {
     allLinear_ = linear;
@@ -78,6 +81,10 @@ public:
   }
   void setOverrideDBweightsAndFilterHE(bool overrideDBweightsAndFilterHE) {
     overrideDBweightsAndFilterHE_ = overrideDBweightsAndFilterHE;
+  }
+  void setNpedWidthsForZS(float nPedWidthsForZS) { nPedWidthsForZS_ = nPedWidthsForZS; }
+  void setOverrideDBnPedWidthsForZS(bool overrideDBnPedWidthsForZS) {
+    overrideDBnPedWidthsForZS_ = overrideDBnPedWidthsForZS;
   }
   void lookupMSB(const HBHEDataFrame& df, std::vector<bool>& msb) const;
   void lookupMSB(const QIE10DataFrame& df, std::vector<std::bitset<2>>& msb) const;
@@ -111,9 +118,13 @@ private:
 
   // member variables
   const HcalTopology* topo_;
+  const HcalElectronicsMap* emap_;
   const HcalTimeSlew* delay_;
   bool LUTGenerationMode_;
-  std::vector<uint32_t> FG_HF_thresholds_;
+  bool overrideFGHF_ = false;
+  std::array<uint32_t, 2> FG_HF_thresholds_;
+  bool overrideHBLLP_ = false;
+  std::array<uint32_t, 4> HB_LLP_thresholds_;
   int bitToMask_;
   int firstHBEta_, lastHBEta_, nHBEta_, maxDepthHB_, sizeHB_;
   int firstHEEta_, lastHEEta_, nHEEta_, maxDepthHE_, sizeHE_;
@@ -134,6 +145,8 @@ private:
   std::unique_ptr<HcalPulseContainmentManager> pulseCorr_;
   bool overrideDBweightsAndFilterHB_ = false;
   bool overrideDBweightsAndFilterHE_ = false;
+  float nPedWidthsForZS_ = 0.0;
+  bool overrideDBnPedWidthsForZS_ = false;
 };
 
 #endif

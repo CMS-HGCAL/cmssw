@@ -1,3 +1,10 @@
+<use name="FWCore/AbstractServices"/>
+<use name="FWCore/Concurrency"/>
 <use name="FWCore/MessageLogger"/>
 <use name="FWCore/ServiceRegistry"/>
+<use name="FWCore/Utilities" source_only="1"/>
 <use name="PerfTools/AllocMonitor"/>
+<!-- Needed by monitors that use std::stacktrace, presently available only in GCC14 and above builds -->
+<iftool name="gcc-cxxcompiler" version="^1[4-9]">
+  <lib name="stdc++exp"/>
+</iftool>

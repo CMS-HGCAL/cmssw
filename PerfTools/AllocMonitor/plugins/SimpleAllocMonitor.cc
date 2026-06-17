@@ -23,7 +23,7 @@
 namespace {
   class MonitorAdaptor : public cms::perftools::AllocMonitorBase {
   public:
-    void allocCalled(size_t iRequested, size_t iActual) final {
+    void allocCalled(size_t iRequested, size_t iActual, void const*) final {
       nAllocations_.fetch_add(1, std::memory_order_acq_rel);
       requested_.fetch_add(iRequested, std::memory_order_acq_rel);
 
@@ -37,12 +37,9 @@ namespace {
         }
       }
     }
-    void deallocCalled(size_t iActual) final {
+    void deallocCalled(size_t iActual, void const*) final {
       nDeallocations_.fetch_add(1, std::memory_order_acq_rel);
-      auto present = presentActual_.load(std::memory_order_acquire);
-      if (present >= iActual) {
-        presentActual_.fetch_sub(iActual, std::memory_order_acq_rel);
-      }
+      presentActual_.fetch_sub(iActual, std::memory_order_acq_rel);
     }
 
     void performanceReport() const {
@@ -61,8 +58,8 @@ namespace {
 
   private:
     std::atomic<size_t> requested_ = 0;
-    std::atomic<size_t> presentActual_ = 0;
-    std::atomic<size_t> maxActual_ = 0;
+    std::atomic<long long> presentActual_ = 0;
+    std::atomic<long long> maxActual_ = 0;
     std::atomic<size_t> nAllocations_ = 0;
     std::atomic<size_t> nDeallocations_ = 0;
   };

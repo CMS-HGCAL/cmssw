@@ -40,7 +40,6 @@
 //---------------------------------------------------------------------------
 
 //--- Base class for CPEs:
-
 #include "RecoLocalTracker/SiPixelRecHits/interface/PixelCPEBase.h"
 
 //--- Geometry + DataFormats
@@ -56,7 +55,9 @@
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "DataFormats/Common/interface/Handle.h"
 #include "FWCore/Framework/interface/ESHandle.h"
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Utilities/interface/EDPutToken.h"
 #include "FWCore/Utilities/interface/ESGetToken.h"
@@ -81,10 +82,6 @@
 
 #include "RecoLocalTracker/Records/interface/TkPixelCPERecord.h"
 
-// Make heterogeneous framework happy
-#include "CUDADataFormats/SiPixelCluster/interface/gpuClusteringConstants.h"
-#include "CUDADataFormats/Common/interface/HostProduct.h"
-
 using namespace std;
 
 namespace cms {
@@ -94,6 +91,8 @@ namespace cms {
     //--- Constructor, virtual destructor (just in case)
     explicit SiPixelRecHitConverter(const edm::ParameterSet& conf);
     ~SiPixelRecHitConverter() override;
+
+    static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
     //--- Factory method to make CPE's depending on the ParameterSet
     //--- Not sure if we need to make more than one CPE to run concurrently
@@ -113,15 +112,12 @@ namespace cms {
              TrackerGeometry const& geom);
 
   private:
-    using HMSstorage = HostProduct<uint32_t[]>;
-
     // TO DO: maybe allow a map of pointers?
     PixelCPEBase const* cpe_ = nullptr;  // What we got (for now, one ptr to base class)
     edm::InputTag const src_;
     std::string const cpeName_;
     edm::EDGetTokenT<SiPixelClusterCollectionNew> const tPixelCluster_;
     edm::EDPutTokenT<SiPixelRecHitCollection> const tPut_;
-    edm::EDPutTokenT<HMSstorage> const tHost_;
     edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> const tTrackerGeom_;
     edm::ESGetToken<PixelClusterParameterEstimator, TkPixelCPERecord> const tCPE_;
     bool m_newCont;  // save also in emdNew::DetSetVector
@@ -135,7 +131,6 @@ namespace cms {
         cpeName_(conf.getParameter<std::string>("CPE")),
         tPixelCluster_(consumes<SiPixelClusterCollectionNew>(src_)),
         tPut_(produces<SiPixelRecHitCollection>()),
-        tHost_(produces<HMSstorage>()),
         tTrackerGeom_(esConsumes<TrackerGeometry, TrackerDigiGeometryRecord>()),
         tCPE_(esConsumes<PixelClusterParameterEstimator, TkPixelCPERecord>(edm::ESInputTag("", cpeName_))) {}
 
@@ -186,39 +181,7 @@ namespace cms {
 
     int numberOfDetUnits = 0;
     int numberOfClusters = 0;
-
-    const SiPixelClusterCollectionNew& input = *inputhandle;
-
-    // allocate a buffer for the indices of the clusters
-    auto hmsp = std::make_unique<uint32_t[]>(gpuClustering::maxNumModules + 1);
-    // hitsModuleStart is a non-owning pointer to the buffer
-    auto hitsModuleStart = hmsp.get();
-    // fill cluster arrays
-    std::array<uint32_t, gpuClustering::maxNumModules + 1> clusInModule{};
-    for (auto const& dsv : input) {
-      unsigned int detid = dsv.detId();
-      DetId detIdObject(detid);
-      const GeomDetUnit* genericDet = geom.idToDetUnit(detIdObject);
-      auto gind = genericDet->index();
-      // FIXME to be changed to support Phase2
-      if (gind >= int(gpuClustering::maxNumModules))
-        continue;
-      auto const nclus = dsv.size();
-      assert(nclus > 0);
-      clusInModule[gind] = nclus;
-      numberOfClusters += nclus;
-    }
-    hitsModuleStart[0] = 0;
-    assert(clusInModule.size() > gpuClustering::maxNumModules);
-    for (int i = 1, n = clusInModule.size(); i < n; ++i)
-      hitsModuleStart[i] = hitsModuleStart[i - 1] + clusInModule[i - 1];
-    assert(numberOfClusters == int(hitsModuleStart[gpuClustering::maxNumModules]));
-
-    // wrap the buffer in a HostProduct, and move it to the Event, without reallocating the buffer or affecting hitsModuleStart
-    iEvent.emplace(tHost_, std::move(hmsp));
-
-    numberOfClusters = 0;
-    for (auto const& dsv : input) {
+    for (auto const& dsv : *inputhandle) {
       numberOfDetUnits++;
       unsigned int detid = dsv.detId();
       DetId detIdObject(detid);
@@ -257,5 +220,12 @@ namespace cms {
 }  // end of namespace cms
 
 using cms::SiPixelRecHitConverter;
+
+void SiPixelRecHitConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+  edm::ParameterSetDescription desc;
+  desc.add<edm::InputTag>("src", edm::InputTag("siPixelClusters"));
+  desc.add<std::string>("CPE", "PixelCPEGeneric");
+  descriptions.addWithDefaultLabel(desc);
+}
 
 DEFINE_FWK_MODULE(SiPixelRecHitConverter);

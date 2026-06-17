@@ -4,8 +4,8 @@
 #include "IOPool/Streamer/interface/InitMessage.h"
 #include "IOPool/Streamer/interface/EventMessage.h"
 #include "IOPool/Streamer/interface/MsgTools.h"
-#include "Utilities/StorageFactory/interface/IOTypes.h"
-#include "Utilities/StorageFactory/interface/Storage.h"
+#include "FWStorage/StorageFactory/interface/IOTypes.h"
+#include "FWStorage/StorageFactory/interface/Storage.h"
 #include "FWCore/Utilities/interface/propagate_const.h"
 
 #include <memory>
@@ -16,6 +16,8 @@
 namespace edm {
   class EventSkipperByID;
   class FileCatalogItem;
+}  // namespace edm
+namespace edm::streamer {
   class StreamerInputFile {
   public:
     /**Reads a Streamer file */
@@ -96,6 +98,6 @@ namespace edm {
 
     bool endOfFile_;
   };
-}  // namespace edm
+}  // namespace edm::streamer
 
 #endif

@@ -17,13 +17,12 @@
 #include "FWCore/Framework/interface/OutputModuleCore.h"
 
 #include "DataFormats/Common/interface/Handle.h"
-#include "DataFormats/Common/interface/ThinnedAssociation.h"
 #include "DataFormats/Common/interface/EndPathStatus.h"
-#include "DataFormats/Provenance/interface/BranchDescription.h"
+#include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "DataFormats/Provenance/interface/BranchKey.h"
 #include "DataFormats/Provenance/interface/ProductRegistry.h"
-#include "DataFormats/Provenance/interface/ThinnedAssociationsHelper.h"
-#include "FWCore/Framework/interface/ConstProductRegistry.h"
+
+#include "FWCore/Framework/interface/SignallingProductRegistryFiller.h"
 #include "FWCore/Framework/interface/EventForOutput.h"
 #include "FWCore/Framework/interface/EventPrincipal.h"
 #include "FWCore/Framework/src/insertSelectedProcesses.h"
@@ -38,7 +37,6 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "FWCore/Utilities/interface/DebugMacros.h"
 #include "FWCore/Reflection/interface/DictionaryTools.h"
 
 namespace edm {
@@ -59,8 +57,7 @@ namespace edm {
           selector_config_id_(),
           droppedBranchIDToKeptBranchID_(),
           branchIDLists_(new BranchIDLists),
-          origBranchIDLists_(nullptr),
-          thinnedAssociationsHelper_(new ThinnedAssociationsHelper) {
+          origBranchIDLists_(nullptr) {
       hasNewlyDroppedBranch_.fill(false);
 
       Service<service::TriggerNamesService> tns;
@@ -77,25 +74,6 @@ namespace edm {
       selectors_.resize(1);
       wantAllEvents_ = detail::configureEventSelector(
           selectEvents_, process_name_, getAllTriggerNames(), selectors_[0], consumesCollector());
-
-      //Check if on final path
-      if (pset.exists("@onFinalPath")) {
-        onFinalPath_ = pset.getUntrackedParameter<bool>("@onFinalPath");
-      }
-      if (onFinalPath_) {
-        wantAllEvents_ = false;
-        if (not getAllTriggerNames().empty() and selectors_.front().numberOfTokens() == 0) {
-          //need to wait for trigger paths to finish
-          tokensForEndPaths_.push_back(consumes<TriggerResults>(edm::InputTag("TriggerResults", "", process_name_)));
-        }
-        //need to wait for EndPaths to finish
-        for (auto const& n : tns->getEndPaths()) {
-          if (n == "@finalPath") {
-            continue;
-          }
-          tokensForEndPaths_.push_back(consumes<EndPathStatus>(edm::InputTag(n, "", process_name_)));
-        }
-      }
     }
 
     void OutputModuleCore::configure(OutputModuleDescription const& desc) {
@@ -103,36 +81,39 @@ namespace edm {
       origBranchIDLists_ = desc.branchIDLists_;
     }
 
+    bool OutputModuleCore::finalSelection(ProductDescription const& desc) const {
+      // by defauilt, if the class of the branch is marked transient, output nothing
+      return desc.transient() == false;
+    }
+
     void OutputModuleCore::selectProducts(ProductRegistry const& preg,
-                                          ThinnedAssociationsHelper const& thinnedAssociationsHelper,
                                           ProcessBlockHelperBase const& processBlockHelper) {
       if (productSelector_.initialized())
         return;
-      productSelector_.initialize(productSelectorRules_, preg.allBranchDescriptions());
+      productSelector_.initialize(productSelectorRules_, preg.allProductDescriptions());
 
       // TODO: See if we can collapse keptProducts_ and productSelector_ into a
       // single object. See the notes in the header for ProductSelector
       // for more information.
 
-      std::map<BranchID, BranchDescription const*> trueBranchIDToKeptBranchDesc;
-      std::vector<BranchDescription const*> associationDescriptions;
+      std::map<BranchID, ProductDescription const*> trueBranchIDToKeptBranchDesc;
+      std::vector<ProductDescription const*> associationDescriptions;
       std::set<BranchID> keptProductsInEvent;
       std::set<std::string> processesWithSelectedMergeableRunProducts;
       std::set<std::string> processesWithKeptProcessBlockProducts;
 
       for (auto const& it : preg.productList()) {
-        BranchDescription const& desc = it.second;
-        if (desc.transient()) {
-          // if the class of the branch is marked transient, output nothing
-        } else if (!desc.present() && !desc.produced()) {
+        ProductDescription const& desc = it.second;
+        if (!desc.present() && !desc.produced()) {
           // else if the branch containing the product has been previously dropped,
           // output nothing
-        } else if (desc.unwrappedType() == typeid(ThinnedAssociation)) {
-          associationDescriptions.push_back(&desc);
         } else if (selected(desc)) {
-          keepThisBranch(desc, trueBranchIDToKeptBranchDesc, keptProductsInEvent);
-          insertSelectedProcesses(
-              desc, processesWithSelectedMergeableRunProducts, processesWithKeptProcessBlockProducts);
+          //allow inheriting classes to have final say on selection
+          if (finalSelection(desc)) {
+            keepThisBranch(desc, trueBranchIDToKeptBranchDesc, keptProductsInEvent);
+            insertSelectedProcesses(
+                desc, processesWithSelectedMergeableRunProducts, processesWithKeptProcessBlockProducts);
+          }
         } else {
           // otherwise, output nothing,
           // and mark the fact that there is a newly dropped branch of this type.
@@ -142,23 +123,13 @@ namespace edm {
 
       setProcessesWithSelectedMergeableRunProducts(processesWithSelectedMergeableRunProducts);
 
-      thinnedAssociationsHelper.selectAssociationProducts(
-          associationDescriptions, keptProductsInEvent, keepAssociation_);
-
-      for (auto association : associationDescriptions) {
-        if (keepAssociation_[association->branchID()]) {
-          keepThisBranch(*association, trueBranchIDToKeptBranchDesc, keptProductsInEvent);
-        } else {
-          hasNewlyDroppedBranch_[association->branchType()] = true;
-        }
-      }
-
       // Now fill in a mapping needed in the case that a branch was dropped while its EDAlias was kept.
       ProductSelector::fillDroppedToKept(preg, trueBranchIDToKeptBranchDesc, droppedBranchIDToKeptBranchID_);
 
-      thinnedAssociationsHelper_->updateFromParentProcess(
-          thinnedAssociationsHelper, keepAssociation_, droppedBranchIDToKeptBranchID_);
       outputProcessBlockHelper_.updateAfterProductSelection(processesWithKeptProcessBlockProducts, processBlockHelper);
+
+      orderedProcessNames_ = preg.processOrder();
+      initialRegistry(preg);
     }
 
     void OutputModuleCore::updateBranchIDListsWithKeptAliases() {
@@ -180,8 +151,8 @@ namespace edm {
       }
     }
 
-    void OutputModuleCore::keepThisBranch(BranchDescription const& desc,
-                                          std::map<BranchID, BranchDescription const*>& trueBranchIDToKeptBranchDesc,
+    void OutputModuleCore::keepThisBranch(ProductDescription const& desc,
+                                          std::map<BranchID, ProductDescription const*>& trueBranchIDToKeptBranchDesc,
                                           std::set<BranchID>& keptProductsInEvent) {
       ProductSelector::checkForDuplicateKeptBranch(desc, trueBranchIDToKeptBranchDesc);
 
@@ -247,22 +218,15 @@ namespace edm {
 
     void OutputModuleCore::preallocLumis(unsigned int) {}
 
-    void OutputModuleCore::doBeginJob_() {
-      this->beginJob();
-      if (onFinalPath_) {
-        //this stops prefetching of the data products
-        resetItemsToGetFrom(edm::InEvent);
-      }
-    }
+    void OutputModuleCore::doBeginJob_() { this->beginJob(); }
 
     void OutputModuleCore::doEndJob() { endJob(); }
 
-    void OutputModuleCore::registerProductsAndCallbacks(OutputModuleCore const*, ProductRegistry* reg) {
+    void OutputModuleCore::registerProductsAndCallbacks(OutputModuleCore const*, SignallingProductRegistryFiller* reg) {
       if (callWhenNewProductsRegistered_) {
         reg->callForEachBranch(callWhenNewProductsRegistered_);
 
-        Service<ConstProductRegistry> regService;
-        regService->watchProductAdditions(callWhenNewProductsRegistered_);
+        reg->watchProductAdditions(callWhenNewProductsRegistered_);
       }
     }
 
@@ -272,13 +236,10 @@ namespace edm {
       std::vector<ProductResolverIndexAndSkipBit> returnValue;
       auto const& s = selectors_[0];
       auto const n = s.numberOfTokens();
-      returnValue.reserve(n + tokensForEndPaths_.size());
+      returnValue.reserve(n);
 
       for (unsigned int i = 0; i < n; ++i) {
         returnValue.emplace_back(uncheckedIndexFrom(s.token(i)));
-      }
-      for (auto token : tokensForEndPaths_) {
-        returnValue.emplace_back(uncheckedIndexFrom(token));
       }
       return returnValue;
     }
@@ -298,9 +259,9 @@ namespace edm {
                                     ActivityRegistry* act,
                                     ModuleCallingContext const* mcc) {
       {
+        EventSignalsSentry sentry(act, mcc);
         EventForOutput e(info, moduleDescription_, mcc);
         e.setConsumer(this);
-        EventSignalsSentry sentry(act, mcc);
         write(e);
       }
       //remainingEvents_ is decremented by inheriting classes
@@ -381,13 +342,9 @@ namespace edm {
       return origBranchIDLists_;
     }
 
-    ThinnedAssociationsHelper const* OutputModuleCore::thinnedAssociationsHelper() const {
-      return thinnedAssociationsHelper_.get();
-    }
-
     ModuleDescription const& OutputModuleCore::description() const { return moduleDescription_; }
 
-    bool OutputModuleCore::selected(BranchDescription const& desc) const { return productSelector_.selected(desc); }
+    bool OutputModuleCore::selected(ProductDescription const& desc) const { return productSelector_.selected(desc); }
 
     void OutputModuleCore::fillDescriptions(ConfigurationDescriptions& descriptions) {
       ParameterSetDescription desc;
@@ -399,7 +356,6 @@ namespace edm {
                                            std::vector<std::string> const& defaultOutputCommands) {
       ProductSelectorRules::fillDescription(desc, "outputCommands", defaultOutputCommands);
       EventSelector::fillDescription(desc);
-      desc.addOptionalNode(ParameterDescription<bool>("@onFinalPath", false, false), false);
     }
 
     void OutputModuleCore::prevalidate(ConfigurationDescriptions&) {}

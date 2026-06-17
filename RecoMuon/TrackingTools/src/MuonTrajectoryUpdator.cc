@@ -101,7 +101,7 @@ pair<bool, TrajectoryStateOnSurface> MuonTrajectoryUpdator::update(const Traject
   const DetLayer* detLayer = measurement->layer();
 
   // these are the 4D segment for the CSC/DT and a point for the RPC
-  TransientTrackingRecHit::ConstRecHitPointer muonRecHit = measurement->recHit();
+  const TransientTrackingRecHit::ConstRecHitPointer& muonRecHit = measurement->recHit();
 
   // The KFUpdator takes TransientTrackingRecHits as arg.
   TransientTrackingRecHit::ConstRecHitContainer recHitsForFit =
@@ -155,6 +155,12 @@ pair<bool, TrajectoryStateOnSurface> MuonTrajectoryUpdator::update(const Traject
             }
 
             lastUpdatedTSOS = measurementUpdator()->update(propagatedTSOS, *((*recHit).get()));
+
+            if (!lastUpdatedTSOS.isValid()) {
+              edm::LogInfo(metname) << "Invalid last TSOS, will skip RecHit ";
+              lastUpdatedTSOS = propagatedTSOS;  // Revert update
+              continue;
+            }
 
             LogTrace(metname) << "  Fit   Position : " << lastUpdatedTSOS.globalPosition()
                               << "  Fit  Direction : " << lastUpdatedTSOS.globalDirection() << "\n"

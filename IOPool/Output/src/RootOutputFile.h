@@ -66,9 +66,10 @@ namespace edm {
     void writeStoredMergeableRunProductMetadata();
     void writeProcessHistoryRegistry();
     void writeParameterSetRegistry();
-    void writeProductDescriptionRegistry();
+    void writeProductDescriptionRegistry(ProductRegistry const&);
     void writeParentageRegistry();
     void writeBranchIDListRegistry();
+    //only for forward compatibility
     void writeThinnedAssociationsHelper();
     void writeProductDependencies();
     void writeEventAuxiliary();

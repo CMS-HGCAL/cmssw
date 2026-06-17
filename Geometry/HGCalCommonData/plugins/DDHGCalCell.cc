@@ -67,10 +67,10 @@ void DDHGCalCell::initialize(const DDNumericArguments& nArgs,
   nameSpace_ = DDCurrentNamespace::ns();
   if ((truncCN_.size() != truncSensN_.size()) || (extenCN_.size() != extenSensN_.size()) ||
       (cornrCN_.size() != cornrSensN_.size()))
-    edm::LogWarning("HGCalGeom") << "The number of cells & sensitive differ:"
-                                 << " Truncated " << truncCN_.size() << ":" << truncSensN_.size() << " Extended "
-                                 << extenCN_.size() << ":" << extenSensN_.size() << " Corners " << cornrCN_.size()
-                                 << ":" << cornrSensN_.size();
+    edm::LogWarning("HGCalGeom") << "DDHGCalCell:The number of cells & sensitive differ:" << " Truncated "
+                                 << truncCN_.size() << ":" << truncSensN_.size() << " Extended " << extenCN_.size()
+                                 << ":" << extenSensN_.size() << " Corners " << cornrCN_.size() << ":"
+                                 << cornrSensN_.size();
 #ifdef EDM_ML_DEBUG
   edm::LogVerbatim("HGCalGeom") << "DDHGCalCell: Wafer r " << waferSize_ << " T " << waferT_ << " Cell T " << cellT_
                                 << " Cells/Wafer " << nCells_ << " Material " << material_ << "Sensitive Position "
@@ -96,7 +96,7 @@ void DDHGCalCell::execute(DDCompactView& cpv) {
 
   static const double sqrt3 = std::sqrt(3.0);
   double R =
-      (addWaferSeparation_ <= 1) ? waferSize_ / (3.0 * nCells_) : (waferSize_ + waferSeparation_) / (3.0 * nCells_);
+      (addWaferSeparation_ >= 1) ? waferSize_ / (3.0 * nCells_) : (waferSize_ + waferSeparation_) / (3.0 * nCells_);
   double r = 0.5 * R * sqrt3;
   double dx1 = R;
   double dx2 = 0.5 * dx1;

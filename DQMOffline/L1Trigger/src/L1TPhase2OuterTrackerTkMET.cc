@@ -28,9 +28,9 @@
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
 #include "SimDataFormats/TrackingAnalysis/interface/TrackingParticle.h"
-#include "SimTracker/TrackTriggerAssociation/interface/TTStubAssociationMap.h"
-#include "SimTracker/TrackTriggerAssociation/interface/TTTrackAssociationMap.h"
-#include "SimTracker/TrackTriggerAssociation/interface/TTClusterAssociationMap.h"
+#include "SimDataFormats/Associations/interface/TTStubAssociationMap.h"
+#include "SimDataFormats/Associations/interface/TTTrackAssociationMap.h"
+#include "SimDataFormats/Associations/interface/TTClusterAssociationMap.h"
 
 #include "DQMOffline/L1Trigger/interface/L1TPhase2OuterTrackerTkMET.h"
 
@@ -101,7 +101,7 @@ void L1TPhase2OuterTrackerTkMET::analyze(const edm::Event& iEvent, const edm::Ev
     int nstubs = (int)theStubs.size();
 
     float chi2dof = tempTrackPtr->chi2Red();
-    float bendchi2 = tempTrackPtr->stubPtConsistency();
+    float bendchi2 = tempTrackPtr->chi2BendRed();
     float z0 = tempTrackPtr->z0();
 
     if (pt < minPt || fabs(z0) > maxZ0 || fabs(eta) > maxEta || chi2dof > chi2dofMax || bendchi2 > bendchi2Max)

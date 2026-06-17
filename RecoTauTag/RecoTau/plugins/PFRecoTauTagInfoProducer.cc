@@ -5,30 +5,26 @@
  * authors: Ludovic Houchu
  */
 
+#include <memory>
+
+#include <CLHEP/Random/RandGauss.h>
+#include <Math/GenVector/VectorUtil.h>
+
 #include "DataFormats/JetReco/interface/JetTracksAssociation.h"
 #include "DataFormats/TauReco/interface/PFTauTagInfo.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
-
-#include "RecoTauTag/RecoTau/interface/PFRecoTauTagInfoAlgorithm.h"
-
-#include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/Event.h"
-#include "FWCore/Framework/interface/MakerMacros.h"
+#include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
+#include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/global/EDProducer.h"
-
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
-
-#include <FWCore/ParameterSet/interface/ConfigurationDescriptions.h>
-#include <FWCore/ParameterSet/interface/ParameterSetDescription.h>
-
-#include "CLHEP/Random/RandGauss.h"
-
-#include "Math/GenVector/VectorUtil.h"
-
-#include <memory>
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/ParameterSet/interface/DescriptionCloner.h"
+#include "RecoTauTag/RecoTau/interface/PFRecoTauTagInfoAlgorithm.h"
 
 using namespace reco;
 using namespace edm;
@@ -108,7 +104,6 @@ void PFRecoTauTagInfoProducer::produce(edm::StreamID, edm::Event& iEvent, const 
     resultExt->push_back(myPFTauTagInfo);
   }
 
-  //  OrphanHandle<PFTauTagInfoCollection> myPFTauTagInfoCollection=iEvent.put(std::move(resultExt));
   iEvent.put(std::move(resultExt));
 }
 
@@ -142,29 +137,9 @@ void PFRecoTauTagInfoProducer::fillDescriptions(edm::ConfigurationDescriptions& 
   }
   {
     // pfRecoTauTagInfoProducer
-    edm::ParameterSetDescription desc;
-    desc.add<int>("tkminTrackerHitsn", 3);
-    desc.add<double>("tkminPt", 0.5);
-    desc.add<double>("tkmaxChi2", 100.0);
-    desc.add<double>("ChargedHadrCand_AssociationCone", 0.8);
-    desc.add<int>("ChargedHadrCand_tkminTrackerHitsn", 3);
-    desc.add<double>("ChargedHadrCand_tkmaxChi2", 100.0);
-    desc.add<double>("tkPVmaxDZ", 0.2);
-    desc.add<double>("GammaCand_EcalclusMinEt", 1.0);
-    desc.add<int>("tkminPixelHitsn", 0);
-    desc.add<edm::InputTag>("PVProducer", edm::InputTag("offlinePrimaryVertices"));
-    desc.add<edm::InputTag>("PFCandidateProducer", edm::InputTag("particleFlow"));
-    desc.add<double>("ChargedHadrCand_tkminPt", 0.5);
-    desc.add<double>("ChargedHadrCand_tkmaxipt", 0.03);
-    desc.add<int>("ChargedHadrCand_tkminPixelHitsn", 0);
-    desc.add<bool>("UsePVconstraint", true);
-    desc.add<double>("NeutrHadrCand_HcalclusMinEt", 1.0);
-    desc.add<edm::InputTag>("PFJetTracksAssociatorProducer", edm::InputTag("ak4PFJetTracksAssociatorAtVertex"));
-    desc.add<double>("smearedPVsigmaY", 0.0015);
-    desc.add<double>("smearedPVsigmaX", 0.0015);
-    desc.add<double>("smearedPVsigmaZ", 0.005);
-    desc.add<double>("ChargedHadrCand_tkPVmaxDZ", 0.2);
-    desc.add<double>("tkmaxipt", 0.03);
+    edm::DescriptionCloner desc;
+    desc.set<double>("ChargedHadrCand_AssociationCone", 0.8);
+    desc.set<edm::InputTag>("PFJetTracksAssociatorProducer", edm::InputTag("ak4PFJetTracksAssociatorAtVertex"));
     descriptions.add("pfRecoTauTagInfoProducer", desc);
   }
 }

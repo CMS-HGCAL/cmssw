@@ -15,6 +15,7 @@
 #include "CalibMuon/DTCalibration/interface/DTSegmentSelector.h"
 #include "Geometry/Records/interface/MuonGeometryRecord.h"
 #include "DataFormats/DTRecHit/interface/DTRecSegment4DCollection.h"
+#include "DataFormats/MuonDetId/interface/DTLayerIdFwd.h"
 
 #include <string>
 #include <vector>
@@ -25,7 +26,6 @@ class TH1F;
 class TH2F;
 class DTGeometry;
 class DTSuperLayerId;
-class DTLayerId;
 
 class DTResidualCalibration : public edm::one::EDAnalyzer<edm::one::WatchRuns> {
 public:
@@ -37,7 +37,7 @@ public:
   void beginJob() override;
   void beginRun(const edm::Run&, const edm::EventSetup&) override;
   void endJob() override;
-  void endRun(const edm::Run&, const edm::EventSetup&) override{};
+  void endRun(const edm::Run&, const edm::EventSetup&) override {}
   void analyze(const edm::Event& event, const edm::EventSetup& setup) override;
 
 protected:

@@ -6,11 +6,11 @@
  */
 #include "DataFormats/SiPixelDetId/interface/PixelModuleName.h"
 #include "DataFormats/SiPixelDetId/interface/PXFDetId.h"
+#include "DataFormats/DetId/interface/DetIdFwd.h"
 
 #include <string>
 #include <iostream>
 
-class DetId;
 class TrackerTopology;
 
 class PixelEndcapName : public PixelModuleName {
@@ -65,6 +65,10 @@ public:
 
   /// check equality of modules from datamemebers
   bool operator==(const PixelModuleName&) const override;
+  bool operator==(const PixelEndcapName& other) const {
+    return (thePart == other.thePart && theDisk == other.theDisk && theBlade == other.theBlade &&
+            thePannel == other.thePannel && thePlaquette == other.thePlaquette);
+  }
 
 private:
   HalfCylinder thePart;

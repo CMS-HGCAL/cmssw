@@ -58,12 +58,11 @@
 // class declaration
 //
 class ClusterVariables;
-class ClusterSummary;
 
 class ClusterSummaryProducer : public edm::stream::EDProducer<> {
 public:
   explicit ClusterSummaryProducer(const edm::ParameterSet&);
-  ~ClusterSummaryProducer() override{};
+  ~ClusterSummaryProducer() override {}
 
 private:
   void beginStream(edm::StreamID) override;

@@ -14,6 +14,8 @@ namespace cms::alpakatest {
   using AlpakaESTestDataCHost = PortableHostCollection<AlpakaESTestSoAC>;
   using AlpakaESTestDataDHost = PortableHostCollection<AlpakaESTestSoAD>;
 
+  using AlpakaESTestDataBlocksACHost = PortableHostCollection<AlpakaESTestSoABlocksAC>;
+
   // Template-over-device model
   template <typename TDev>
   class AlpakaESTestDataB {
@@ -39,8 +41,8 @@ namespace cms::alpakatest {
   template <typename TDev>
   class AlpakaESTestDataE {
   public:
-    using ECollection = PortableCollection<AlpakaESTestSoAE, TDev>;
-    using EDataCollection = PortableCollection<AlpakaESTestSoAEData, TDev>;
+    using ECollection = PortableCollection<TDev, AlpakaESTestSoAE>;
+    using EDataCollection = PortableCollection<TDev, AlpakaESTestSoAEData>;
 
     class ConstView {
     public:

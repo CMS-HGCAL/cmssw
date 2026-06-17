@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 import sys
 import os
@@ -35,15 +34,19 @@ from DQMServices.Components.DQMStoreStats_cfi import *
 
 dqmStoreStats.runOnEndJob = cms.untracked.bool(True)
 
+print("reading files ...")
 # max_skipped = 165
-max_number = -1  # 10 # number of events
+max_number = -1  # 10 # number of events (-1 : default)
 process.maxEvents = cms.untracked.PSet(input=cms.untracked.int32(max_number))
 # process.source = cms.Source ("PoolSource",skipEvents = cms.untracked.uint32(max_skipped), fileNames = cms.untracked.vstring(),secondaryFileNames = cms.untracked.vstring())
 
 data = os.environ['data']
 flist = dd.getCMSdata(data)
-print(flist)
-process.source = cms.Source("PoolSource", fileNames=cms.untracked.vstring(*flist))
+print('flist : ', flist)
+process.source = cms.Source("PoolSource",
+    #eventsToProcess = cms.untracked.VEventRange('1:38-1:40'),
+    fileNames=cms.untracked.vstring(*flist)
+)
 
 # process.source = cms.Source ("PoolSource", fileNames = cms.untracked.vstring(),secondaryFileNames = cms.untracked.vstring()) # std value
 # process.source.fileNames.extend(dd.search())  # to be commented for local run only
@@ -78,16 +81,12 @@ from Configuration.AlCa.autoCond import autoCond
 
 # process.GlobalTag.globaltag = os.environ['TEST_GLOBAL_TAG'] + '::All'
 #process.GlobalTag.globaltag = '120X_mcRun3_2021_realistic_v1'
-#process.GlobalTag.globaltag = '125X_mcRun3_2022_realistic_v3'
-#process.GlobalTag.globaltag = '125X_mcRun4_realistic_v2_2026D88noPU' # no more needed
-# process.GlobalTag.globaltag = '113X_mcRun3_2021_realistic_v4'
-# process.GlobalTag.globaltag = '93X_mc2017_realistic_v1'
-# process.GlobalTag.globaltag = '92X_upgrade2017_realistic_v10'
 
 # FOR DATA REDONE FROM RAW, ONE MUST HIDE IsoFromDeps
 # CONFIGURATION
 process.load("Validation.RecoEgamma.electronIsoFromDeps_cff")
 process.load("Validation.RecoEgamma.ElectronMcSignalValidator_gedGsfElectrons_cfi")
+#process.load("Validation.RecoEgamma.pfElectronMcSignalValidator_gedGsfElectrons_cfi")
 
 # load DQM
 process.load("DQMServices.Core.DQM_cfg")
@@ -103,7 +102,10 @@ process.electronMcSignalValidator.InputFolderName = cms.string("EgammaV/Electron
 process.electronMcSignalValidator.OutputFolderName = cms.string("EgammaV/ElectronMcSignalValidator")
 
 # process.p = cms.Path(process.electronIsoFromDeps * process.electronMcSignalValidator * process.MEtoEDMConverter * process.dqmStoreStats)
-process.p = cms.Path(process.electronMcSignalValidator * process.MEtoEDMConverter * process.dqmStoreStats)
+#process.p = cms.Path(process.electronMcSignalValidator * process.MEtoEDMConverter * process.dqmStoreStats)
+
+#process.p = cms.Path(process.electronMcSignalValidator * process.pfElectronsValidation * process.MEtoEDMConverter)
+process.p = cms.Path(process.electronMcSignalValidator * process.MEtoEDMConverter)
 
 process.outpath = cms.EndPath(
     process.EDM,

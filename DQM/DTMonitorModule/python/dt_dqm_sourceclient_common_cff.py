@@ -20,6 +20,9 @@ gtDigis = EventFilter.L1GlobalTriggerRawToDigi.l1GtUnpack_cfi.l1GtUnpack.clone(
    DaqGtInputTag = 'rawDataCollector'
 )
 
+from EventFilter.L1TRawToDigi.gtStage2Digis_cfi import gtStage2Digis
+gtStage2Digis.InputLabel = 'rawDataCollector'
+
 # Scalers info
 from EventFilter.ScalersRawToDigi.ScalersRawToDigi_cfi import *
 scalersRawToDigi.scalersInputTag = 'rawDataCollector'
@@ -54,7 +57,6 @@ blockedROChannelTest.checkUros      = True
 # Digi task
 from DQM.DTMonitorModule.dtDigiTask_cfi import *
 from DQM.DTMonitorClient.dtOccupancyTest_cfi import *
-from DQM.DTMonitorClient.dtOccupancyTestML_cfi import *
 dtDigiMonitor.readDB = False 
 dtDigiMonitor.filterSyncNoise = True
 dtDigiMonitor.lookForSyncNoise = True
@@ -114,7 +116,7 @@ reco = cms.Sequence(dt1DRecHits + dt4DSegments)
 dtDQMTask = cms.Sequence(dtDataIntegrityTask + dtDigiMonitor + dtSegmentAnalysisMonitor + dtTriggerBaseMonitor + dtTriggerLutMonitor + dtNoiseMonitor + dtResolutionAnalysisMonitor)
 
 # DQM clients to be run on physics event only
-dtDQMTest = cms.Sequence(dataIntegrityTest + blockedROChannelTest + triggerLutTest + triggerTest + dtOccupancyTest + dtOccupancyTestML + segmentTest + dtNoiseAnalysisMonitor + dtSummaryClients + dtqTester)
+dtDQMTest = cms.Sequence(dataIntegrityTest + blockedROChannelTest + triggerLutTest + triggerTest + dtOccupancyTest + segmentTest + dtNoiseAnalysisMonitor + dtSummaryClients + dtqTester)
 
 # DQM tasks and clients to be run on calibration events only
 dtDQMCalib = cms.Sequence(dtTPmonitor + dtTPTriggerMonitor + dtTPmonitorTest + dtTPTriggerTest)
@@ -122,3 +124,6 @@ dtDQMCalib = cms.Sequence(dtTPmonitor + dtTPTriggerMonitor + dtTPmonitorTest + d
 # sequence to be run on physics events (includes filters, reco and DQM)
 dtDQMPhysSequence = cms.Sequence(dtScalerInfoMonitor + gtDigis + reco + dtDQMTask + dtDQMTest)
 
+from Configuration.Eras.Modifier_stage2L1Trigger_cff import stage2L1Trigger
+dtDQMPhysSequenceStage2 = cms.Sequence(dtScalerInfoMonitor + gtStage2Digis + reco + dtDQMTask + dtDQMTest)
+stage2L1Trigger.toReplaceWith(dtDQMPhysSequence,dtDQMPhysSequenceStage2)

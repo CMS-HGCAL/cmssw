@@ -16,13 +16,13 @@
 
 #include "RecoMuon/TrackingTools/interface/MuonServiceProxy.h"
 
-#include "RecoMuon/MuonSeedGenerator/src/SETFilter.h"
+#include "RecoMuon/MuonSeedGenerator/interface/SETFilter.h"
 #include "RecoMuon/TransientTrackingRecHit/interface/MuonTransientTrackingRecHit.h"
-#include "RecoMuon/MuonSeedGenerator/src/SETPatternRecognition.h"
-#include "RecoMuon/MuonSeedGenerator/src/SETSeedFinder.h"
+#include "RecoMuon/MuonSeedGenerator/interface/SETPatternRecognition.h"
+#include "RecoMuon/MuonSeedGenerator/interface/SETSeedFinder.h"
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
+#include "DataFormats/TrajectorySeed/interface/TrajectorySeedFwd.h"
 
-class TrajectorySeed;
 class STAFilter;
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"

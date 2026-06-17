@@ -28,11 +28,11 @@
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "SimGeneral/MixingModule/interface/DigiAccumulatorMixMod.h"
+#include "SimDataFormats/TrackingHit/interface/PSimHitFwd.h"
 
 class MagneticField;
 class PileUpEventPrincipal;
 class PixelGeomDetUnit;
-class PSimHit;
 class SiPixelDigitizerAlgorithm;
 class TrackerGeometry;
 
@@ -74,7 +74,9 @@ namespace cms {
     bool firstInitializeEvent_;
     bool firstFinalizeEvent_;
     bool applyLateReweighting_;
+    bool usePixelExtraLiteFormat_;
     const bool store_SimHitEntryExitPoints_;
+    const bool store_SimHitEntryExitPointsLite_;
     bool makeDigiSimLinks_;
     std::unique_ptr<SiPixelDigitizerAlgorithm> _pixeldigialgo;
     /** @brief Offset to add to the index of each sim hit to account for which crossing it's in.

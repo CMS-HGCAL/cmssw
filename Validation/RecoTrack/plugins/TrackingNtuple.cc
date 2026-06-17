@@ -33,6 +33,7 @@
 #include "CommonTools/Utils/interface/DynArray.h"
 #include "DataFormats/Provenance/interface/ProductID.h"
 #include "DataFormats/Common/interface/ContainerMask.h"
+#include "DataFormats/Math/interface/deltaR.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/transform.h"
@@ -89,9 +90,15 @@
 #include "SimTracker/TrackHistory/interface/HistoryBase.h"
 #include "HepPDT/ParticleID.hh"
 
-#include "Validation/RecoTrack/interface/trackFromSeedFitFailed.h"
+#include "DataFormats/TrackReco/interface/trackFromSeedFitFailed.h"
 
 #include "RecoTracker/FinalTrackSelectors/interface/getBestVertex.h"
+
+// GenJet headers
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticleFwd.h"
+#include "DataFormats/JetReco/interface/GenJet.h"
+#include "DataFormats/JetReco/interface/GenJetCollection.h"
 
 #include <set>
 #include <map>
@@ -628,6 +635,8 @@ private:
   void fillTrackingVertices(const TrackingVertexRefVector& trackingVertices,
                             const TrackingParticleRefKeyToIndex& tpKeyToIndex);
 
+  void fillGenJets(const edm::Event& iEvent, const TrackingParticleRefVector& tpCollection);
+
   struct SimHitData {
     std::vector<int> matchingSimHit;
     std::vector<float> chargeFraction;
@@ -688,6 +697,9 @@ private:
 
   std::string builderName_;
   const bool includeSeeds_;
+  const bool seedUniqueCheck_;
+  const bool seedAlgoDetect_;
+  std::vector<unsigned int> seedAlgos_;
   const bool includeTrackCandidates_;
   const bool addSeedCurvCov_;
   const bool includeAllHits_;
@@ -702,13 +714,15 @@ private:
   HistoryBase tracer_;
   ParametersDefinerForTP parametersDefiner_;
 
+  const edm::EDGetTokenT<reco::GenJetCollection> tok_jets_;
+
   TTree* t;
 
   // DetId branches
 #define BOOK(name) tree->Branch((prefix + "_" + #name).c_str(), &name);
   class DetIdCommon {
   public:
-    DetIdCommon(){};
+    DetIdCommon() {}
 
     unsigned int operator[](size_t i) const { return detId[i]; }
 
@@ -1292,6 +1306,7 @@ private:
       ph2_radL;  //http://cmslxr.fnal.gov/lxr/source/DataFormats/GeometrySurface/interface/MediumProperties.h
   std::vector<float> ph2_bbxi;
   std::vector<uint64_t> ph2_usedMask;
+  std::vector<uint16_t> ph2_clustSize;
 
   ////////////////////
   // invalid (missing/inactive/etc) hits
@@ -1368,8 +1383,10 @@ private:
   std::vector<unsigned int> see_algo;
   std::vector<unsigned short> see_stopReason;
   std::vector<unsigned short> see_nCands;
-  std::vector<int> see_trkIdx;
-  std::vector<int> see_tcandIdx;
+  std::vector<unsigned int> see_nTrk;
+  std::vector<unsigned int> see_nTCand;
+  std::vector<std::vector<unsigned int>> see_trkIdx;
+  std::vector<std::vector<unsigned int>> see_tcandIdx;
   std::vector<short> see_isTrue;
   std::vector<int> see_bestSimTrkIdx;
   std::vector<float> see_bestSimTrkShareFrac;
@@ -1409,6 +1426,18 @@ private:
   std::vector<std::vector<int>> simvtx_sourceSimIdx;    // second index runs through source TrackingParticles
   std::vector<std::vector<int>> simvtx_daughterSimIdx;  // second index runs through daughter TrackingParticles
   std::vector<int> simpv_idx;
+  std::vector<float> sim_genjet_deltaEta;  // distance to closest GenJet
+  std::vector<float> sim_genjet_deltaPhi;
+  std::vector<float> sim_genjet_deltaR;
+  std::vector<int> sim_genjet_idx;  // index of GenJet for each Sim track
+
+  ////////////////////
+  // GenJets
+  std::vector<float> genjet_pt;
+  std::vector<float> genjet_eta;
+  std::vector<float> genjet_phi;
+  std::vector<float> genjet_invisible_energy;
+  std::vector<float> genjet_auxiliary_energy;
 };
 
 //
@@ -1453,6 +1482,10 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig)
       tpNStripStereoLayersToken_(consumes<edm::ValueMap<unsigned int>>(
           iConfig.getUntrackedParameter<edm::InputTag>("trackingParticleNstripstereolayers"))),
       includeSeeds_(iConfig.getUntrackedParameter<bool>("includeSeeds")),
+      seedUniqueCheck_(includeSeeds_ && iConfig.getUntrackedParameter<bool>("seedUniqueCheck")),
+      seedAlgoDetect_(includeSeeds_ && iConfig.getUntrackedParameter<bool>("seedAlgoDetect")),
+      seedAlgos_(seedAlgoDetect_ ? std::vector<unsigned int>()
+                                 : iConfig.getUntrackedParameter<std::vector<unsigned int>>("seedAlgos")),
       includeTrackCandidates_(iConfig.getUntrackedParameter<bool>("includeTrackCandidates")),
       addSeedCurvCov_(iConfig.getUntrackedParameter<bool>("addSeedCurvCov")),
       includeAllHits_(iConfig.getUntrackedParameter<bool>("includeAllHits")),
@@ -1463,7 +1496,8 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig)
       keepEleSimHits_(iConfig.getUntrackedParameter<bool>("keepEleSimHits")),
       saveSimHitsP3_(iConfig.getUntrackedParameter<bool>("saveSimHitsP3")),
       simHitBySignificance_(iConfig.getUntrackedParameter<bool>("simHitBySignificance")),
-      parametersDefiner_(iConfig.getUntrackedParameter<edm::InputTag>("beamSpot"), consumesCollector()) {
+      parametersDefiner_(iConfig.getUntrackedParameter<edm::InputTag>("beamSpot"), consumesCollector()),
+      tok_jets_(consumes<reco::GenJetCollection>(iConfig.getParameter<edm::InputTag>("jetSource"))) {
   if (includeSeeds_) {
     seedTokens_ =
         edm::vector_transform(iConfig.getUntrackedParameter<std::vector<edm::InputTag>>("seedTracks"),
@@ -1474,6 +1508,37 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig)
     if (seedTokens_.size() != seedStopInfoTokens_.size()) {
       throw cms::Exception("Configuration") << "Got " << seedTokens_.size() << " seed collections, but "
                                             << seedStopInfoTokens_.size() << " track candidate collections";
+    }
+    if (seedAlgoDetect_) {
+      for (auto const& token : seedStopInfoTokens_) {
+        edm::EDConsumerBase::Labels labels;
+        labelsForToken(token, labels);
+
+        TString label = labels.module;
+        //format label to match algoName
+        label.ReplaceAll("seedTracks", "");
+        label.ReplaceAll("Seeds", "");
+        label.ReplaceAll("TrackCandidates", "");
+        label.ReplaceAll("muonSeeded", "muonSeededStep");
+        //for HLT seeds
+        label.ReplaceAll("FromPixelTracks", "");
+        label.ReplaceAll("PFLowPixel", "");
+        label.ReplaceAll("PFlowPixel", "");
+        label.ReplaceAll("hltIni", "ini");
+        label.ReplaceAll("hltHigh", "high");
+        label.ReplaceAll("hltDoubletRecovery", "pixelPairStep");
+        label.ReplaceAll("hltInputLST", "hltPixel");
+
+        int algo = reco::TrackBase::algoByName(label.Data());
+        if (algo == 0)
+          throw cms::Exception("LogicError") << "Failed to detect seed algo for collection " << labels.module << ":"
+                                             << labels.productInstance << " last transform is " << label;
+        seedAlgos_.push_back(algo);
+      }
+    } else {
+      if (seedAlgos_.size() != seedTokens_.size())
+        throw cms::Exception("Configuration")
+            << "Got " << seedTokens_.size() << " seed collections, but " << seedAlgos_.size() << " algo overrides";
     }
   }
   if (includeTrackCandidates_)
@@ -1882,6 +1947,7 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig)
       t->Branch("ph2_radL", &ph2_radL);
       t->Branch("ph2_bbxi", &ph2_bbxi);
       t->Branch("ph2_usedMask", &ph2_usedMask);
+      t->Branch("ph2_clustSize", &ph2_clustSize);
     }
     //invalid hits
     t->Branch("inv_isBarrel", &inv_isBarrel);
@@ -1962,9 +2028,12 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig)
     t->Branch("see_algo", &see_algo);
     t->Branch("see_stopReason", &see_stopReason);
     t->Branch("see_nCands", &see_nCands);
+    t->Branch("see_nTrk", &see_nTrk);
     t->Branch("see_trkIdx", &see_trkIdx);
-    if (includeTrackCandidates_)
+    if (includeTrackCandidates_) {
+      t->Branch("see_nTCand", &see_nTCand);
       t->Branch("see_tcandIdx", &see_tcandIdx);
+    }
     if (includeTrackingParticles_) {
       t->Branch("see_simTrkIdx", &see_simTrkIdx);
       t->Branch("see_simTrkShareFrac", &see_simTrkShareFrac);
@@ -2005,8 +2074,19 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig)
   t->Branch("simvtx_z", &simvtx_z);
   t->Branch("simvtx_sourceSimIdx", &simvtx_sourceSimIdx);
   t->Branch("simvtx_daughterSimIdx", &simvtx_daughterSimIdx);
+  t->Branch("sim_genjet_deltaEta", &sim_genjet_deltaEta);
+  t->Branch("sim_genjet_deltaPhi", &sim_genjet_deltaPhi);
+  t->Branch("sim_genjet_deltaR", &sim_genjet_deltaR);
 
   t->Branch("simpv_idx", &simpv_idx);
+
+  // GenJets
+  t->Branch("genjet_pt", &genjet_pt);
+  t->Branch("genjet_eta", &genjet_eta);
+  t->Branch("genjet_phi", &genjet_phi);
+  t->Branch("genjet_invisible_energy", &genjet_invisible_energy);
+  t->Branch("genjet_auxiliary_energy", &genjet_auxiliary_energy);
+  t->Branch("sim_genjet_idx", &sim_genjet_idx);
 
   //t->Branch("" , &);
 }
@@ -2309,6 +2389,7 @@ void TrackingNtuple::clearVariables() {
   ph2_radL.clear();
   ph2_bbxi.clear();
   ph2_usedMask.clear();
+  ph2_clustSize.clear();
   //invalid hits
   inv_isBarrel.clear();
   inv_detId.clear();
@@ -2377,6 +2458,8 @@ void TrackingNtuple::clearVariables() {
   see_algo.clear();
   see_stopReason.clear();
   see_nCands.clear();
+  see_nTrk.clear();
+  see_nTCand.clear();
   see_trkIdx.clear();
   see_tcandIdx.clear();
   see_isTrue.clear();
@@ -2414,6 +2497,17 @@ void TrackingNtuple::clearVariables() {
   simvtx_sourceSimIdx.clear();
   simvtx_daughterSimIdx.clear();
   simpv_idx.clear();
+  sim_genjet_deltaEta.clear();
+  sim_genjet_deltaPhi.clear();
+  sim_genjet_deltaR.clear();
+  sim_genjet_idx.clear();
+
+  // GenJets
+  genjet_pt.clear();
+  genjet_eta.clear();
+  genjet_phi.clear();
+  genjet_invisible_energy.clear();
+  genjet_auxiliary_energy.clear();
 }
 
 // ------------ method called for each event  ------------
@@ -2687,7 +2781,48 @@ void TrackingNtuple::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
   // tracking vertices
   fillTrackingVertices(tvRefs, tpKeyToIndex);
 
+  // GenJets
+  fillGenJets(iEvent, tpCollection);
+
   t->Fill();
+}
+
+void TrackingNtuple::fillGenJets(const edm::Event& iEvent, const TrackingParticleRefVector& tpCollection) {
+  auto const& genJets = iEvent.get(tok_jets_);
+  for (auto const& jet : genJets) {
+    genjet_pt.push_back(jet.pt());
+    genjet_eta.push_back(jet.eta());
+    genjet_phi.push_back(jet.phi());
+    genjet_invisible_energy.push_back(jet.invisibleEnergy());
+    genjet_auxiliary_energy.push_back(jet.auxiliaryEnergy());
+  }
+  for (const TrackingParticleRef& tp : tpCollection) {
+    float sim_eta = tp->eta();
+    float sim_phi = tp->phi();
+
+    float best_dR2 = std::numeric_limits<float>::max();
+    float best_dEta = 0.f, best_dPhi = 0.f;
+    int best_jet_idx = -1;
+
+    for (size_t i = 0; i < genJets.size(); ++i) {
+      const auto& jet = genJets[i];
+      const float dEta = sim_eta - jet.eta();
+      const float dPhi = reco::deltaPhi(sim_phi, jet.phi());
+      const float dR2 = reco::deltaR2(sim_eta, sim_phi, jet.eta(), jet.phi());
+
+      if (dR2 < best_dR2) {
+        best_dR2 = dR2;
+        best_dEta = dEta;
+        best_dPhi = dPhi;
+        best_jet_idx = i;
+      }
+    }
+
+    sim_genjet_deltaEta.push_back(best_dEta);
+    sim_genjet_deltaPhi.push_back(best_dPhi);
+    sim_genjet_deltaR.push_back(std::sqrt(best_dR2));
+    sim_genjet_idx.push_back(best_jet_idx);
+  }
 }
 
 void TrackingNtuple::fillBeamSpot(const reco::BeamSpot& bs) {
@@ -3376,6 +3511,7 @@ void TrackingNtuple::fillPhase2OTHits(const edm::Event& iEvent,
       ph2_radL.push_back(hit->surface()->mediumProperties().radLen());
       ph2_bbxi.push_back(hit->surface()->mediumProperties().xi());
       ph2_usedMask.push_back(ph2OTUsedMask(hit->firstClusterRef().key()));
+      ph2_clustSize.push_back(hit->cluster()->size());
 
       LogTrace("TrackingNtuple") << "phase2 OT cluster=" << key << " subdId=" << hitId.subdetId() << " lay=" << lay
                                  << " rawId=" << hitId.rawId() << " pos =" << hit->globalPosition();
@@ -3425,6 +3561,7 @@ void TrackingNtuple::fillSeeds(const edm::Event& iEvent,
   TSCBLBuilderNoMaterial tscblBuilder;
   for (size_t iColl = 0; iColl < seedTokens_.size(); ++iColl) {
     const auto& seedToken = seedTokens_[iColl];
+    const auto algo = seedAlgos_[iColl];
 
     edm::Handle<edm::View<reco::Track>> seedTracksHandle;
     iEvent.getByToken(seedToken, seedTracksHandle);
@@ -3465,28 +3602,17 @@ void TrackingNtuple::fillSeeds(const edm::Event& iEvent,
     reco::RecoToSimCollection recSimColl = associatorByHits.associateRecoToSim(seedTrackRefs, tpCollection);
     reco::SimToRecoCollection simRecColl = associatorByHits.associateSimToReco(seedTrackRefs, tpCollection);
 
-    TString label = labels.module;
-    //format label to match algoName
-    label.ReplaceAll("seedTracks", "");
-    label.ReplaceAll("Seeds", "");
-    label.ReplaceAll("muonSeeded", "muonSeededStep");
-    //for HLT seeds
-    label.ReplaceAll("FromPixelTracks", "");
-    label.ReplaceAll("PFLowPixel", "");
-    label.ReplaceAll("hltDoubletRecovery", "pixelPairStep");  //random choice
-    int algo = reco::TrackBase::algoByName(label.Data());
-
     edm::ProductID id = seedTracks[0].seedRef().id();
     const auto offset = see_fitok.size();
     auto inserted = seedCollToOffset.emplace(id, offset);
     if (!inserted.second)
       throw cms::Exception("Configuration")
           << "Trying to add seeds with ProductID " << id << " for a second time from collection " << labels.module
-          << ", seed algo " << label << ". Typically this is caused by a configuration problem.";
+          << ", seed algo " << algo << ". Typically this is caused by a configuration problem.";
     see_offset.push_back(offset);
 
-    LogTrace("TrackingNtuple") << "NEW SEED LABEL: " << label << " size: " << seedTracks.size() << " algo=" << algo
-                               << " ProductID " << id;
+    LogTrace("TrackingNtuple") << "NEW SEED LABEL: for " << labels.module << " size: " << seedTracks.size()
+                               << " algo=" << algo << " ProductID " << id;
 
     for (size_t iSeed = 0; iSeed < seedTrackRefs.size(); ++iSeed) {
       const auto& seedTrackRef = seedTrackRefs[iSeed];
@@ -3579,6 +3705,8 @@ void TrackingNtuple::fillSeeds(const edm::Event& iEvent,
       see_stateTrajGlbPx.push_back(stateGlobal.momentum().x());
       see_stateTrajGlbPy.push_back(stateGlobal.momentum().y());
       see_stateTrajGlbPz.push_back(stateGlobal.momentum().z());
+      if (charge == 0)  // replace with seed state if the  track failed
+        see_q.back() = stateGlobal.charge();
       if (addSeedCurvCov_) {
         auto const& stateCcov = tsos.curvilinearError().matrix();
         std::vector<float> cov(15);
@@ -3588,8 +3716,12 @@ void TrackingNtuple::fillSeeds(const edm::Event& iEvent,
         see_stateCurvCov.push_back(std::move(cov));
       }
 
-      see_trkIdx.push_back(-1);    // to be set correctly in fillTracks
-      see_tcandIdx.push_back(-1);  // to be set correctly in fillCandidates
+      // to be set correctly in fillTracks
+      see_nTrk.push_back(0);
+      see_nTCand.push_back(0);
+      see_trkIdx.push_back({});
+      see_tcandIdx.push_back({});
+
       if (includeTrackingParticles_) {
         see_simTrkIdx.push_back(tpIdx);
         see_simTrkShareFrac.push_back(sharedFraction);
@@ -3963,11 +4095,12 @@ void TrackingNtuple::fillTracks(const edm::RefToBaseVector<reco::Track>& tracks,
 
       const auto seedIndex = offset->second + itTrack->seedRef().key();
       trk_seedIdx.push_back(seedIndex);
-      if (see_trkIdx[seedIndex] != -1) {
+      if (seedUniqueCheck_ && see_nTrk[seedIndex] > 0) {
         throw cms::Exception("LogicError") << "Track index has already been set for seed " << seedIndex << " to "
-                                           << see_trkIdx[seedIndex] << "; was trying to set it to " << iTrack;
+                                           << see_trkIdx[seedIndex][0] << "; was trying to set it to " << iTrack;
       }
-      see_trkIdx[seedIndex] = iTrack;
+      see_nTrk[seedIndex]++;
+      see_trkIdx[seedIndex].push_back(iTrack);
     }
     trk_vtxIdx.push_back(-1);  // to be set correctly in fillVertices
     if (includeTrackingParticles_) {
@@ -4256,12 +4389,13 @@ void TrackingNtuple::fillCandidates(const edm::Handle<TrackCandidateCollection>&
 
       const auto seedIndex = offset->second + aCand.seedRef().key();
       tcand_seedIdx.push_back(seedIndex);
-      if (see_tcandIdx[seedIndex] != -1) {
+      if (seedUniqueCheck_ && see_nTCand[seedIndex] > 0) {
         throw cms::Exception("LogicError")
-            << "Track cand index has already been set for seed " << seedIndex << " to " << see_tcandIdx[seedIndex]
+            << "Track cand index has already been set for seed " << seedIndex << " to " << see_tcandIdx[seedIndex][0]
             << "; was trying to set it to " << iglobCand << " current " << iCand;
       }
-      see_tcandIdx[seedIndex] = iglobCand;
+      see_nTCand[seedIndex]++;
+      see_tcandIdx[seedIndex].push_back(iglobCand);
     }
     tcand_vtxIdx.push_back(-1);  // to be set correctly in fillVertices
     if (includeTrackingParticles_) {
@@ -4663,6 +4797,9 @@ void TrackingNtuple::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.addUntracked<std::string>("TTRHBuilder", "WithTrackAngle")
       ->setComment("currently not used: keep for possible future use");
   desc.addUntracked<bool>("includeSeeds", false);
+  desc.addOptionalUntracked<bool>("seedUniqueCheck", true);
+  desc.addOptionalUntracked<bool>("seedAlgoDetect", true);
+  desc.addOptionalUntracked<std::vector<unsigned int>>("seedAlgos");
   desc.addUntracked<bool>("includeTrackCandidates", false);
   desc.addUntracked<bool>("addSeedCurvCov", false);
   desc.addUntracked<bool>("includeAllHits", false);
@@ -4673,6 +4810,7 @@ void TrackingNtuple::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.addUntracked<bool>("keepEleSimHits", false);
   desc.addUntracked<bool>("saveSimHitsP3", false);
   desc.addUntracked<bool>("simHitBySignificance", false);
+  desc.add<edm::InputTag>("jetSource", edm::InputTag("ak4GenJets"));
   descriptions.add("trackingNtuple", desc);
 }
 

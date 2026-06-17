@@ -22,7 +22,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   class TestAlpakaGlobalProducerOffset : public global::EDProducer<> {
   public:
     TestAlpakaGlobalProducerOffset(edm::ParameterSet const& config)
-        : esToken_(esConsumes()),
+        : EDProducer<>(config),
+          esToken_(esConsumes()),
           deviceToken_{produces()},
           x_(config.getParameter<edm::ParameterSet>("xvalue").getParameter<double>(
               EDM_STRINGIZE(ALPAKA_ACCELERATOR_NAMESPACE))) {}
@@ -30,7 +31,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void produce(edm::StreamID, device::Event& iEvent, device::EventSetup const& iSetup) const override {
       auto const& esData = iSetup.getData(esToken_);
 
-      portabletest::TestDeviceCollection deviceProduct{esData->metadata().size(), iEvent.queue()};
+      portabletest::TestDeviceCollection deviceProduct{iEvent.queue(), esData->metadata().size()};
 
       // run the algorithm, potentially asynchronously
       algo_.fill(iEvent.queue(), deviceProduct, x_);

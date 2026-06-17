@@ -5,14 +5,14 @@ TtFullLepKinSolver::TtFullLepKinSolver()
     : topmass_begin(0), topmass_end(0), topmass_step(0), mw(80.4), mb(4.8), pxmiss_(0), pymiss_(0) {
   // That crude parametrisation has been obtained from a fit of O(1000) pythia events.
   // It is normalized to 1.
-  EventShape_ = new TF2("landau2D", "[0]*TMath::Landau(x,[1],[2],0)*TMath::Landau(y,[3],[4],0)", 0, 500, 0, 500);
+  EventShape_ = new TF2("landau2D", "[0]*TMath::Landau(x,[1],[2],0)*TMath::Landau(y,[3],[4],0)", 0, 500, 0, 500, "NL");
   EventShape_->SetParameters(30.7137, 56.2880, 23.0744, 59.1015, 24.9145);
 }
 
 TtFullLepKinSolver::TtFullLepKinSolver(
     const double b, const double e, const double s, const std::vector<double>& nupars, const double mW, const double mB)
     : topmass_begin(b), topmass_end(e), topmass_step(s), mw(mW), mb(mB), pxmiss_(0), pymiss_(0) {
-  EventShape_ = new TF2("landau2D", "[0]*TMath::Landau(x,[1],[2],0)*TMath::Landau(y,[3],[4],0)", 0, 500, 0, 500);
+  EventShape_ = new TF2("landau2D", "[0]*TMath::Landau(x,[1],[2],0)*TMath::Landau(y,[3],[4],0)", 0, 500, 0, 500, "NL");
   EventShape_->SetParameters(nupars[0], nupars[1], nupars[2], nupars[3], nupars[4]);
 }
 
@@ -317,8 +317,9 @@ int TtFullLepKinSolver::quartic(double* koeficienty, double* koreny) const {
   double d0, d1, h, t, z;
   double* px;
 
-  if (koeficienty[4] == 0.0)
+  if (koeficienty[4] == 0.0) {
     return cubic(koeficienty, koreny);
+  }
   /* quartic problem? */
   w = koeficienty[3] / (4 * koeficienty[4]);
   /* offset */
@@ -334,8 +335,12 @@ int TtFullLepKinSolver::quartic(double* koeficienty, double* koreny) const {
   c[1] = -4 * b0;
   c[0] = sqr(b1) - 4 * b0 * b2;
 
-  cubic(c, koreny);
-  z = koreny[0];
+  if (cubic(c, koreny) == 0) {
+    // No real solutions, returning zero
+    return 0;
+  } else {
+    z = koreny[0];
+  }
   //double z1=1.0,z2=2.0,z3=3.0;
   //TMath::RootsCubic(c,z1,z2,z3);
   //if (z2 !=0) z = z2;
@@ -369,7 +374,7 @@ int TtFullLepKinSolver::quartic(double* koeficienty, double* koreny) const {
   return nreal;
 }
 
-int TtFullLepKinSolver::cubic(const double* coeffs, double* koreny) const {
+unsigned int TtFullLepKinSolver::cubic(const double* coeffs, double* koreny) const {
   unsigned nreal;
   double w, p, q, dis, h, phi;
 
@@ -440,10 +445,10 @@ int TtFullLepKinSolver::cubic(const double* coeffs, double* koreny) const {
     nreal = 1;
   }
 
-  else
+  else {
     /* no equation */
     nreal = 0;
-
+  }
   return nreal;
 }
 

@@ -10,6 +10,7 @@ hcalSimBlock = cms.PSet(
     # whether cells with MC signal get noise added
     doNoise = cms.bool(True),
     killHE = cms.bool(False),
+    doZDCDigi = cms.bool(False),
     HcalPreMixStage1 = cms.bool(False),
     HcalPreMixStage2 = cms.bool(False),
     # whether cells with no MC signal get an empty signal created
@@ -45,7 +46,6 @@ hcalSimBlock = cms.PSet(
 )
 
 from Configuration.Eras.Modifier_fastSim_cff import fastSim
-fastSim.toModify( hcalSimBlock, hitsProducer=cms.string('fastSimProducer') )
 
 from Configuration.ProcessModifiers.premix_stage1_cff import premix_stage1
 premix_stage1.toModify(hcalSimBlock,
@@ -59,8 +59,16 @@ premix_stage1.toModify(hcalSimBlock,
 
 # test numbering not used in fastsim
 from Configuration.Eras.Modifier_run2_HCAL_2017_cff import run2_HCAL_2017
-(run2_HCAL_2017 & ~fastSim).toModify( hcalSimBlock, TestNumbering = cms.bool(True) )
+(run2_HCAL_2017 & ~fastSim).toModify( hcalSimBlock, TestNumbering = True )
 
 # remove HE processing for phase 2, completely put in HGCal land
 from Configuration.Eras.Modifier_phase2_hgcal_cff import phase2_hgcal
-phase2_hgcal.toModify(hcalSimBlock, killHE = cms.bool(True) )
+phase2_hgcal.toModify(hcalSimBlock,
+                      killHE = True
+)
+
+# enable ZDC digitization
+from Configuration.ProcessModifiers.zdcDigi_cff import zdcDigi
+zdcDigi.toModify(hcalSimBlock, doZDCDigi = True )
+
+fastSim.toModify( hcalSimBlock, hitsProducer = "fastSimProducer" )

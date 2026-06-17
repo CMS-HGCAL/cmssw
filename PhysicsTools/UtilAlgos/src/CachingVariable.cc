@@ -1,45 +1,4 @@
 #include "PhysicsTools/UtilAlgos/interface/CachingVariable.h"
-#include "PhysicsTools/UtilAlgos/interface/VariableHelper.h"
-
-CachingVariable::evalType VarSplitter::eval(const edm::Event& iEvent) const {
-  const CachingVariable* var = edm::Service<VariableHelperService>()->get().variable(var_);
-  if (!var->compute(iEvent))
-    return std::make_pair(false, 0);
-
-  double v = (*var)(iEvent);
-  if (v < slots_.front()) {
-    if (useUnderFlow_)
-      return std::make_pair(true, 0);
-    else
-      return std::make_pair(false, 0);
-  }
-  if (v >= slots_.back()) {
-    if (useOverFlow_)
-      return std::make_pair(true, (double)maxIndex());
-    else
-      return std::make_pair(false, 0);
-  }
-  unsigned int i = 1;
-  for (; i < slots_.size(); ++i)
-    if (v < slots_[i])
-      break;
-
-  if (useUnderFlow_)
-    return std::make_pair(true, (double)i);
-  //need to substract 1 because checking on upper edges
-  else
-    return std::make_pair(true, (double)i - 1);
-}
-
-CachingVariable::evalType VariablePower::eval(const edm::Event& iEvent) const {
-  const CachingVariable* var = edm::Service<VariableHelperService>()->get().variable(var_);
-  if (!var->compute(iEvent))
-    return std::make_pair(false, 0);
-
-  double v = (*var)(iEvent);
-  double p = exp(power_ * log(v));
-  return std::make_pair(true, p);
-}
 
 VariableComputer::VariableComputer(const CachingVariable::CachingVariableFactoryArg& arg, edm::ConsumesCollector& iC)
     : arg_(arg) {
@@ -53,13 +12,12 @@ VariableComputer::VariableComputer(const CachingVariable::CachingVariableFactory
 }
 
 void VariableComputer::declare(std::string var, edm::ConsumesCollector& iC) {
-  std::string aName = name_ + separator_ + var;
-  ComputedVariable* newVar = new ComputedVariable(method_, aName, arg_.iConfig, this, iC);
   if (iCompute_.find(var) != iCompute_.end()) {
     edm::LogError("VariableComputer") << "redeclaring: " << var << " skipping.";
-    delete newVar;
     return;
   }
+  std::string aName = name_ + separator_ + var;
+  ComputedVariable* newVar = new ComputedVariable(method_, aName, arg_.iConfig, this, iC);
   iCompute_[var] = newVar;
   arg_.m.insert(std::make_pair(aName, newVar));
 }

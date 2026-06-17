@@ -10,6 +10,7 @@
 #include "DataFormats/Provenance/interface/ProductRegistry.h"
 
 #include "DataFormats/Provenance/interface/ProductResolverIndexHelper.h"
+#include "DataFormats/Provenance/interface/processingOrderMerge.h"
 
 #include "FWCore/Utilities/interface/Algorithms.h"
 #include "FWCore/Utilities/interface/EDMException.h"
@@ -28,8 +29,6 @@
 #include <ostream>
 
 namespace edm {
-
-  ProductRegistry::ProductRegistry() : productList_(), transient_() {}
 
   ProductRegistry::Transients::Transients()
       : frozen_(false),
@@ -65,7 +64,7 @@ namespace edm {
     freezeIt(toBeFrozen);
   }
 
-  void ProductRegistry::addProduct(BranchDescription const& productDesc, bool fromListener) {
+  void ProductRegistry::addProduct_(ProductDescription const& productDesc) {
     assert(productDesc.produced());
     throwIfFrozen();
     std::pair<ProductList::iterator, bool> ret =
@@ -102,24 +101,23 @@ namespace edm {
             << "descendants of those products.\n";
       }
     }
-    addCalled(productDesc, fromListener);
   }
 
-  void ProductRegistry::addLabelAlias(BranchDescription const& productDesc,
-                                      std::string const& labelAlias,
-                                      std::string const& instanceAlias) {
+  ProductDescription const& ProductRegistry::addLabelAlias_(ProductDescription const& productDesc,
+                                                            std::string const& labelAlias,
+                                                            std::string const& instanceAlias) {
     assert(productDesc.produced());
     assert(productDesc.branchID().isValid());
     throwIfFrozen();
-    BranchDescription bd(productDesc, labelAlias, instanceAlias);
+    ProductDescription bd(productDesc, labelAlias, instanceAlias);
     std::pair<ProductList::iterator, bool> ret = productList_.insert(std::make_pair(BranchKey(bd), bd));
     assert(ret.second);
     transient_.aliasToOriginal_.emplace_back(
         PRODUCT_TYPE, productDesc.unwrappedTypeID(), labelAlias, instanceAlias, productDesc.moduleLabel());
-    addCalled(bd, false);
+    return ret.first->second;
   }
 
-  void ProductRegistry::copyProduct(BranchDescription const& productDesc) {
+  void ProductRegistry::copyProduct(ProductDescription const& productDesc) {
     assert(!productDesc.produced());
     throwIfFrozen();
     BranchKey k = BranchKey(productDesc);
@@ -143,11 +141,7 @@ namespace edm {
   }
 
   std::shared_ptr<ProductResolverIndexHelper const> ProductRegistry::productLookup(BranchType branchType) const {
-    return get_underlying_safe(transient_.productLookups_[branchType]);
-  }
-
-  std::shared_ptr<ProductResolverIndexHelper> ProductRegistry::productLookup(BranchType branchType) {
-    return get_underlying_safe(transient_.productLookups_[branchType]);
+    return transient_.productLookups_[branchType];
   }
 
   void ProductRegistry::setFrozen(bool initializeLookupInfo) {
@@ -184,8 +178,6 @@ namespace edm {
     }
   }
 
-  void ProductRegistry::addCalled(BranchDescription const&, bool) {}
-
   std::vector<std::string> ProductRegistry::allBranchNames() const {
     std::vector<std::string> result;
     result.reserve(productList().size());
@@ -196,8 +188,8 @@ namespace edm {
     return result;
   }
 
-  std::vector<BranchDescription const*> ProductRegistry::allBranchDescriptions() const {
-    std::vector<BranchDescription const*> result;
+  std::vector<ProductDescription const*> ProductRegistry::allProductDescriptions() const {
+    std::vector<ProductDescription const*> result;
     result.reserve(productList().size());
 
     for (auto const& product : productList()) {
@@ -206,29 +198,34 @@ namespace edm {
     return result;
   }
 
-  void ProductRegistry::updateFromInput(ProductList const& other) {
+  void ProductRegistry::updateFromInput(ProductList const& other, std::vector<std::string> const& processOrder) {
     for (auto const& product : other) {
       copyProduct(product.second);
     }
+    updateProcessOrder(processOrder);
   }
 
-  void ProductRegistry::updateFromInput(std::vector<BranchDescription> const& other) {
-    for (BranchDescription const& branchDescription : other) {
-      copyProduct(branchDescription);
+  void ProductRegistry::updateFromInput(std::vector<ProductDescription> const& other,
+                                        std::vector<std::string> const& processOrder) {
+    for (ProductDescription const& productDescription : other) {
+      copyProduct(productDescription);
     }
+    updateProcessOrder(processOrder);
   }
 
-  void ProductRegistry::addFromInput(edm::ProductRegistry const& other) {
+  void ProductRegistry::updateProcessOrder(std::vector<std::string> const& processOrder) {
     throwIfFrozen();
-    for (auto const& prod : other.productList_) {
-      ProductList::iterator iter = productList_.find(prod.first);
-      if (iter == productList_.end()) {
-        productList_.insert(std::make_pair(prod.first, prod.second));
-        addCalled(prod.second, false);
-      } else {
-        assert(combinable(iter->second, prod.second));
-        iter->second.merge(prod.second);
-      }
+    processingOrderMerge(processOrder, transient_.processOrder_);
+  }
+
+  void ProductRegistry::mergeProcessOrderFromAddInput(std::vector<std::string> const& processOrder) {
+    if (processOrder.empty())
+      return;
+    //see if the input already has the current process
+    if (not transient_.processOrder_.empty() and (transient_.processOrder_[0] != processOrder[0])) {
+      transient_.processOrder_.insert(transient_.processOrder_.end(), processOrder.begin(), processOrder.end());
+    } else {
+      updateProcessOrder(processOrder);
     }
   }
 
@@ -263,7 +260,24 @@ namespace edm {
 
   std::string ProductRegistry::merge(ProductRegistry const& other,
                                      std::string const& fileName,
-                                     BranchDescription::MatchMode branchesMustMatch) {
+                                     ProductDescription::MatchMode branchesMustMatch) {
+    if (branchesMustMatch == ProductDescription::FromInputToCurrent) {
+      if (processOrder().size() == 1 and not other.processOrder().empty() and
+          processOrder()[0] != other.processOrder()[0]) {
+        assert(transient_.processOrder_.size() == 1);
+        transient_.processOrder_.insert(transient_.processOrder_.end(),
+                                        other.transient_.processOrder_.begin(),
+                                        other.transient_.processOrder_.end());
+      } else {
+        //the current process must not change
+        assert(not processOrder().empty());
+        auto current = processOrder()[0];
+        processingOrderMerge(other.processOrder(), transient_.processOrder_);
+        assert(current == processOrder()[0]);
+      }
+    } else {
+      processingOrderMerge(other.processOrder(), transient_.processOrder_);
+    }
     std::ostringstream differences;
 
     ProductRegistry::ProductList::iterator j = productList_.begin();
@@ -288,7 +302,7 @@ namespace edm {
         ++i;
       } else if (i == e || (j != s && j->first < i->first)) {
         if (j->second.present() &&
-            (branchesMustMatch == BranchDescription::Strict || j->second.branchType() == InProcess)) {
+            (branchesMustMatch == ProductDescription::Strict || j->second.branchType() == InProcess)) {
           differences << "Branch '" << j->second.branchName() << "' is in previous files\n";
           differences << "    but not in file '" << fileName << "'.\n";
         }
@@ -318,7 +332,13 @@ namespace edm {
     std::vector<std::string> producedTypes;
 
     transient_.branchIDToIndex_.clear();
+    assert(productList_.empty() or !processOrder().empty());
 
+    std::array<std::shared_ptr<ProductResolverIndexHelper>, NumBranchTypes> new_productLookups{
+        {std::make_shared<ProductResolverIndexHelper>(),
+         std::make_shared<ProductResolverIndexHelper>(),
+         std::make_shared<ProductResolverIndexHelper>(),
+         std::make_shared<ProductResolverIndexHelper>()}};
     for (auto const& product : productList_) {
       auto const& desc = product.second;
 
@@ -438,13 +458,12 @@ namespace edm {
             }
           }
         }
-        ProductResolverIndex index = productLookup(desc.branchType())
-                                         ->insert(typeID,
-                                                  desc.moduleLabel().c_str(),
-                                                  desc.productInstanceName().c_str(),
-                                                  desc.processName().c_str(),
-                                                  containedTypeID,
-                                                  baseTypesOfContainedType);
+        ProductResolverIndex index = new_productLookups[desc.branchType()]->insert(typeID,
+                                                                                   desc.moduleLabel().c_str(),
+                                                                                   desc.productInstanceName().c_str(),
+                                                                                   desc.processName().c_str(),
+                                                                                   containedTypeID,
+                                                                                   baseTypesOfContainedType);
 
         transient_.branchIDToIndex_[desc.branchID()] = index;
       }
@@ -454,8 +473,11 @@ namespace edm {
       throwMissingDictionariesException(missingDictionaries, context, producedTypes, branchNamesForMissing);
     }
 
-    for (auto& iterProductLookup : transient_.productLookups_) {
-      iterProductLookup->setFrozen();
+    for (auto& iterProductLookup : new_productLookups) {
+      iterProductLookup->setFrozen(processOrder());
+    }
+    for (size_t i = 0; i < new_productLookups.size(); ++i) {
+      transient_.productLookups_[i] = std::move(new_productLookups[i]);
     }
 
     unsigned int indexIntoNextIndexValue = 0;
@@ -605,7 +627,7 @@ namespace edm {
     }
   }
 
-  void ProductRegistry::checkForDuplicateProcessName(BranchDescription const& desc,
+  void ProductRegistry::checkForDuplicateProcessName(ProductDescription const& desc,
                                                      std::string const* processName) const {
     if (processName && !desc.produced() && (*processName == desc.processName())) {
       throw Exception(errors::Configuration, "Duplicate Process Name.\n")

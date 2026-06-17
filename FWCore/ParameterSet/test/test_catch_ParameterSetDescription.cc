@@ -2,7 +2,7 @@
 // Test code for the ParameterSetDescription and ParameterDescription
 // classes.
 
-#include "catch.hpp"
+#include "catch2/catch_all.hpp"
 
 #include "DataFormats/Provenance/interface/EventID.h"
 #include "DataFormats/Provenance/interface/LuminosityBlockID.h"
@@ -58,6 +58,10 @@ namespace testParameterSetDescription {
     static void fillPSetDescription(edm::ParameterSetDescription& iPS) { iPS.add<double>("aDouble", 0.5); }
   };
 
+  struct CTestPlugin : public TestPluginBase {
+    static void fillPSetDescription(edm::ParameterSetDescription& iPS) { iPS.addUntracked<int>("anInt", 42); }
+  };
+
   using TestPluginFactory = edmplugin::PluginFactory<testParameterSetDescription::TestPluginBase*()>;
 
 }  // namespace testParameterSetDescription
@@ -67,6 +71,9 @@ using TestPluginFactory = testParameterSetDescription::TestPluginFactory;
 using testParameterSetDescription::testDesc;
 
 TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
+  static std::once_flag flag;
+  std::call_once(flag, []() { edmplugin::PluginManager::configure(edmplugin::standard::config()); });
+
   SECTION("testWildcards") {
     using Catch::Matchers::Equals;
     {
@@ -87,9 +94,14 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
         bool startWithComma = false;
         bool wroteSomething = false;
         edm::CfiOptions ops = edm::cfi::Typed{};
-        w.writeCfi(os, false, startWithComma, 0, ops, wroteSomething);
+        w.writeCfi(os, edm::ParameterModifier::kNone, startWithComma, 0, ops, wroteSomething);
 
         REQUIRE_THAT(os.str(), Equals("\nallowAnyLabel_ = cms.required.int32"));
+      }
+      SECTION("trackiness") {
+        REQUIRE(w.trackiness("x") == edm::cfi::Trackiness::kTracked);
+        REQUIRE(w.trackiness("y") == edm::cfi::Trackiness::kTracked);
+        REQUIRE(w.trackiness("foo") == edm::cfi::Trackiness::kTracked);
       }
     }
 
@@ -110,7 +122,7 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
         bool wroteSomething = false;
         edm::CfiOptions ops = edm::cfi::Typed{};
 
-        w.writeCfi(os, false, startWithComma, 0, ops, wroteSomething);
+        w.writeCfi(os, edm::ParameterModifier::kNone, startWithComma, 0, ops, wroteSomething);
 
         REQUIRE_THAT(os.str(), Equals("\nallowAnyLabel_ = cms.required.untracked.uint32"));
       }
@@ -157,7 +169,7 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
         bool wroteSomething = false;
         edm::CfiOptions ops = edm::cfi::Typed{};
 
-        w.writeCfi(os, false, startWithComma, 0, ops, wroteSomething);
+        w.writeCfi(os, edm::ParameterModifier::kNone, startWithComma, 0, ops, wroteSomething);
 
         REQUIRE_THAT(os.str(), Equals("\nallowAnyLabel_ = cms.required.double"));
       }
@@ -192,7 +204,7 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
         bool startWithComma = false;
         bool wroteSomething = false;
         edm::CfiOptions ops = edm::cfi::Typed{};
-        w.writeCfi(os, false, startWithComma, 0, ops, wroteSomething);
+        w.writeCfi(os, edm::ParameterModifier::kNone, startWithComma, 0, ops, wroteSomething);
 
         REQUIRE_THAT(os.str(), Equals("\nallowAnyLabel_ = cms.required.PSetTemplate()"));
       }
@@ -242,7 +254,7 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
         bool startWithComma = false;
         bool wroteSomething = false;
         edm::CfiOptions ops = edm::cfi::Typed{};
-        w.writeCfi(os, false, startWithComma, 0, ops, wroteSomething);
+        w.writeCfi(os, edm::ParameterModifier::kNone, startWithComma, 0, ops, wroteSomething);
 
         REQUIRE_THAT(os.str(),
                      Equals("\nallowAnyLabel_ = cms.required.PSetTemplate(\n  n1 = cms.untracked.uint32(1)\n)"));
@@ -295,7 +307,7 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
         bool startWithComma = false;
         bool wroteSomething = false;
         edm::CfiOptions ops = edm::cfi::Typed{};
-        w.writeCfi(os, false, startWithComma, 0, ops, wroteSomething);
+        w.writeCfi(os, edm::ParameterModifier::kNone, startWithComma, 0, ops, wroteSomething);
 
         REQUIRE_THAT(os.str(), Equals("\nallowAnyLabel_ = cms.required.VPSet"));
       }
@@ -474,11 +486,18 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
                       edm::Exception);
 
     // No problem is wildcard type and parameter type are the same for different cases.
-    edm::ParameterSetDescription psetDesc5;
-    psetDesc5.ifValue(edm::ParameterDescription<int>("uswitch", 1, true),
-                      0 >> edm::ParameterWildcard<unsigned>("*", edm::RequireAtLeastOne, true) or
-                          1 >> (edm::ParameterDescription<unsigned>("uvalue1", 101, true) and
-                                edm::ParameterDescription<unsigned>("uvalue2", 101, true)));
+    SECTION("switch with wildcard cases can have same type as switch parameter") {
+      edm::ParameterSetDescription psetDesc5;
+      psetDesc5.ifValue(edm::ParameterDescription<int>("uswitch", 1, true),
+                        0 >> edm::ParameterWildcard<unsigned>("*", edm::RequireAtLeastOne, true) or
+                            1 >> (edm::ParameterDescription<unsigned>("uvalue1", 101, true) and
+                                  edm::ParameterDescription<unsigned>("uvalue2", 101, true)));
+      SECTION("trackiness") {
+        REQUIRE(psetDesc5.trackiness("uswitch") == edm::cfi::Trackiness::kTracked);
+        REQUIRE(psetDesc5.trackiness("uvalue1") == edm::cfi::Trackiness::kTracked);
+        REQUIRE(psetDesc5.trackiness("uvalue2") == edm::cfi::Trackiness::kTracked);
+      }
+    }
 
     // The switch parameter label cannot be the same as a label that already exists
     edm::ParameterSetDescription psetDesc6;
@@ -507,26 +526,33 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
                       edm::Exception);
 
     // Parameter set switch value must be one of the defined cases
-    edm::ParameterSetDescription psetDesc9;
+    SECTION("switch value must be a defined case") {
+      edm::ParameterSetDescription psetDesc9;
 
-    psetDesc9.ifValue(edm::ParameterDescription<int>("xswitch", 1, true),
-                      0 >> edm::ParameterWildcard<double>("*", edm::RequireAtLeastOne, true) or
-                          1 >> (edm::ParameterDescription<double>("xvalue1", 101.0, true) and
-                                edm::ParameterDescription<double>("xvalue2", 101.0, true)));
-    edm::ParameterSet pset;
-    pset.addParameter<int>("xswitch", 5);
-    REQUIRE_THROWS_AS(psetDesc9.validate(pset), edm::Exception);
+      psetDesc9.ifValue(edm::ParameterDescription<int>("xswitch", 1, true),
+                        0 >> edm::ParameterWildcard<double>("*", edm::RequireAtLeastOne, true) or
+                            1 >> (edm::ParameterDescription<double>("xvalue1", 101.0, true) and
+                                  edm::ParameterDescription<double>("xvalue2", 101.0, true)));
+      edm::ParameterSet pset;
+      pset.addParameter<int>("xswitch", 5);
+      REQUIRE_THROWS_AS(psetDesc9.validate(pset), edm::Exception);
 
-    edm::ParameterSwitch<int> pswitch(edm::ParameterDescription<int>("xswitch", 1, true),
-                                      0 >> edm::ParameterWildcard<double>("*", edm::RequireAtLeastOne, true) or
-                                          1 >> (edm::ParameterDescription<double>("xvalue1", 101.0, true) and
-                                                edm::ParameterDescription<double>("xvalue2", 101.0, true)));
-    edm::ParameterSetDescription psetDesc10;
-    psetDesc10.addNode(pswitch);
-    edm::ParameterSet pset10;
-    testDesc(pswitch, psetDesc10, pset10, false, true);
-    pset10.addParameter<int>("xswitch", 1);
-    testDesc(pswitch, psetDesc10, pset10, true, true);
+      edm::ParameterSwitch<int> pswitch(edm::ParameterDescription<int>("xswitch", 1, true),
+                                        0 >> edm::ParameterWildcard<double>("*", edm::RequireAtLeastOne, true) or
+                                            1 >> (edm::ParameterDescription<double>("xvalue1", 101.0, true) and
+                                                  edm::ParameterDescription<double>("xvalue2", 101.0, true)));
+      edm::ParameterSetDescription psetDesc10;
+      psetDesc10.addNode(pswitch);
+      edm::ParameterSet pset10;
+      testDesc(pswitch, psetDesc10, pset10, false, true);
+      pset10.addParameter<int>("xswitch", 1);
+      testDesc(pswitch, psetDesc10, pset10, true, true);
+      SECTION("trackiness") {
+        REQUIRE(pswitch.trackiness("xswitch") == edm::cfi::Trackiness::kTracked);
+        REQUIRE(pswitch.trackiness("xvalue1") == edm::cfi::Trackiness::kTracked);
+        REQUIRE(pswitch.trackiness("xvalue2") == edm::cfi::Trackiness::kTracked);
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------------
@@ -865,6 +891,12 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
     psetDesc1.validate(pset2);
     psetDesc1.validate(pset3);
     psetDesc1.validate(pset3);
+    SECTION("trackiness") {
+      REQUIRE(node1a->trackiness("x1") == edm::cfi::Trackiness::kTracked);
+      REQUIRE(node1a->trackiness("x2") == edm::cfi::Trackiness::kTracked);
+      REQUIRE(node1a->trackiness("x3") == edm::cfi::Trackiness::kTracked);
+      REQUIRE(node1a->trackiness("missing") == edm::cfi::Trackiness::kNotAllowed);
+    }
 
     // One of the labels cannot already exist in the description
     edm::ParameterSetDescription psetDesc2;
@@ -1160,9 +1192,7 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
   // ---------------------------------------------------------------------------------
 
   SECTION("testPlugin") {
-    static std::once_flag flag;
-    std::call_once(flag, []() { edmplugin::PluginManager::configure(edmplugin::standard::config()); });
-    {
+    SECTION("Plugin A") {
       edm::ParameterSetDescription desc;
       desc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
 
@@ -1173,7 +1203,7 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
       desc.validate(pset1);
     }
 
-    {
+    SECTION("Plugin B") {
       edm::ParameterSetDescription desc;
       desc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
 
@@ -1184,8 +1214,18 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
       desc.validate(pset1);
     }
 
-    {
-      //add defaults
+    SECTION("Plugin C") {
+      edm::ParameterSetDescription desc;
+      desc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
+
+      edm::ParameterSet pset1;
+      pset1.addParameter<std::string>("type", "CTestPlugin");
+      pset1.addUntrackedParameter<int>("anInt", 4);
+
+      desc.validate(pset1);
+    }
+
+    SECTION("Let validation to inject parameter") {
       edm::ParameterSetDescription desc;
       desc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
 
@@ -1195,8 +1235,17 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
       CHECK(pset1.getParameter<int>("anInt") == 5);
     }
 
-    {
-      //add defaults
+    SECTION("Let validation to inject untracked parameter") {
+      edm::ParameterSetDescription desc;
+      desc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
+
+      edm::ParameterSet pset1;
+      pset1.addParameter<std::string>("type", "CTestPlugin");
+      desc.validate(pset1);
+      CHECK(pset1.getUntrackedParameter<int>("anInt") == 42);
+    }
+
+    SECTION("Let validation to inject also 'type'") {
       edm::ParameterSetDescription desc;
       desc.addNode(edm::PluginDescription<TestPluginFactory>("type", "ATestPlugin", true));
 
@@ -1206,8 +1255,7 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
       CHECK(pset1.getParameter<std::string>("type") == "ATestPlugin");
     }
 
-    {
-      //an additional parameter
+    SECTION("Add additional parameter") {
       edm::ParameterSetDescription desc;
       desc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
 
@@ -1237,8 +1285,7 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
       top.validate(psetTop);
     }
 
-    {
-      //missing type
+    SECTION("Missing 'type'") {
       edm::ParameterSetDescription desc;
       desc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
 
@@ -1248,8 +1295,7 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
       REQUIRE_THROWS_AS(desc.validate(pset1), edm::Exception);
     }
 
-    {
-      //a non-existent type
+    SECTION("Non-existent type") {
       edm::ParameterSetDescription desc;
       desc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
 
@@ -1257,6 +1303,28 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
       pset1.addParameter<std::string>("type", "ZTestPlugin");
 
       REQUIRE_THROWS_AS(desc.validate(pset1), cms::Exception);
+    }
+
+    SECTION("Untracked 'type'") {
+      edm::ParameterSetDescription desc;
+      desc.addNode(edm::PluginDescription<TestPluginFactory>("type", false));
+
+      edm::ParameterSet pset1;
+      pset1.addUntrackedParameter<std::string>("type", "ATestPlugin");
+      pset1.addParameter<int>("anInt", 3);
+
+      desc.validate(pset1);
+    }
+
+    SECTION("Untracked 'type' and other parameters") {
+      edm::ParameterSetDescription desc;
+      desc.addNode(edm::PluginDescription<TestPluginFactory>("type", false));
+
+      edm::ParameterSet pset1;
+      pset1.addUntrackedParameter<std::string>("type", "CTestPlugin");
+      pset1.addUntrackedParameter<int>("anInt", 3);
+
+      desc.validate(pset1);
     }
   }
 
@@ -1358,6 +1426,187 @@ TEST_CASE("test ParameterSetDescription", "[ParameterSetDescription]") {
 
       psetDesc.addVPSet("vp", templte, defaults);
     }
+
+    SECTION("VPSet with plugin") {
+      SECTION("Tracked 'type' and parameters") {
+        edm::ParameterSetDescription pluginDesc;
+        pluginDesc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
+        std::vector<edm::ParameterSet> defaults;
+        edm::ParameterSetDescription desc;
+        desc.addVPSet("plugins", pluginDesc, defaults);
+
+        SECTION("Empty") {
+          edm::ParameterSet pset;
+          desc.validate(pset);
+          CHECK(pset.getParameter<std::vector<edm::ParameterSet>>("plugins").empty());
+        }
+
+        SECTION("One plugin") {
+          edm::ParameterSet pset;
+          {
+            edm::ParameterSet pluginPSet;
+            pluginPSet.addParameter<std::string>("type", "ATestPlugin");
+            pset.addParameter<std::vector<edm::ParameterSet>>("plugins", {pluginPSet});
+          }
+          desc.validate(pset);
+
+          auto const& vpset = pset.getParameter<std::vector<edm::ParameterSet>>("plugins");
+          REQUIRE(vpset.size() == 1);
+          CHECK(vpset[0].getParameter<int>("anInt") == 5);
+        }
+      }
+
+      SECTION("Untracked 'type' with tracked parameters") {
+        edm::ParameterSetDescription pluginDesc;
+        pluginDesc.addNode(edm::PluginDescription<TestPluginFactory>("type", false));
+        std::vector<edm::ParameterSet> defaults;
+        edm::ParameterSetDescription desc;
+        desc.addVPSet("plugins", pluginDesc, defaults);
+
+        edm::ParameterSet pset;
+        {
+          edm::ParameterSet pluginPSet;
+          pluginPSet.addUntrackedParameter<std::string>("type", "ATestPlugin");
+          pset.addParameter<std::vector<edm::ParameterSet>>("plugins", {pluginPSet});
+        }
+        desc.validate(pset);
+
+        auto const& vpset = pset.getParameter<std::vector<edm::ParameterSet>>("plugins");
+        REQUIRE(vpset.size() == 1);
+        CHECK(vpset[0].getParameter<int>("anInt") == 5);
+      }
+
+      SECTION("Tracked 'type' with untracked parameters") {
+        edm::ParameterSetDescription pluginDesc;
+        pluginDesc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
+        std::vector<edm::ParameterSet> defaults;
+        edm::ParameterSetDescription desc;
+        desc.addVPSet("plugins", pluginDesc, defaults);
+
+        edm::ParameterSet pset;
+        {
+          edm::ParameterSet pluginPSet;
+          pluginPSet.addParameter<std::string>("type", "CTestPlugin");
+          pset.addParameter<std::vector<edm::ParameterSet>>("plugins", {pluginPSet});
+        }
+        desc.validate(pset);
+
+        auto const& vpset = pset.getParameter<std::vector<edm::ParameterSet>>("plugins");
+        REQUIRE(vpset.size() == 1);
+        CHECK(vpset[0].getUntrackedParameter<int>("anInt") == 42);
+      }
+
+      SECTION("Untracked 'type' with untracked parameters") {
+        edm::ParameterSetDescription pluginDesc;
+        pluginDesc.addNode(edm::PluginDescription<TestPluginFactory>("type", false));
+        std::vector<edm::ParameterSet> defaults;
+        edm::ParameterSetDescription desc;
+        desc.addVPSet("plugins", pluginDesc, defaults);
+
+        edm::ParameterSet pset;
+        {
+          edm::ParameterSet pluginPSet;
+          pluginPSet.addUntrackedParameter<std::string>("type", "CTestPlugin");
+          pset.addParameter<std::vector<edm::ParameterSet>>("plugins", {pluginPSet});
+        }
+        desc.validate(pset);
+
+        auto const& vpset = pset.getParameter<std::vector<edm::ParameterSet>>("plugins");
+        REQUIRE(vpset.size() == 1);
+        CHECK(vpset[0].getUntrackedParameter<int>("anInt") == 42);
+      }
+    }
+
+    SECTION("Untracked VPSet with plugin") {
+      SECTION("Tracked 'type' and parameters") {
+        edm::ParameterSetDescription pluginDesc;
+        pluginDesc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
+        std::vector<edm::ParameterSet> defaults;
+        edm::ParameterSetDescription desc;
+        desc.addVPSetUntracked("plugins", pluginDesc, defaults);
+
+        SECTION("Empty") {
+          edm::ParameterSet pset;
+          desc.validate(pset);
+          CHECK(pset.getUntrackedParameter<std::vector<edm::ParameterSet>>("plugins").empty());
+        }
+
+        SECTION("One plugin") {
+          edm::ParameterSet pset;
+          {
+            edm::ParameterSet pluginPSet;
+            pluginPSet.addParameter<std::string>("type", "ATestPlugin");
+            pset.addUntrackedParameter<std::vector<edm::ParameterSet>>("plugins", {pluginPSet});
+          }
+          desc.validate(pset);
+
+          auto const& vpset = pset.getUntrackedParameter<std::vector<edm::ParameterSet>>("plugins");
+          REQUIRE(vpset.size() == 1);
+          CHECK(vpset[0].getParameter<int>("anInt") == 5);
+        }
+      }
+
+      SECTION("Untracked 'type' with tracked parameters") {
+        edm::ParameterSetDescription pluginDesc;
+        pluginDesc.addNode(edm::PluginDescription<TestPluginFactory>("type", false));
+        std::vector<edm::ParameterSet> defaults;
+        edm::ParameterSetDescription desc;
+        desc.addVPSetUntracked("plugins", pluginDesc, defaults);
+
+        edm::ParameterSet pset;
+        {
+          edm::ParameterSet pluginPSet;
+          pluginPSet.addUntrackedParameter<std::string>("type", "ATestPlugin");
+          pset.addUntrackedParameter<std::vector<edm::ParameterSet>>("plugins", {pluginPSet});
+        }
+        desc.validate(pset);
+
+        auto const& vpset = pset.getUntrackedParameter<std::vector<edm::ParameterSet>>("plugins");
+        REQUIRE(vpset.size() == 1);
+        CHECK(vpset[0].getParameter<int>("anInt") == 5);
+      }
+
+      SECTION("Tracked 'type' with untracked parameters") {
+        edm::ParameterSetDescription pluginDesc;
+        pluginDesc.addNode(edm::PluginDescription<TestPluginFactory>("type", true));
+        std::vector<edm::ParameterSet> defaults;
+        edm::ParameterSetDescription desc;
+        desc.addVPSetUntracked("plugins", pluginDesc, defaults);
+
+        edm::ParameterSet pset;
+        {
+          edm::ParameterSet pluginPSet;
+          pluginPSet.addParameter<std::string>("type", "CTestPlugin");
+          pset.addUntrackedParameter<std::vector<edm::ParameterSet>>("plugins", {pluginPSet});
+        }
+        desc.validate(pset);
+
+        auto const& vpset = pset.getUntrackedParameter<std::vector<edm::ParameterSet>>("plugins");
+        REQUIRE(vpset.size() == 1);
+        CHECK(vpset[0].getUntrackedParameter<int>("anInt") == 42);
+      }
+
+      SECTION("Untracked 'type' with untracked parameters") {
+        edm::ParameterSetDescription pluginDesc;
+        pluginDesc.addNode(edm::PluginDescription<TestPluginFactory>("type", false));
+        std::vector<edm::ParameterSet> defaults;
+        edm::ParameterSetDescription desc;
+        desc.addVPSetUntracked("plugins", pluginDesc, defaults);
+
+        edm::ParameterSet pset;
+        {
+          edm::ParameterSet pluginPSet;
+          pluginPSet.addUntrackedParameter<std::string>("type", "CTestPlugin");
+          pset.addUntrackedParameter<std::vector<edm::ParameterSet>>("plugins", {pluginPSet});
+        }
+        desc.validate(pset);
+
+        auto const& vpset = pset.getUntrackedParameter<std::vector<edm::ParameterSet>>("plugins");
+        REQUIRE(vpset.size() == 1);
+        CHECK(vpset[0].getUntrackedParameter<int>("anInt") == 42);
+      }
+    }
+
     SECTION("writeCfi full") {
       edm::ParameterSet test;
       test.addParameter("vp", defaults);
@@ -1398,6 +1647,36 @@ vp = cms.VPSet(
     p = cms.PSet(),
     vp = cms.VPSet(
     )
+  ),
+  template = cms.PSetTemplate(
+    i = cms.required.int32,
+    vi = cms.required.vint32,
+    ui = cms.required.uint32,
+    vui = cms.required.vuint32,
+    l = cms.required.int64,
+    vl = cms.required.vint64,
+    ul = cms.required.uint64,
+    vul = cms.required.vuint64,
+    b = cms.required.bool,
+    d = cms.required.double,
+    vd = cms.required.vdouble,
+    s = cms.required.string,
+    vs = cms.required.vstring,
+    t = cms.required.InputTag,
+    vt = cms.required.VInputTag,
+    et = cms.required.ESInputTag,
+    vet = cms.required.VESInputTag,
+    f = cms.required.FileInPath,
+    e = cms.required.EventID,
+    ve = cms.required.VEventID,
+    L = cms.required.LuminosityBlockID,
+    vL = cms.required.VLuminosityBlockID,
+    er = cms.required.EventRange,
+    ver = cms.required.VEventRange,
+    Lr = cms.required.LuminosityBlockRange,
+    vLr = cms.required.VLuminosityBlockRange,
+    p = cms.PSet(),
+    vp = cms.required.VPSet
   )
 )
 )-";
@@ -1611,6 +1890,137 @@ p = dict(
     CHECK(psetDesc.isUnknown());
 
     psetDesc.validate(params);
+  }
+
+  SECTION("obsolete") {
+    SECTION("string") {
+      edm::ParameterSetDescription psetDesc;
+
+      psetDesc.add<std::string>("testname");
+      psetDesc.add<std::string>("hadDefault", "default");
+      psetDesc.addObsolete<std::string>("noLongerUsed");
+      SECTION("with obsolete") {
+        edm::ParameterSet params;
+        params.addParameter<std::string>("testname", std::string("testvalue"));
+        params.addParameter<std::string>("noLongerUsed", std::string("testvalue"));
+
+        psetDesc.validate(params);
+      }
+      SECTION("without obsolete") {
+        edm::ParameterSet params;
+        params.addParameter<std::string>("testname", std::string("testvalue"));
+        psetDesc.validate(params);
+        CHECK(not params.existsAs<std::string>("noLongerUsed"));
+      }
+      SECTION("writeCfi full") {
+        std::ostringstream s;
+        edm::CfiOptions fullOps = edm::cfi::Typed{};
+        psetDesc.writeCfi(s, false, 0, fullOps);
+        std::string expected = R"-(
+testname = cms.required.string,
+hadDefault = cms.string('default'),
+noLongerUsed = cms.obsolete.string
+)-";
+
+        CHECK(expected == s.str());
+      }
+      SECTION("writeCfi Untyped") {
+        std::ostringstream s;
+        edm::CfiOptions fullOps = edm::cfi::Untyped{edm::cfi::Paths{}};
+        psetDesc.writeCfi(s, false, 0, fullOps);
+        std::string expected = R"-(
+hadDefault = 'default'
+)-";
+        CHECK(expected == s.str());
+      }
+    }
+    SECTION("PSet") {
+      edm::ParameterSetDescription psetDesc;
+
+      psetDesc.add<std::string>("testname");
+      psetDesc.add<std::string>("hadDefault", "default");
+      psetDesc.addObsolete<edm::ParameterSetDescription>("noLongerUsed");
+      SECTION("with obsolete") {
+        edm::ParameterSet params;
+        params.addParameter<std::string>("testname", std::string("testvalue"));
+        edm::ParameterSet obs;
+        obs.addParameter<int>("something", 1);
+        params.addParameter<edm::ParameterSet>("noLongerUsed", obs);
+
+        psetDesc.validate(params);
+      }
+      SECTION("without obsolete") {
+        edm::ParameterSet params;
+        params.addParameter<std::string>("testname", std::string("testvalue"));
+        psetDesc.validate(params);
+      }
+      SECTION("writeCfi full") {
+        std::ostringstream s;
+        edm::CfiOptions fullOps = edm::cfi::Typed{};
+        psetDesc.writeCfi(s, false, 0, fullOps);
+        std::string expected = R"-(
+testname = cms.required.string,
+hadDefault = cms.string('default'),
+noLongerUsed = cms.obsolete.PSet
+)-";
+
+        CHECK(expected == s.str());
+      }
+      SECTION("writeCfi Untyped") {
+        std::ostringstream s;
+        edm::CfiOptions fullOps = edm::cfi::Untyped{edm::cfi::Paths{}};
+        psetDesc.writeCfi(s, false, 0, fullOps);
+        std::string expected = R"-(
+hadDefault = 'default'
+)-";
+        CHECK(expected == s.str());
+      }
+    }
+  }
+
+  SECTION("VPSet") {
+    edm::ParameterSetDescription psetDesc;
+
+    psetDesc.add<std::string>("testname");
+    psetDesc.add<std::string>("hadDefault", "default");
+    psetDesc.addVPSetObsolete("noLongerUsed");
+    SECTION("with obsolete") {
+      edm::ParameterSet params;
+      params.addParameter<std::string>("testname", std::string("testvalue"));
+
+      edm::ParameterSet obs;
+      obs.addParameter<int>("something", 1);
+      std::vector<edm::ParameterSet> vobs{1, obs};
+      params.addParameter<std::vector<edm::ParameterSet>>("noLongerUsed", vobs);
+
+      psetDesc.validate(params);
+    }
+    SECTION("without obsolete") {
+      edm::ParameterSet params;
+      params.addParameter<std::string>("testname", std::string("testvalue"));
+      psetDesc.validate(params);
+    }
+    SECTION("writeCfi full") {
+      std::ostringstream s;
+      edm::CfiOptions fullOps = edm::cfi::Typed{};
+      psetDesc.writeCfi(s, false, 0, fullOps);
+      std::string expected = R"-(
+testname = cms.required.string,
+hadDefault = cms.string('default'),
+noLongerUsed = cms.obsolete.VPSet
+)-";
+
+      CHECK(expected == s.str());
+    }
+    SECTION("writeCfi Untyped") {
+      std::ostringstream s;
+      edm::CfiOptions fullOps = edm::cfi::Untyped{edm::cfi::Paths{}};
+      psetDesc.writeCfi(s, false, 0, fullOps);
+      std::string expected = R"-(
+hadDefault = 'default'
+)-";
+      CHECK(expected == s.str());
+    }
   }
 
   SECTION("FileInPath") {
@@ -1940,3 +2350,4 @@ EDM_REGISTER_VALIDATED_PLUGINFACTORY(TestPluginFactory, "TestPluginFWCoreParamet
 
 DEFINE_EDM_VALIDATED_PLUGIN(TestPluginFactory, testParameterSetDescription::ATestPlugin, "ATestPlugin");
 DEFINE_EDM_VALIDATED_PLUGIN(TestPluginFactory, testParameterSetDescription::BTestPlugin, "BTestPlugin");
+DEFINE_EDM_VALIDATED_PLUGIN(TestPluginFactory, testParameterSetDescription::CTestPlugin, "CTestPlugin");

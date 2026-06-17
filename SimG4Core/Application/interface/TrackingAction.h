@@ -10,6 +10,7 @@
 #include <vector>
 
 class SimTrackManager;
+class CMSG4TrackInterface;
 class TrackWithHistory;
 class BeginOfTrack;
 class EndOfTrack;
@@ -24,19 +25,23 @@ public:
   void PreUserTrackingAction(const G4Track* aTrack) override;
   void PostUserTrackingAction(const G4Track* aTrack) override;
 
-  inline TrackWithHistory* currentTrackWithHistory() { return currentTrack_; }
+  inline TrackWithHistory* currentTrackWithHistory() { return currentHistory_; }
   inline const G4Track* geant4Track() const { return g4Track_; }
   inline G4TrackingManager* getTrackManager() { return fpTrackingManager; }
 
   SimActivityRegistry::BeginOfTrackSignal m_beginOfTrackSignal;
   SimActivityRegistry::EndOfTrackSignal m_endOfTrackSignal;
 
+  TrackingAction(TrackingAction&) = delete;
+  TrackingAction& operator=(const TrackingAction& right) = delete;
+
 private:
   SimTrackManager* trackManager_;
+  CMSG4TrackInterface* interface_;
   CMSSteppingVerbose* steppingVerbose_;
   const G4Track* g4Track_ = nullptr;
   TrackInformation* trkInfo_ = nullptr;
-  TrackWithHistory* currentTrack_ = nullptr;
+  TrackWithHistory* currentHistory_ = nullptr;
   int endPrintTrackID_;
   bool checkTrack_;
   bool doFineCalo_;

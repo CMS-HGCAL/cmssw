@@ -3,10 +3,9 @@
 
 #include "TrackingTools/PatternTools/interface/TrajectoryMeasurement.h"
 #include "TrackingTools/PatternTools/interface/Trajectory.h"
+#include "DataFormats/TrajectorySeed/interface/TrajectorySeedFwd.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
-
-class TrajectorySeed;
 
 /** The component of track reconstruction that, strating from a seed,
  *  reconstructs all possible trajectories.
@@ -20,7 +19,7 @@ public:
   typedef std::vector<Trajectory> TrajectoryContainer;
   typedef TrajectoryContainer::iterator TrajectoryIterator;
 
-  virtual ~TrajectoryBuilder(){};
+  virtual ~TrajectoryBuilder() {}
 
   virtual TrajectoryContainer trajectories(const TrajectorySeed&) const = 0;
 

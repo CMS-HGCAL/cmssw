@@ -1,6 +1,5 @@
 #!/bin/env python3
 
-from __future__ import print_function
 import ROOT
 ROOT.PyConfig.IgnoreCommandLineOptions = True
 import os
@@ -144,8 +143,8 @@ def compareMP(shared_paths, pr_flat_dict, base_flat_dict, iProc, return_dict):
 
       elif pr_item.InheritsFrom('TH1') and base_item.InheritsFrom('TH1'):
          # Compare bin by bin
-         pr_array = np.array(pr_item)
-         base_array = np.array(base_item)
+         pr_array = pr_item.values()
+         base_array = base_item.values()
 
          if pr_array.shape != base_array.shape or not np.allclose(pr_array, base_array, equal_nan=True):
             are_different = True
@@ -180,8 +179,8 @@ def compare(shared_paths, pr_flat_dict, base_flat_dict, paths_to_save_in_pr, pat
 
       elif pr_item.InheritsFrom('TH1') and base_item.InheritsFrom('TH1'):
          # Compare bin by bin
-         pr_array = np.array(pr_item)
-         base_array = np.array(base_item)
+         pr_array = pr_item.values()
+         base_array = base_item.values()
 
          if pr_array.shape != base_array.shape or not np.allclose(pr_array, base_array, equal_nan=True):
             are_different = True

@@ -63,11 +63,17 @@ TritonClient::TritonClient(const edm::ParameterSet& params, const std::string& d
   options_.emplace_back(params.getParameter<std::string>("modelName"));
   //get appropriate server for this model
   edm::Service<TritonService> ts;
+
+  // We save the token to be able to notify the service in case of an exception in the evaluate method.
+  // The evaluate method can be called outside the frameworks TBB threadpool in the case of a retry. In
+  // this case the context is not setup to access the service registry, we need the service token to
+  // create the context.
+  token_ = edm::ServiceRegistry::instance().presentToken();
+
   const auto& server =
       ts->serverInfo(options_[0].model_name_, params.getUntrackedParameter<std::string>("preferredServer"));
   serverType_ = server.type;
-  if (verbose_)
-    edm::LogInfo(fullDebugName_) << "Using server: " << server.url;
+  edm::LogInfo("TritonDiscovery") << debugName_ << " assigned server: " << server.url;
   //enforce sync mode for fallback CPU server to avoid contention
   //todo: could enforce async mode otherwise (unless mode was specified by user?)
   if (serverType_ == TritonServerType::LocalCPU)
@@ -78,7 +84,7 @@ TritonClient::TritonClient(const edm::ParameterSet& params, const std::string& d
   TRITON_THROW_IF_ERROR(
       tc::InferenceServerGrpcClient::Create(&client_, server.url, false, server.useSsl, server.sslOptions),
       "TritonClient(): unable to create inference context",
-      isLocal_);
+      localService());
 
   //set options
   options_[0].model_version_ = params.getParameter<std::string>("modelVersion");
@@ -99,7 +105,7 @@ TritonClient::TritonClient(const edm::ParameterSet& params, const std::string& d
   //get fixed parameters from local config
   inference::ModelConfig localModelConfig;
   {
-    const std::string& localModelConfigPath(params.getParameter<edm::FileInPath>("modelConfigPath").fullPath());
+    const std::string localModelConfigPath(params.getParameter<edm::FileInPath>("modelConfigPath").fullPath());
     int fileDescriptor = open(localModelConfigPath.c_str(), O_RDONLY);
     if (fileDescriptor < 0)
       throw TritonException("LocalFailure")
@@ -125,7 +131,7 @@ TritonClient::TritonClient(const edm::ParameterSet& params, const std::string& d
   inference::ModelConfigResponse modelConfigResponse;
   TRITON_THROW_IF_ERROR(client_->ModelConfig(&modelConfigResponse, options_[0].model_name_, options_[0].model_version_),
                         "TritonClient(): unable to get model config",
-                        isLocal_);
+                        localService());
   inference::ModelConfig remoteModelConfig(modelConfigResponse.config());
 
   std::map<std::string, std::array<std::string, 2>> checksums;
@@ -156,7 +162,7 @@ TritonClient::TritonClient(const edm::ParameterSet& params, const std::string& d
   inference::ModelMetadataResponse modelMetadata;
   TRITON_THROW_IF_ERROR(client_->ModelMetadata(&modelMetadata, options_[0].model_name_, options_[0].model_version_),
                         "TritonClient(): unable to get model metadata",
-                        isLocal_);
+                        localService());
 
   //get input and output (which know their sizes)
   const auto& nicInputs = modelMetadata.inputs();
@@ -264,8 +270,8 @@ unsigned TritonClient::batchSize() const { return batchMode_ == TritonBatchMode:
 bool TritonClient::setBatchSize(unsigned bsize) {
   if (batchMode_ == TritonBatchMode::Rectangular) {
     if (bsize > maxOuterDim_) {
-      edm::LogWarning(fullDebugName_) << "Requested batch size " << bsize << " exceeds server-specified max batch size "
-                                      << maxOuterDim_ << ". Batch size will remain as " << outerDim_;
+      throw TritonException("LocalFailure")
+          << "Requested batch size " << bsize << " exceeds server-specified max batch size " << maxOuterDim_ << ".";
       return false;
     } else {
       outerDim_ = bsize;
@@ -338,6 +344,14 @@ bool TritonClient::handle_exception(F&& call) {
   }
 }
 
+const TritonService* TritonClient::service() const {
+  edm::ServiceRegistry::Operate op(token_);
+  edm::Service<TritonService> ts;
+  return &(*ts);
+}
+
+const TritonService* TritonClient::localService() const { return isLocal_ ? service() : nullptr; }
+
 void TritonClient::getResults(const std::vector<std::shared_ptr<tc::InferResult>>& results) {
   for (unsigned i = 0; i < results.size(); ++i) {
     const auto& result = results[i];
@@ -345,8 +359,8 @@ void TritonClient::getResults(const std::vector<std::shared_ptr<tc::InferResult>
       //set shape here before output becomes const
       if (output.variableDims()) {
         std::vector<int64_t> tmp_shape;
-        TRITON_THROW_IF_ERROR(
-            result->Shape(oname, &tmp_shape), "getResults(): unable to get output shape for " + oname, false);
+        TRITON_THROW_IF_ERROR(result->Shape(oname, &tmp_shape),
+                              "getResults(): unable to get output shape for " + oname);
         if (!noOuterDim_)
           tmp_shape.erase(tmp_shape.begin());
         output.setShape(tmp_shape, i);
@@ -364,6 +378,9 @@ void TritonClient::getResults(const std::vector<std::shared_ptr<tc::InferResult>
 void TritonClient::evaluate() {
   //undo previous signal from TritonException
   if (tries_ > 0) {
+    // If we are retrying then the evaluate method is called outside the frameworks TBB thread pool.
+    // So we need to setup the service token for the current thread to access the service registry.
+    edm::ServiceRegistry::Operate op(token_);
     edm::Service<TritonService> ts;
     ts->notifyCallStatus(true);
   }
@@ -430,7 +447,7 @@ void TritonClient::evaluate() {
                                   for (auto ptr : results) {
                                     auto success = handle_exception([&]() {
                                       TRITON_THROW_IF_ERROR(
-                                          ptr->RequestStatus(), "evaluate(): unable to get result(s)", isLocal_);
+                                          ptr->RequestStatus(), "evaluate(): unable to get result(s)", localService());
                                     });
                                     if (!success)
                                       return;
@@ -460,7 +477,7 @@ void TritonClient::evaluate() {
                                 headers_,
                                 compressionAlgo_),
                             "evaluate(): unable to launch async run",
-                            isLocal_);
+                            localService());
     });
     if (!success)
       return;
@@ -471,7 +488,7 @@ void TritonClient::evaluate() {
       TRITON_THROW_IF_ERROR(
           client_->InferMulti(&resultsTmp, options_, inputsTriton, outputsTriton, headers_, compressionAlgo_),
           "evaluate(): unable to run and/or get result",
-          isLocal_);
+          localService());
     });
     //immediately convert to shared_ptr
     const auto& results = convertToShared(resultsTmp);
@@ -559,7 +576,7 @@ inference::ModelStatistics TritonClient::getServerSideStatus() const {
     inference::ModelStatisticsResponse resp;
     TRITON_THROW_IF_ERROR(client_->ModelInferenceStatistics(&resp, options_[0].model_name_, options_[0].model_version_),
                           "getServerSideStatus(): unable to get model statistics",
-                          isLocal_);
+                          localService());
     return *(resp.model_stats().begin());
   }
   return inference::ModelStatistics{};

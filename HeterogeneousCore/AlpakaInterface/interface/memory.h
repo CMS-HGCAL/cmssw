@@ -3,12 +3,15 @@
 
 #include <type_traits>
 
+#include <span>
+
 #include <alpaka/alpaka.hpp>
 
 #include "HeterogeneousCore/AlpakaInterface/interface/AllocatorPolicy.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/CachedBufAlloc.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/devices.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/host.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/traits.h"
 
 namespace cms::alpakatools {
@@ -84,22 +87,21 @@ namespace cms::alpakatools {
   template <typename T, typename TPlatform>
   std::enable_if_t<not std::is_array_v<T>, host_buffer<T>> make_host_buffer() {
     using Platform = TPlatform;
-    return alpaka::allocMappedBuf<Platform, T, Idx>(host(), platform<Platform>(), Scalar{});
+    return alpaka::allocMappedBuf<T, Idx>(host(), platform<Platform>(), Scalar{});
   }
 
   template <typename T, typename TPlatform>
   std::enable_if_t<cms::is_unbounded_array_v<T> and not std::is_array_v<std::remove_extent_t<T>>, host_buffer<T>>
   make_host_buffer(Extent extent) {
     using Platform = TPlatform;
-    return alpaka::allocMappedBuf<Platform, std::remove_extent_t<T>, Idx>(host(), platform<Platform>(), Vec1D{extent});
+    return alpaka::allocMappedBuf<std::remove_extent_t<T>, Idx>(host(), platform<Platform>(), Vec1D{extent});
   }
 
   template <typename T, typename TPlatform>
   std::enable_if_t<cms::is_bounded_array_v<T> and not std::is_array_v<std::remove_extent_t<T>>, host_buffer<T>>
   make_host_buffer() {
     using Platform = TPlatform;
-    return alpaka::allocMappedBuf<Platform, std::remove_extent_t<T>, Idx>(
-        host(), platform<Platform>(), Vec1D{std::extent_v<T>});
+    return alpaka::allocMappedBuf<std::remove_extent_t<T>, Idx>(host(), platform<Platform>(), Vec1D{std::extent_v<T>});
   }
 
   // potentially cached, pinned, scalar and 1-dimensional host buffers, associated to a work queue
@@ -108,11 +110,11 @@ namespace cms::alpakatools {
   template <typename T, typename TQueue>
   std::enable_if_t<alpaka::isQueue<TQueue> and not std::is_array_v<T>, host_buffer<T>> make_host_buffer(
       TQueue const& queue) {
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
+    if constexpr (host_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
       return allocCachedBuf<T, Idx>(host(), queue, Scalar{});
     } else {
       using Platform = alpaka::Platform<alpaka::Dev<TQueue>>;
-      return alpaka::allocMappedBuf<Platform, T, Idx>(host(), platform<Platform>(), Scalar{});
+      return alpaka::allocMappedBuf<T, Idx>(host(), platform<Platform>(), Scalar{});
     }
   }
 
@@ -121,12 +123,11 @@ namespace cms::alpakatools {
                        not std::is_array_v<std::remove_extent_t<T>>,
                    host_buffer<T>>
   make_host_buffer(TQueue const& queue, Extent extent) {
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
+    if constexpr (host_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
       return allocCachedBuf<std::remove_extent_t<T>, Idx>(host(), queue, Vec1D{extent});
     } else {
       using Platform = alpaka::Platform<alpaka::Dev<TQueue>>;
-      return alpaka::allocMappedBuf<Platform, std::remove_extent_t<T>, Idx>(
-          host(), platform<Platform>(), Vec1D{extent});
+      return alpaka::allocMappedBuf<std::remove_extent_t<T>, Idx>(host(), platform<Platform>(), Vec1D{extent});
     }
   }
 
@@ -135,11 +136,11 @@ namespace cms::alpakatools {
                        not std::is_array_v<std::remove_extent_t<T>>,
                    host_buffer<T>>
   make_host_buffer(TQueue const& queue) {
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
+    if constexpr (host_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
       return allocCachedBuf<std::remove_extent_t<T>, Idx>(host(), queue, Vec1D{std::extent_v<T>});
     } else {
       using Platform = alpaka::Platform<alpaka::Dev<TQueue>>;
-      return alpaka::allocMappedBuf<Platform, std::remove_extent_t<T>, Idx>(
+      return alpaka::allocMappedBuf<std::remove_extent_t<T>, Idx>(
           host(), platform<Platform>(), Vec1D{std::extent_v<T>});
     }
   }
@@ -157,6 +158,19 @@ namespace cms::alpakatools {
   template <typename T>
   host_view<T[]> make_host_view(T* data, Extent extent) {
     return alpaka::ViewPlainPtr<DevHost, T, Dim1D, Idx>(data, host(), Vec1D{extent});
+  }
+
+  template <typename T>
+  host_view<T[]> make_host_view(std::span<T> span) {
+    return alpaka::ViewPlainPtr<DevHost, T, Dim1D, Idx>(span.data(), host(), Vec1D{span.size()});
+  }
+
+  template <typename T>
+  host_view<T[]> make_host_view(std::span<T> span, Extent extent) {
+    if (extent > span.size()) {
+      throw std::runtime_error("make_host_view: span size is smaller than the specified extent");
+    }
+    return alpaka::ViewPlainPtr<DevHost, T, Dim1D, Idx>(span.data(), host(), Vec1D{extent});
   }
 
   template <typename T>
@@ -208,13 +222,13 @@ namespace cms::alpakatools {
   template <typename T, typename TQueue>
   std::enable_if_t<alpaka::isQueue<TQueue> and not std::is_array_v<T>, device_buffer<alpaka::Dev<TQueue>, T>>
   make_device_buffer(TQueue const& queue) {
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
+    if constexpr (device_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
       return allocCachedBuf<T, Idx>(alpaka::getDev(queue), queue, Scalar{});
     }
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Asynchronous) {
+    if constexpr (device_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Asynchronous) {
       return alpaka::allocAsyncBuf<T, Idx>(queue, Scalar{});
     }
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Synchronous) {
+    if constexpr (device_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Synchronous) {
       return alpaka::allocBuf<T, Idx>(alpaka::getDev(queue), Scalar{});
     }
   }
@@ -224,13 +238,13 @@ namespace cms::alpakatools {
                        not std::is_array_v<std::remove_extent_t<T>>,
                    device_buffer<alpaka::Dev<TQueue>, T>>
   make_device_buffer(TQueue const& queue, Extent extent) {
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
+    if constexpr (device_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
       return allocCachedBuf<std::remove_extent_t<T>, Idx>(alpaka::getDev(queue), queue, Vec1D{extent});
     }
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Asynchronous) {
+    if constexpr (device_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Asynchronous) {
       return alpaka::allocAsyncBuf<std::remove_extent_t<T>, Idx>(queue, Vec1D{extent});
     }
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Synchronous) {
+    if constexpr (device_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Synchronous) {
       return alpaka::allocBuf<std::remove_extent_t<T>, Idx>(alpaka::getDev(queue), Vec1D{extent});
     }
   }
@@ -240,13 +254,13 @@ namespace cms::alpakatools {
                        not std::is_array_v<std::remove_extent_t<T>>,
                    device_buffer<alpaka::Dev<TQueue>, T>>
   make_device_buffer(TQueue const& queue) {
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
+    if constexpr (device_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Caching) {
       return allocCachedBuf<std::remove_extent_t<T>, Idx>(alpaka::getDev(queue), queue, Vec1D{std::extent_v<T>});
     }
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Asynchronous) {
+    if constexpr (device_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Asynchronous) {
       return alpaka::allocAsyncBuf<std::remove_extent_t<T>, Idx>(queue, Vec1D{std::extent_v<T>});
     }
-    if constexpr (allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Synchronous) {
+    if constexpr (device_allocator_policy<alpaka::Dev<TQueue>> == AllocatorPolicy::Synchronous) {
       return alpaka::allocBuf<std::remove_extent_t<T>, Idx>(alpaka::getDev(queue), Vec1D{std::extent_v<T>});
     }
   }
@@ -257,25 +271,96 @@ namespace cms::alpakatools {
   using device_view = typename detail::view_type<TDev, T>::type;
 
   template <typename T, typename TDev>
-  std::enable_if_t<not std::is_array_v<T>, device_view<TDev, T>> make_device_view(TDev const& device, T& data) {
+  std::enable_if_t<alpaka::isDevice<TDev> and not std::is_array_v<T>, device_view<TDev, T>> make_device_view(
+      TDev const& device, T& data) {
     return alpaka::ViewPlainPtr<TDev, T, Dim0D, Idx>(&data, device, Scalar{});
   }
 
   template <typename T, typename TDev>
-  device_view<TDev, T[]> make_device_view(TDev const& device, T* data, Extent extent) {
+  std::enable_if_t<alpaka::isDevice<TDev>, device_view<TDev, T[]>> make_device_view(TDev const& device,
+                                                                                    T* data,
+                                                                                    Extent extent) {
     return alpaka::ViewPlainPtr<TDev, T, Dim1D, Idx>(data, device, Vec1D{extent});
   }
 
   template <typename T, typename TDev>
-  std::enable_if_t<cms::is_unbounded_array_v<T> and not std::is_array_v<std::remove_extent_t<T>>, device_view<TDev, T>>
+  std::enable_if_t<alpaka::isDevice<TDev>, device_view<TDev, T[]>> make_device_view(TDev const& device,
+                                                                                    std::span<T> span) {
+    return alpaka::ViewPlainPtr<TDev, T, Dim1D, Idx>(span.data(), device, Vec1D{span.size()});
+  }
+
+  template <typename T, typename TDev>
+  std::enable_if_t<alpaka::isDevice<TDev>, device_view<TDev, T[]>> make_device_view(TDev const& device,
+                                                                                    std::span<T> span,
+                                                                                    Extent extent) {
+    if (extent > span.size()) {
+      throw std::runtime_error("make_device_view: span size is smaller than the specified extent");
+    }
+    return alpaka::ViewPlainPtr<TDev, T, Dim1D, Idx>(span.data(), device, Vec1D{extent});
+  }
+
+  template <typename T, typename TDev>
+  std::enable_if_t<alpaka::isDevice<TDev> and cms::is_unbounded_array_v<T> and
+                       not std::is_array_v<std::remove_extent_t<T>>,
+                   device_view<TDev, T>>
   make_device_view(TDev const& device, T& data, Extent extent) {
     return alpaka::ViewPlainPtr<TDev, std::remove_extent_t<T>, Dim1D, Idx>(data, device, Vec1D{extent});
   }
 
   template <typename T, typename TDev>
-  std::enable_if_t<cms::is_bounded_array_v<T> and not std::is_array_v<std::remove_extent_t<T>>, device_view<TDev, T>>
+  std::enable_if_t<alpaka::isDevice<TDev> and cms::is_bounded_array_v<T> and
+                       not std::is_array_v<std::remove_extent_t<T>>,
+                   device_view<TDev, T>>
   make_device_view(TDev const& device, T& data) {
     return alpaka::ViewPlainPtr<TDev, std::remove_extent_t<T>, Dim1D, Idx>(data, device, Vec1D{std::extent_v<T>});
+  }
+
+  template <typename T, typename TQueue>
+  std::enable_if_t<alpaka::isQueue<TQueue> and not std::is_array_v<T>, device_view<alpaka::Dev<TQueue>, T>>
+  make_device_view(TQueue const& queue, T& data) {
+    return alpaka::ViewPlainPtr<alpaka::Dev<TQueue>, T, Dim0D, Idx>(&data, alpaka::getDev(queue), Scalar{});
+  }
+
+  template <typename T, typename TQueue>
+  std::enable_if_t<alpaka::isQueue<TQueue>, device_view<alpaka::Dev<TQueue>, T[]>> make_device_view(TQueue const& queue,
+                                                                                                    T* data,
+                                                                                                    Extent extent) {
+    return alpaka::ViewPlainPtr<alpaka::Dev<TQueue>, T, Dim1D, Idx>(data, alpaka::getDev(queue), Vec1D{extent});
+  }
+
+  template <typename T, typename TQueue>
+  std::enable_if_t<alpaka::isQueue<TQueue>, device_view<alpaka::Dev<TQueue>, T[]>> make_device_view(TQueue const& queue,
+                                                                                                    std::span<T> span) {
+    return alpaka::ViewPlainPtr<alpaka::Dev<TQueue>, T, Dim1D, Idx>(
+        span.data(), alpaka::getDev(queue), Vec1D{span.size()});
+  }
+
+  template <typename T, typename TQueue>
+  std::enable_if_t<alpaka::isQueue<TQueue>, device_view<alpaka::Dev<TQueue>, T[]>> make_device_view(TQueue const& queue,
+                                                                                                    std::span<T> span,
+                                                                                                    Extent extent) {
+    if (extent > span.size()) {
+      throw std::runtime_error("make_device_view: span size is smaller than the specified extent");
+    }
+    return alpaka::ViewPlainPtr<alpaka::Dev<TQueue>, T, Dim1D, Idx>(span.data(), alpaka::getDev(queue), Vec1D{extent});
+  }
+
+  template <typename T, typename TQueue>
+  std::enable_if_t<alpaka::isQueue<TQueue> and cms::is_unbounded_array_v<T> and
+                       not std::is_array_v<std::remove_extent_t<T>>,
+                   device_view<alpaka::Dev<TQueue>, T>>
+  make_device_view(TQueue const& queue, T& data, Extent extent) {
+    return alpaka::ViewPlainPtr<alpaka::Dev<TQueue>, std::remove_extent_t<T>, Dim1D, Idx>(
+        data, alpaka::getDev(queue), Vec1D{extent});
+  }
+
+  template <typename T, typename TQueue>
+  std::enable_if_t<alpaka::isQueue<TQueue> and cms::is_bounded_array_v<T> and
+                       not std::is_array_v<std::remove_extent_t<T>>,
+                   device_view<alpaka::Dev<TQueue>, T>>
+  make_device_view(TQueue const& queue, T& data) {
+    return alpaka::ViewPlainPtr<alpaka::Dev<TQueue>, std::remove_extent_t<T>, Dim1D, Idx>(
+        data, alpaka::getDev(queue), Vec1D{std::extent_v<T>});
   }
 
 }  // namespace cms::alpakatools

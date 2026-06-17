@@ -28,21 +28,24 @@ Disclaimer: Most of the code here is randomly written during
 #include "IOPool/Streamer/interface/EventMessage.h"
 #include "IOPool/Streamer/interface/InitMessage.h"
 #include "IOPool/Streamer/interface/StreamerInputFile.h"
-#include "FWCore/Catalog/interface/InputFileCatalog.h"
-#include "FWCore/Catalog/interface/SiteLocalConfig.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/PluginManager/interface/PluginManager.h"
 #include "FWCore/PluginManager/interface/standard.h"
-#include "FWCore/Services/interface/setupSiteLocalConfig.h"
 #include "FWCore/ServiceRegistry/interface/ServiceRegistry.h"
-
+#include "FWStorage/Catalog/interface/InputFileCatalog.h"
+#include "FWStorage/Catalog/interface/SiteLocalConfig.h"
+#include "FWStorage/Catalog/interface/StorageURLModifier.h"
+#include "FWStorage/Services/interface/setupSiteLocalConfig.h"
+#
 #include <iostream>
+
+using namespace edm::streamer;
 
 int readSingleStream(bool verbose) {
   try {
     // ----------- init
     std::string initfilename = "teststreamfile.dat";
-    edm::StreamerInputFile stream_reader(initfilename);
+    StreamerInputFile stream_reader(initfilename);
 
     std::cout << "Trying to Read The Init message from Streamer File: " << initfilename << std::endl;
     InitMsgView const* init = stream_reader.startMessage();
@@ -54,7 +57,7 @@ int readSingleStream(bool verbose) {
 
     // ------- event
 
-    while (edm::StreamerInputFile::Next::kEvent == stream_reader.next()) {
+    while (StreamerInputFile::Next::kEvent == stream_reader.next()) {
       EventMsgView const* eview = stream_reader.currentRecord();
       if (verbose) {
         std::cout << "----------EVENT-----------" << std::endl;
@@ -78,9 +81,9 @@ int readMultipleStreams(bool verbose) {
     streamFiles.push_back("file:teststreamfile.dat");
     streamFiles.push_back("file:teststreamfile.dat");
 
-    edm::InputFileCatalog catalog(streamFiles, "");
+    edm::InputFileCatalog catalog(streamFiles, "", false, edm::SciTagCategory::Undefined);
 
-    edm::StreamerInputFile stream_reader(catalog.fileCatalogItems());
+    StreamerInputFile stream_reader(catalog.fileCatalogItems());
 
     std::cout << "Trying to Read The Init message from Streamer File: "
               << "teststreamfile.dat" << std::endl;
@@ -92,7 +95,7 @@ int readMultipleStreams(bool verbose) {
       dumpInitView(init);
     }
 
-    while (edm::StreamerInputFile::Next::kStop != stream_reader.next()) {
+    while (StreamerInputFile::Next::kStop != stream_reader.next()) {
       if (stream_reader.newHeader()) {
         std::cout << "File Boundary has just been crossed, a new file is read" << std::endl;
         std::cout << "A new INIT Message is available" << std::endl;
@@ -124,9 +127,9 @@ int readInvalidLFN(bool verbose) {
     std::vector<std::string> streamFiles;
     streamFiles.push_back("teststreamfile.dat");
 
-    edm::InputFileCatalog catalog(streamFiles, "");
+    edm::InputFileCatalog catalog(streamFiles, "", false, edm::SciTagCategory::Undefined);
 
-    edm::StreamerInputFile stream_reader(catalog.fileCatalogItems());
+    StreamerInputFile stream_reader(catalog.fileCatalogItems());
 
     std::cout << "Trying to Read The Init message from Streamer File: "
               << "teststreamfile.dat" << std::endl;
@@ -138,7 +141,7 @@ int readInvalidLFN(bool verbose) {
       dumpInitView(init);
     }
 
-    while (edm::StreamerInputFile::Next::kStop != stream_reader.next()) {
+    while (StreamerInputFile::Next::kStop != stream_reader.next()) {
       if (stream_reader.newHeader()) {
         std::cout << "File Boundary has just been crossed, a new file is read" << std::endl;
         std::cout << "A new INIT Message is available" << std::endl;

@@ -20,6 +20,7 @@
 
 #include "FWCore/Framework/interface/stream/EDProducer.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
+#include "FWCore/Sources/interface/SciTagCategoryForEmbeddedSources.h"
 #include "Mixing/Base/interface/PileUp.h"
 #include "FWCore/Framework/interface/ESWatcher.h"
 #include "CondFormats/DataRecord/interface/MixingRcd.h"
@@ -38,10 +39,14 @@ namespace edm {
     };
   }  // namespace MixingCache
 
-  class BMixingModule : public stream::EDProducer<GlobalCache<MixingCache::Config>> {
+  class BMixingModule : public stream::EDProducer<GlobalCache<MixingCache::Config>,
+                                                  edm::stream::WatchRuns,
+                                                  edm::stream::WatchLuminosityBlocks> {
   public:
     /** standard constructor*/
-    explicit BMixingModule(const edm::ParameterSet& ps, MixingCache::Config const* globalConf);
+    explicit BMixingModule(const edm::ParameterSet& ps,
+                           MixingCache::Config const* globalConf,
+                           SciTagCategoryForEmbeddedSources cat = SciTagCategoryForEmbeddedSources::Embedded);
 
     /**Default destructor*/
     ~BMixingModule() override;
@@ -66,7 +71,7 @@ namespace edm {
     static void globalEndJob(MixingCache::Config*) {}
 
     // to be overloaded by dependent class
-    virtual void reload(const edm::EventSetup& setup){};
+    virtual void reload(const edm::EventSetup& setup) {}
 
     // Should 'averageNumber' return 0 or 1 if there is no mixing? It is the average number of
     // *crossings*, including the hard scatter, or the average number of overlapping events?

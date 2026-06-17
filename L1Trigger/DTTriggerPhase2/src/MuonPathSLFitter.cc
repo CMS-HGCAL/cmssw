@@ -68,7 +68,7 @@ void MuonPathSLFitter::run(edm::Event &iEvent,
   // fit per SL (need to allow for multiple outputs for a single mpath)
   // for (auto &muonpath : muonpaths) {
   if (!muonpaths.empty()) {
-    auto muonpath = muonpaths[0];
+    const auto &muonpath = muonpaths[0];
     int rawId = muonpath->primitive(0)->cameraId();
     if (muonpath->primitive(0)->cameraId() == -1) {
       rawId = muonpath->primitive(1)->cameraId();
@@ -79,7 +79,7 @@ void MuonPathSLFitter::run(edm::Event &iEvent,
 
   for (size_t i = 0; i < muonpaths.size(); i++) {
     auto muonpath = muonpaths[i];
-    auto lats = lateralities[i];
+    const auto &lats = lateralities[i];
     analyze(muonpath, lats, metaPrimitives);
   }
 }
@@ -264,9 +264,19 @@ void MuonPathSLFitter::analyze(MuonPathPtr &inMPath,
 
       // obtention of global coordinates using luts
       int pos = (int)(10 * (pos_sl_f - shiftinfo_[wireId.rawId()]) * INCREASED_RES_POS_POW);
-      int slope = (int)(-slope_f * INCREASED_RES_SLOPE_POW);
 
-      auto global_coords = globalcoordsobtainer_->get_global_coordinates(ChId.rawId(), sl + 1, pos, slope);
+      LogDebug("MuonPathSLFitter")
+          << "========================= SUPERLAYER PRIMITIVE =================================";
+      LogDebug("MuonPathSLFitter") << "WHEEL = " << ChId.wheel();
+      LogDebug("MuonPathSLFitter") << "SECTOR = " << ChId.sector();
+      LogDebug("MuonPathSLFitter") << "STATION = " << ChId.station();
+      LogDebug("MuonPathSLFitter") << "SUPERLAYER = " << sl;
+      LogDebug("MuonPathSLFitter") << "QUALITY = " << quality;
+      LogDebug("MuonPathSLFitter") << "POSITION = " << (double)fit_common_out.position;
+      LogDebug("MuonPathSLFitter") << "SLOPE = " << (double)fit_common_out.slope;
+
+      auto global_coords = globalcoordsobtainer_->get_global_coordinates(
+          ChId.rawId(), sl + 1, fit_common_out.position, fit_common_out.slope);
       float phi = global_coords[0];
       float phiB = global_coords[1];
 
@@ -427,7 +437,7 @@ void MuonPathSLFitter::analyze(MuonPathPtr &inMPath,
                                                    -1}));
       }
     }  // (fit_common_out.valid_fit == 1)
-  }    // loop in lat_combs
+  }  // loop in lat_combs
   return;
 }
 
@@ -438,6 +448,7 @@ void MuonPathSLFitter::fillLuts() {
     ifinsl1 >> line;
 
     std::vector<int> myNumbers;
+    myNumbers.reserve(line.size());
     for (size_t i = 0; i < line.size(); i++) {
       // This converts the char into an int and pushes it into vec
       myNumbers.push_back(line[i] - '0');  // The digits will be in the same order as before
@@ -451,6 +462,7 @@ void MuonPathSLFitter::fillLuts() {
     ifinsl2 >> line;
 
     std::vector<int> myNumbers;
+    myNumbers.reserve(line.size());
     for (size_t i = 0; i < line.size(); i++) {
       // This converts the char into an int and pushes it into vec
       myNumbers.push_back(line[i] - '0');  // The digits will be in the same order as before
@@ -464,6 +476,7 @@ void MuonPathSLFitter::fillLuts() {
     ifinsl3 >> line;
 
     std::vector<int> myNumbers;
+    myNumbers.reserve(line.size());
     for (size_t i = 0; i < line.size(); i++) {
       // This converts the char into an int and pushes it into vec
       myNumbers.push_back(line[i] - '0');  // The digits will be in the same order as before

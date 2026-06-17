@@ -179,7 +179,7 @@ void Phase1PixelSummaryMap::setZAxisRange(const double min, const double max) {
 //============================================================================
 void Phase1PixelSummaryMap::addNamedBins(
     edm::FileInPath geoFile, int tX, int tY, int sX, int sY, bool applyModuleRotation) {
-  auto cornerFileName = geoFile.fullPath();
+  const auto& cornerFileName = geoFile.fullPath();
   std::ifstream cornerFile(cornerFileName.c_str());
   if (!cornerFile.good()) {
     throw cms::Exception("FileError") << "Problem opening corner file: " << cornerFileName;
@@ -196,7 +196,6 @@ void Phase1PixelSummaryMap::addNamedBins(
 
       auto detInfo = Ph1PMapSummaryHelper::tokenize(tokens[0], ' ');
       unsigned int detId = stoi(detInfo[0]);
-      std::string detIdName = detInfo[1];
       auto xy = Ph1PMapSummaryHelper::tokenize(tokens[1], ' ');
       unsigned int verNum = 1;
       std::vector<float> xP, yP;

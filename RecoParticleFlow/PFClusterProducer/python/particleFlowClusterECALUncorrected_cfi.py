@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import FWCore.ParameterSet.Config as cms
 
 from .particleFlowCaloResolution_cfi import _timeResolutionECALBarrel, _timeResolutionECALEndcap
@@ -62,6 +61,9 @@ _localMaxSeeds_ECAL = cms.PSet(
     ),
     nNeighbours = cms.int32(8),
 )
+from Configuration.ProcessModifiers.beamSplash_cff import beamSplash
+beamSplash.toModify(_localMaxSeeds_ECAL.thresholdsByDetector[0], seedingThreshold = 100, seedingThresholdPt = 20)
+beamSplash.toModify(_localMaxSeeds_ECAL.thresholdsByDetector[1], seedingThreshold = 100, seedingThresholdPt = 20)
 
 # topo clusterizer
 _topoClusterizer_ECAL = cms.PSet(
@@ -78,6 +80,8 @@ _topoClusterizer_ECAL = cms.PSet(
     ),
     useCornerCells = cms.bool(True)
 )
+beamSplash.toModify(_topoClusterizer_ECAL.thresholdsByDetector[0], gatheringThreshold = 90)
+beamSplash.toModify(_topoClusterizer_ECAL.thresholdsByDetector[1], gatheringThreshold = 90)
 
 #position calculations
 _positionCalcECAL_all_nodepth = cms.PSet(

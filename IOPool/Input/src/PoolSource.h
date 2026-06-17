@@ -8,12 +8,12 @@ PoolSource: This is an InputSource
 ----------------------------------------------------------------------*/
 
 #include "DataFormats/Provenance/interface/BranchType.h"
-#include "FWCore/Catalog/interface/InputFileCatalog.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/ProcessingController.h"
 #include "FWCore/Framework/interface/ProductSelectorRules.h"
 #include "FWCore/Framework/interface/InputSource.h"
 #include "FWCore/Utilities/interface/propagate_const.h"
+#include "FWStorage/Catalog/interface/InputFileCatalog.h"
 #include "IOPool/Common/interface/RootServiceChecker.h"
 
 #include <array>
@@ -27,7 +27,7 @@ namespace edm {
   class FileCatalogItem;
   class RootPrimaryFileSequence;
   class RootSecondaryFileSequence;
-  class RunHelperBase;
+  class InputSourceRunHelperBase;
 
   class PoolSource : public InputSource {
   public:
@@ -41,10 +41,11 @@ namespace edm {
     bool dropDescendants() const { return dropDescendants_; }
     bool bypassVersionCheck() const { return bypassVersionCheck_; }
     bool labelRawDataLikeMC() const { return labelRawDataLikeMC_; }
+    bool delayReadingEventProducts() const { return delayReadingEventProducts_; }
     unsigned int nStreams() const { return nStreams_; }
     int treeMaxVirtualSize() const { return treeMaxVirtualSize_; }
     ProductSelectorRules const& productSelectorRules() const { return productSelectorRules_; }
-    RunHelperBase* runHelper() { return runHelper_.get(); }
+    InputSourceRunHelperBase* runHelper() { return runHelper_.get(); }
 
     static void fillDescriptions(ConfigurationDescriptions& descriptions);
 
@@ -90,7 +91,7 @@ namespace edm {
     bool labelRawDataLikeMC_;
     bool delayReadingEventProducts_;
 
-    edm::propagate_const<std::unique_ptr<RunHelperBase>> runHelper_;
+    edm::propagate_const<std::unique_ptr<InputSourceRunHelperBase>> runHelper_;
     std::unique_ptr<SharedResourcesAcquirer>
         resourceSharedWithDelayedReaderPtr_;  // We do not use propagate_const because the acquirer is itself mutable.
     std::shared_ptr<std::recursive_mutex> mutexSharedWithDelayedReader_;

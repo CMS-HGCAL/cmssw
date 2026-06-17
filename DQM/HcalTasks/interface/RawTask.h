@@ -43,7 +43,7 @@ protected:
 
   //	flag vector
   std::vector<hcaldqm::flag::Flag> _vflags;
-  enum RawFlag { fEvnMsm = 0, fBcnMsm = 1, fOrnMsm = 2, fBadQ = 3, nRawFlag = 4 };
+  enum RawFlag { fEvnMsm = 0, fBcnMsm = 1, fOrnMsm = 2, fBadQ = 3, fUnknownIds = 4, nRawFlag = 5 };
 
   //	emap
   hcaldqm::electronicsmap::ElectronicsMap _ehashmap;
@@ -51,7 +51,8 @@ protected:
   //	physics vs calib processing switch
   bool _calibProcessing;
   int _thresh_calib_nbadq;
-
+  int _NBadQEvent;
+  bool _unknownIdsPresent;
   //	vector of HcalElectronicsId for FEDs
   std::vector<uint32_t> _vhashFEDs;
 
@@ -75,8 +76,10 @@ protected:
   hcaldqm::Container2D _cOrnMsm_ElectronicsuTCA;
   hcaldqm::ContainerXXX<uint32_t> _xEvnMsmLS, _xBcnMsmLS, _xOrnMsmLS, _xBadQLS;
 
-  hcaldqm::Container2D _cSummaryvsLS_FED;    // online only
-  hcaldqm::ContainerSingle2D _cSummaryvsLS;  // online only
+  hcaldqm::Container2D _cSummaryvsLS_FED;          // online only
+  hcaldqm::ContainerSingle2D _cSummaryvsLS;        // online only
+  hcaldqm::ContainerSingle2D _cBadQ_FEDvsLSmod10;  // online only
+  hcaldqm::ContainerSingle2D _cBadQ_FEDvsLS;       // online only
 };
 
 #endif

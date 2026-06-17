@@ -6,17 +6,18 @@
 #include <memory>
 
 // user include files
-
 #include "SimDataFormats/Associations/interface/TracksterToSimTracksterAssociatorBaseImpl.h"
+#include "DataFormats/Common/interface/Uninitialized.h"
 
 // forward declarations
 
-namespace hgcal {
+namespace ticl {
 
   class TracksterToSimTracksterAssociator {
   public:
-    TracksterToSimTracksterAssociator(std::unique_ptr<hgcal::TracksterToSimTracksterAssociatorBaseImpl>);
-    TracksterToSimTracksterAssociator() = default;
+    TracksterToSimTracksterAssociator(std::unique_ptr<ticl::TracksterToSimTracksterAssociatorBaseImpl>);
+    TracksterToSimTracksterAssociator() = delete;
+    explicit TracksterToSimTracksterAssociator(edm::Uninitialized) noexcept {};
     TracksterToSimTracksterAssociator(TracksterToSimTracksterAssociator &&) = default;
     TracksterToSimTracksterAssociator &operator=(TracksterToSimTracksterAssociator &&) = default;
     TracksterToSimTracksterAssociator(const TracksterToSimTracksterAssociator &) = delete;  // stop default
@@ -27,18 +28,16 @@ namespace hgcal {
 
     // ---------- const member functions ---------------------
     /// Associate a Trackster to SimClusters
-    hgcal::RecoToSimCollectionSimTracksters associateRecoToSim(
-        const edm::Handle<ticl::TracksterCollection> &tCH,
-        const edm::Handle<reco::CaloClusterCollection> &lCCH,
-        const edm::Handle<ticl::TracksterCollection> &sTCH) const {
+    ticl::RecoToSimCollectionSimTracksters associateRecoToSim(const edm::Handle<ticl::TracksterCollection> &tCH,
+                                                              const edm::Handle<reco::CaloClusterCollection> &lCCH,
+                                                              const edm::Handle<ticl::TracksterCollection> &sTCH) const {
       return m_impl->associateRecoToSim(tCH, lCCH, sTCH);
     };
 
     /// Associate a SimCluster to Tracksters
-    hgcal::SimToRecoCollectionSimTracksters associateSimToReco(
-        const edm::Handle<ticl::TracksterCollection> &tCH,
-        const edm::Handle<reco::CaloClusterCollection> &lCCH,
-        const edm::Handle<ticl::TracksterCollection> &sTCH) const {
+    ticl::SimToRecoCollectionSimTracksters associateSimToReco(const edm::Handle<ticl::TracksterCollection> &tCH,
+                                                              const edm::Handle<reco::CaloClusterCollection> &lCCH,
+                                                              const edm::Handle<ticl::TracksterCollection> &sTCH) const {
       return m_impl->associateSimToReco(tCH, lCCH, sTCH);
     }
 
@@ -46,6 +45,6 @@ namespace hgcal {
     // ---------- member data --------------------------------
     std::unique_ptr<TracksterToSimTracksterAssociatorBaseImpl> m_impl;
   };
-}  // namespace hgcal
+}  // namespace ticl
 
 #endif

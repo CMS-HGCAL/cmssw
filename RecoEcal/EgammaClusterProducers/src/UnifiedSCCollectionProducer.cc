@@ -224,8 +224,8 @@ void UnifiedSCCollectionProducer::produce(edm::Event& evt, const edm::EventSetup
       basicClusterOwner.push_back(std::make_pair(jsc, 1));
     }
   }  // end loop over clean SC _________________________________________________
-     //
-     //
+  //
+  //
 
   // Final check: in the endcap BC may exist that are not associated to SC,
   // we need to recover them as well (e.g. multi5x5 algo)
@@ -432,7 +432,7 @@ void UnifiedSCCollectionProducer::produce(edm::Event& evt, const edm::EventSetup
   }
   LogTrace("UnifiedSC") << "The new SC unclean only collection with size " << superClustersUncleanOnly.size();
   for (int i = 0; i < (int)superClustersUncleanOnly.size(); ++i) {
-    const reco::SuperCluster nsc = superClustersUncleanOnly[i];
+    const reco::SuperCluster& nsc = superClustersUncleanOnly[i];
     LogTrace("UnifiedSC") << " >>> newSC    #" << i << "; Energy: " << nsc.energy() << " eta: " << nsc.eta()
                           << " isClean=" << nsc.isInClean() << " isUnclean=" << nsc.isInUnclean()
                           << " sc seed detid: " << nsc.seed()->seed().rawId();

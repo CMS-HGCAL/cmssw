@@ -8,14 +8,11 @@
 
 #include <string>
 #include <vector>
+#include "DataFormats/Candidate/interface/CandidateOnlyFwd.h"
 
 namespace edm {
   class ParameterSet;
 }  // namespace edm
-
-namespace reco {
-  class Candidate;
-}  // namespace reco
 
 class AnyMVAEstimatorRun2Base {
 public:
@@ -24,7 +21,7 @@ public:
 
   AnyMVAEstimatorRun2Base(const ::std::string& mvaName, const ::std::string& mvaTag, int nCategories, bool debug)
       : name_(mvaName), tag_(mvaTag), nCategories_(nCategories), debug_(debug) {}
-  virtual ~AnyMVAEstimatorRun2Base(){};
+  virtual ~AnyMVAEstimatorRun2Base() {}
 
   // Functions that must be provided in derived classes
   // These function should work on electrons or photons

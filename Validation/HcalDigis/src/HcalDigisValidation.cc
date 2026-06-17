@@ -46,7 +46,7 @@ HcalDigisValidation::HcalDigisValidation(const edm::ParameterSet& iConfig) {
   tok_ho_ = consumes<HODigiCollection>(inputTag_);
   tok_hf_ = consumes<HFDigiCollection>(inputTag_);
   tok_emulTPs_ = consumes<HcalTrigPrimDigiCollection>(emulTPsTag_);
-  if (dataTPsTag_ == edm::InputTag(""))
+  if (dataTPsTag_.isUninitialized())
     skipDataTPs = true;
   else {
     skipDataTPs = false;
@@ -686,7 +686,7 @@ void HcalDigisValidation::reco(const edm::Event& iEvent,
       if (mode_ != "multi" && emax_Sim > 0.)
         seedSimHit = 1;
     }  // end of SimHits
-  }    // end of mc_ == "yes"
+  }  // end of mc_ == "yes"
 
   // CYCLE OVER CELLS ========================================================
   int Ndig = 0;
@@ -1002,7 +1002,7 @@ void HcalDigisValidation::reco(const edm::Event& iEvent,
       if (mode_ != "multi" && emax_Sim > 0.)
         seedSimHit = 1;
     }  // end of SimHits
-  }    // end of mc_ == "yes"
+  }  // end of mc_ == "yes"
 
   // CYCLE OVER CELLS ========================================================
   int Ndig = 0;

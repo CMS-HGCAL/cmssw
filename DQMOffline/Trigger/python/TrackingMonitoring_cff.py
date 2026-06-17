@@ -115,8 +115,22 @@ pp_on_PbPb_run3.toModify(iterHLTTracksMonitoringHLT,
 
 phase2_tracker.toModify(iterHLTTracksMonitoringHLT,
                         primaryVertex    = 'hltPhase2PixelVertices',
-                        TrackProducer    = 'generalTracks::HLT',
-                        allTrackProducer = 'generalTracks::HLT')
+                        TrackProducer    = 'hltGeneralTracks',
+                        allTrackProducer = 'hltGeneralTracks')
+
+iterInitialStepMonitoringHLT = iterHLTTracksMonitoringHLT.clone(
+    primaryVertex    = 'hltPhase2PixelVertices',
+    FolderName       = 'HLT/Tracking/hltInitialStepTrackSelectionHighPurity',
+    TrackProducer    = 'hltInitialStepTrackSelectionHighPurity',
+    allTrackProducer = 'hltInitialStepTrackSelectionHighPurity',
+)
+
+iterHighPtTripletsMonitoringHLT = iterHLTTracksMonitoringHLT.clone(
+    primaryVertex    = 'hltPhase2PixelVertices',
+    FolderName       = 'HLT/Tracking/hltHighPtTripletStepTrackSelectionHighPurity',
+    TrackProducer    = 'hltHighPtTripletStepTrackSelectionHighPurity',
+    allTrackProducer = 'hltHighPtTripletStepTrackSelectionHighPurity',
+)
 
 iter3TracksMonitoringHLT = trackingMonHLT.clone(
     FolderName       = 'HLT/Tracking/iter3Merged',
@@ -151,8 +165,17 @@ trackingMonitorHLTall = cms.Sequence(
 #    + iter4TracksMonitoringHLT
 )    
 
-doubletRecoveryHPTracksMonitoringHLT = trackingMonHLT.clone(
+doubletRecoveryTracksMonitoringHLT = trackingMonHLT.clone(
     FolderName       = 'HLT/Tracking/doubletRecoveryTracks',
+    TrackProducer    = 'hltDoubletRecoveryPFlowCtfWithMaterialTracks',
+    allTrackProducer = 'hltDoubletRecoveryPFlowCtfWithMaterialTracks',
+    doEffFromHitPatternVsPU   = True,
+    doEffFromHitPatternVsBX   = False,
+    doEffFromHitPatternVsLUMI = False
+)
+
+doubletRecoveryHPTracksMonitoringHLT = trackingMonHLT.clone(
+    FolderName       = 'HLT/Tracking/doubletRecoveryTracksHP',
     TrackProducer    = 'hltDoubletRecoveryPFlowTrackSelectionHighPurity',
     allTrackProducer = 'hltDoubletRecoveryPFlowTrackSelectionHighPurity',
     doEffFromHitPatternVsPU   = True,
@@ -248,8 +271,8 @@ trkHLTDQMSourceExtra = cms.Sequence(
 )
 
 from Configuration.Eras.Modifier_run3_common_cff import run3_common
-run3_common.toReplaceWith(trackingMonitorHLT, cms.Sequence(pixelTracksMonitoringHLT + iterHLTTracksMonitoringHLT + doubletRecoveryHPTracksMonitoringHLT )) # + iter0HPTracksMonitoringHLT ))
-phase2_tracker.toReplaceWith(trackingMonitorHLT, cms.Sequence(pixelTracksMonitoringHLT + iterHLTTracksMonitoringHLT))
+run3_common.toReplaceWith(trackingMonitorHLT, cms.Sequence(pixelTracksMonitoringHLT + iterHLTTracksMonitoringHLT + doubletRecoveryHPTracksMonitoringHLT))
+phase2_tracker.toReplaceWith(trackingMonitorHLT, cms.Sequence(pixelTracksMonitoringHLT + iterHLTTracksMonitoringHLT + iterInitialStepMonitoringHLT + iterHighPtTripletsMonitoringHLT))
 
-run3_common.toReplaceWith(trackingMonitorHLTall, cms.Sequence(pixelTracksMonitoringHLT + iter0TracksMonitoringHLT + iterHLTTracksMonitoringHLT))
+run3_common.toReplaceWith(trackingMonitorHLTall, cms.Sequence(pixelTracksMonitoringHLT + iter0TracksMonitoringHLT + iter0HPTracksMonitoringHLT + doubletRecoveryTracksMonitoringHLT + doubletRecoveryHPTracksMonitoringHLT + iterHLTTracksMonitoringHLT))
 run3_common.toReplaceWith(egmTrackingMonitorHLT, cms.Sequence(gsfTracksMonitoringHLT))

@@ -115,7 +115,8 @@ namespace mkfit {
 
     HitOnTrack bestHitLastHoT(int itrack) const { return m_HoTArrs[itrack][m_NHits(itrack, 0, 0) - 1]; }
 
-    void packModuleNormDir(const LayerOfHits &layer_of_hits, int hit_cnt, MPlexHV &norm, MPlexHV &dir, int N_proc) const;
+    void packModuleNormDirPnt(
+        const LayerOfHits &layer_of_hits, int hit_cnt, MPlexHV &norm, MPlexHV &dir, MPlexHV &pnt, int N_proc) const;
 
     //----------------------------------------------------------------------------
 
@@ -169,6 +170,11 @@ namespace mkfit {
                         const SteeringParams &st_par,
                         const int N_proc,
                         bool chiDebug = false);
+
+    void bkFitFitTracksProp2Plane(const EventOfHits &eventofhits,
+                                  const SteeringParams &st_par,
+                                  const int N_proc,
+                                  bool chiDebug = false);
 
     void bkFitPropTracksToPCA(const int N_proc);
 

@@ -7,11 +7,13 @@
 
 #include <alpaka/alpaka.hpp>
 
+#include "DataFormats/Common/interface/Uninitialized.h"
+#include "DataFormats/TrivialSerialisation/interface/MemoryCopyTraits.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 
 // generic object in device memory
-template <typename T, typename TDev, typename = std::enable_if_t<alpaka::isDevice<TDev>>>
+template <typename TDev, typename T, typename = std::enable_if_t<alpaka::isDevice<TDev>>>
 class PortableDeviceObject {
   static_assert(not std::is_same_v<TDev, alpaka_common::DevHost>,
                 "Use PortableHostObject<T> instead of PortableDeviceObject<T, DevHost>");
@@ -21,7 +23,9 @@ public:
   using Buffer = cms::alpakatools::device_buffer<TDev, Product>;
   using ConstBuffer = cms::alpakatools::const_device_buffer<TDev, Product>;
 
-  PortableDeviceObject() = default;
+  PortableDeviceObject() = delete;
+
+  PortableDeviceObject(edm::Uninitialized) {}
 
   PortableDeviceObject(TDev const& device)
       // allocate global device memory
@@ -50,9 +54,11 @@ public:
   // access the product
   Product& value() { return *buffer_->data(); }
   Product const& value() const { return *buffer_->data(); }
+  Product const& const_value() const { return *buffer_->data(); }
 
   Product* data() { return buffer_->data(); }
   Product const* data() const { return buffer_->data(); }
+  Product const* const_data() const { return buffer_->data(); }
 
   Product& operator*() { return *buffer_->data(); }
   Product const& operator*() const { return *buffer_->data(); }
@@ -65,8 +71,38 @@ public:
   ConstBuffer buffer() const { return *buffer_; }
   ConstBuffer const_buffer() const { return *buffer_; }
 
+  // erases the data in the Buffer by writing zeros (bytes containing '\0') to it
+  template <typename TQueue, typename = std::enable_if_t<alpaka::isQueue<TQueue>>>
+  void zeroInitialise(TQueue&& queue) {
+    alpaka::memset(std::forward<TQueue>(queue), *buffer_, 0x00);
+  }
+
 private:
   std::optional<Buffer> buffer_;
 };
+
+namespace ngt {
+
+  // Specialize MemoryCopyTraits for PortableDeviceObject
+  template <typename TDev, typename T>
+  struct MemoryCopyTraits<PortableDeviceObject<TDev, T>> {
+    template <typename TQueue>
+      requires(alpaka::isQueue<TQueue>)
+    static void initialize(TQueue& queue, PortableDeviceObject<TDev, T>& object) {
+      // Replace the default-constructed empty object with one where the
+      // buffer has been allocated in global device memory
+      object = PortableDeviceObject<TDev, T>(queue);
+    }
+
+    static std::vector<std::span<std::byte>> regions(PortableDeviceObject<TDev, T>& object) {
+      return {{reinterpret_cast<std::byte*>(object.data()), sizeof(T)}};
+    }
+
+    static std::vector<std::span<const std::byte>> regions(PortableDeviceObject<TDev, T> const& object) {
+      return {{reinterpret_cast<std::byte const*>(object.data()), sizeof(T)}};
+    }
+  };
+
+}  // namespace ngt
 
 #endif  // DataFormats_Portable_interface_PortableDeviceObject_h

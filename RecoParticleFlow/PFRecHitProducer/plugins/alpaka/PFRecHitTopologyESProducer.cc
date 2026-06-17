@@ -50,7 +50,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     std::unique_ptr<typename CAL::TopologyTypeHost> produce(const typename CAL::TopologyRecordType& iRecord) {
       const auto& geom = iRecord.get(geomToken_);
-      auto product = std::make_unique<typename CAL::TopologyTypeHost>(CAL::kSize, cms::alpakatools::host());
+      auto product = std::make_unique<typename CAL::TopologyTypeHost>(cms::alpakatools::host(), CAL::kSize);
       auto view = product->view();
       const int calEnums[2] = {CAL::kSubdetectorBarrelId, CAL::kSubdetectorEndcapId};
       for (const auto subdet : calEnums) {
@@ -96,7 +96,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             if (CAL::detIdInRange(neighDetId))
               view.neighbours(denseId)(n) = CAL::detId2denseId(neighDetId);
             else
-              view.neighbours(denseId)(n) = 0xffffffff;
+              view.neighbours(denseId)(n) = CAL::kInvalidDenseId;
           }
         }
       }
@@ -107,13 +107,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           for (auto const detId : geom.getValidDetIds(CAL::kDetectorId, subdet)) {
             const uint32_t denseId = CAL::detId2denseId(detId);
             for (uint32_t n = 0; n < 8; n++) {
-              if (view.neighbours(denseId)[n] == 0xffffffff)
+              if (view.neighbours(denseId)[n] == CAL::kInvalidDenseId)
                 continue;
               const ::reco::PFRecHitsTopologyNeighbours& neighboursOfNeighbour =
                   view.neighbours(view.neighbours(denseId)[n]);
               if (std::find(neighboursOfNeighbour.begin(), neighboursOfNeighbour.end(), denseId) ==
                   neighboursOfNeighbour.end())
-                view.neighbours(denseId)[n] = 0xffffffff;
+                view.neighbours(denseId)[n] = CAL::kInvalidDenseId;
             }
           }
       }

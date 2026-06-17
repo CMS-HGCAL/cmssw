@@ -1,3 +1,5 @@
+#include <alpaka/alpaka.hpp>
+
 #include "FWCore/Framework/interface/ESTransientHandle.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "CondFormats/DataRecord/interface/EcalMappingElectronicsRcd.h"
@@ -30,7 +32,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       // TODO: 0x3FFFFF * 4B ~= 16MB
       // tmp solution for linear mapping of eid -> did
       int const size = 0x3FFFFF;
-      auto product = std::make_unique<EcalElectronicsMappingHost>(size, cms::alpakatools::host());
+      auto product = std::make_unique<EcalElectronicsMappingHost>(cms::alpakatools::host(), size);
+
+      // fill the whole collection with null detids
+      alpaka::QueueCpuBlocking queue{cms::alpakatools::host()};
+      alpaka::memset(queue, product->buffer(), 0x00);
 
       // fill in eb
       auto const& barrelValues = mapping.barrelItems();

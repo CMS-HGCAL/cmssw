@@ -1,5 +1,6 @@
 // C++ includes
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -12,13 +13,17 @@
 #include "DataFormats/SiPixelDigi/interface/PixelDigi.h"
 #include "DataFormats/SiPixelDigiSoA/interface/alpaka/SiPixelDigiErrorsSoACollection.h"
 #include "DataFormats/SiPixelDigiSoA/interface/alpaka/SiPixelDigisSoACollection.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/Utilities/interface/ESGetToken.h"
 #include "FWCore/Utilities/interface/InputTag.h"
+#include "Geometry/CommonTopologies/interface/GeomDetEnumerators.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
+#include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
+#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EDPutToken.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/Event.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/SynchronizingEDProducer.h"
@@ -29,7 +34,7 @@
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
-  class SiPixelPhase2DigiToCluster : public stream::SynchronizingEDProducer<> {
+  class SiPixelPhase2DigiToCluster : public stream::SynchronizingEDProducer<edm::stream::WatchRuns> {
   public:
     explicit SiPixelPhase2DigiToCluster(const edm::ParameterSet& iConfig);
     ~SiPixelPhase2DigiToCluster() override = default;
@@ -40,23 +45,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   private:
     void acquire(device::Event const& iEvent, device::EventSetup const& iSetup) override;
     void produce(device::Event& iEvent, device::EventSetup const& iSetup) override;
+    void beginRun(edm::Run const&, edm::EventSetup const& iSetup) override;
 
     const edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
+    const edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomTokenBeginRun_;  // For BeginRun
+    const edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> topoToken_;
+
     const edm::EDGetTokenT<edm::DetSetVector<PixelDigi>> pixelDigiToken_;
-
-    device::EDPutToken<SiPixelDigisSoACollection> digiPutToken_;
-    device::EDPutToken<SiPixelClustersSoACollection> clusterPutToken_;
-
-    Algo Algo_;
-
+    const device::EDPutToken<SiPixelDigisSoACollection> digiPutToken_;
+    const device::EDPutToken<SiPixelClustersSoACollection> clusterPutToken_;
     const SiPixelClusterThresholds clusterThresholds_;
-    uint32_t nDigis_ = 0;
 
-    SiPixelDigisSoACollection digis_d;
+    Algo algo_;
+    uint32_t nDigis_ = 0;
+    std::optional<SiPixelDigisSoACollection> digis_d_;
+    mutable uint32_t offsetBPIX2_ = pixelTopology::Phase2::layerStart[1];
   };
 
   SiPixelPhase2DigiToCluster::SiPixelPhase2DigiToCluster(const edm::ParameterSet& iConfig)
-      : geomToken_(esConsumes()),
+      : SynchronizingEDProducer(iConfig),
+        geomToken_(esConsumes()),
+        geomTokenBeginRun_(esConsumes<TrackerGeometry, TrackerDigiGeometryRecord, edm::Transition::BeginRun>()),
+        topoToken_(esConsumes<TrackerTopology, TrackerTopologyRcd, edm::Transition::BeginRun>()),
         pixelDigiToken_(consumes<edm::DetSetVector<PixelDigi>>(iConfig.getParameter<edm::InputTag>("InputDigis"))),
         digiPutToken_(produces()),
         clusterPutToken_(produces()),
@@ -81,25 +91,62 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     desc.add<edm::InputTag>("InputDigis", edm::InputTag("simSiPixelDigis:Pixel"));
     descriptions.addWithDefaultLabel(desc);
   }
+  void SiPixelPhase2DigiToCluster::beginRun(edm::Run const&, edm::EventSetup const& iSetup) {
+    using namespace pixelTopology;
+
+    auto const& trackerGeometry = iSetup.getData(geomTokenBeginRun_);
+    auto const& trackerTopology = iSetup.getData(topoToken_);
+
+    auto const& dets = trackerGeometry.detUnits();
+
+    uint32_t n_modules = 0;
+    uint32_t oldLayer = std::numeric_limits<uint32_t>::max();
+    uint32_t layerCount = 0;
+    uint32_t bpix2Start = 0;
+
+    // Loop over detector modules to find where BPIX2 starts
+    for (auto& det : dets) {
+      if (!GeomDetEnumerators::isInnerTracker(det->subDetector()))
+        continue;
+
+      DetId detId = det->geographicalId();
+      auto layer = trackerTopology.layer(detId);
+
+      if (layer != oldLayer) {
+        if (layerCount == 1) {
+          // layer 1 is BPIX2
+          bpix2Start = n_modules;
+        }
+        layerCount++;
+        oldLayer = layer;
+      }
+      n_modules++;
+    }
+
+    offsetBPIX2_ = bpix2Start;
+
+    LogDebug("SiPixelPhase2DigiToCluster")
+        << "beginRun: BPIX2 module start = " << offsetBPIX2_ << " (total pixel modules: " << n_modules
+        << "). Offset from simplePixelTopology = " << pixelTopology::Phase2::layerStart[1] << '\n';
+  }
 
   void SiPixelPhase2DigiToCluster::acquire(device::Event const& iEvent, device::EventSetup const& iSetup) {
     auto const& input = iEvent.get(pixelDigiToken_);
 
     const TrackerGeometry* geom_ = &iSetup.getData(geomToken_);
 
-    uint32_t nDigis = 0;
-
+    nDigis_ = 0;
     for (const auto& det : input) {
-      nDigis += det.size();
+      nDigis_ += det.size();
     }
+    digis_d_ = SiPixelDigisSoACollection(iEvent.queue(), nDigis_);
 
-    if (nDigis == 0)
+    if (nDigis_ == 0)
       return;
 
-    nDigis_ = nDigis;
-    SiPixelDigisHost digis_h(nDigis_, iEvent.queue());
+    SiPixelDigisHost digis_h(iEvent.queue(), nDigis_);
 
-    nDigis = 0;
+    uint32_t nDigis = 0;
     for (const auto& det : input) {
       unsigned int detid = det.detId();
       DetId detIdObject(detid);
@@ -107,39 +154,31 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto const gind = genericDet->index();
       for (auto const& px : det) {
         digis_h.view()[nDigis].moduleId() = uint16_t(gind);
-
         digis_h.view()[nDigis].xx() = uint16_t(px.row());
         digis_h.view()[nDigis].yy() = uint16_t(px.column());
         digis_h.view()[nDigis].adc() = uint16_t(px.adc());
-
         digis_h.view()[nDigis].clus() = 0;
-
         digis_h.view()[nDigis].pdigi() = uint32_t(px.packedData());
-
         digis_h.view()[nDigis].rawIdArr() = uint32_t(detid);
-
-        nDigis++;
+        ++nDigis;
       }
     }
+    assert(nDigis == nDigis_);
 
-    digis_d = SiPixelDigisSoACollection(nDigis, iEvent.queue());
-    alpaka::memcpy(iEvent.queue(), digis_d.buffer(), digis_h.buffer());
-
-    Algo_.makePhase2ClustersAsync(iEvent.queue(), clusterThresholds_, digis_d.view(), nDigis_);
+    alpaka::memcpy(iEvent.queue(), digis_d_->buffer(), digis_h.buffer());
+    algo_.makePhase2ClustersAsync(iEvent.queue(), clusterThresholds_, digis_d_->view(), nDigis_, offsetBPIX2_);
   }
 
   void SiPixelPhase2DigiToCluster::produce(device::Event& iEvent, device::EventSetup const& iSetup) {
     if (nDigis_ == 0) {
-      SiPixelClustersSoACollection clusters_d{pixelTopology::Phase2::numberOfModules, iEvent.queue()};
-      SiPixelDigisSoACollection digis_d_zero{nDigis_, iEvent.queue()};
-      iEvent.emplace(digiPutToken_, std::move(digis_d_zero));
-      iEvent.emplace(clusterPutToken_, std::move(clusters_d));
-      return;
+      iEvent.emplace(digiPutToken_, std::move(*digis_d_));
+      iEvent.emplace(clusterPutToken_, iEvent.queue(), pixelTopology::Phase2::numberOfModules);
+    } else {
+      digis_d_->setNModules(algo_.nModules());
+      iEvent.emplace(digiPutToken_, std::move(*digis_d_));
+      iEvent.emplace(clusterPutToken_, algo_.getClusters());
     }
-
-    digis_d.setNModules(Algo_.nModules());
-    iEvent.emplace(digiPutToken_, std::move(digis_d));
-    iEvent.emplace(clusterPutToken_, Algo_.getClusters());
+    digis_d_.reset();
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE

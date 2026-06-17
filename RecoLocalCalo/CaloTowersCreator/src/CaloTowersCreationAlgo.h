@@ -5,6 +5,7 @@
 #include "DataFormats/CaloTowers/interface/CaloTowerDetId.h"
 #include "DataFormats/HcalRecHit/interface/HcalRecHitCollections.h"
 #include "DataFormats/EcalRecHit/interface/EcalRecHitCollections.h"
+#include "DataFormats/DetId/interface/DetIdFwd.h"
 #include "DataFormats/GeometryVector/interface/GlobalPoint.h"
 
 // channel status
@@ -30,13 +31,14 @@
 #include "CondFormats/DataRecord/interface/HcalPFCutsRcd.h"
 #include "CondTools/Hcal/interface/HcalPFCutsHandler.h"
 
+#include "CondFormats/EcalObjects/interface/EcalPFRecHitThresholds.h"
+
 class CaloTowerTopology;
 class HcalTopology;
 class CaloGeometry;
 class CaloSubdetectorGeometry;
 class CaloTowerConstituentsMap;
 class CaloRecHit;
-class DetId;
 
 /** \class CaloTowersCreationAlgo
   *  
@@ -162,7 +164,7 @@ public:
                    const HcalTopology* htopo,
                    const CaloGeometry* geo);
 
-  void setThresFromDB(const HcalPFCuts* cuts);
+  void setThresFromDB(const EcalPFRecHitThresholds* EcalCuts, const HcalPFCuts* HcalCuts);
   // pass the containers of channels status from the event record (stored in DB)
   // these are called in  CaloTowersCreator
   void setHcalChStatusFromDB(const HcalChannelQuality* s) { theHcalChStatus = s; }
@@ -322,6 +324,7 @@ private:
   double theHOEScale;
   double theHF1EScale;
   double theHF2EScale;
+  const EcalPFRecHitThresholds* ecalCuts;
   const HcalPFCuts* hcalCuts;
   const CaloTowerTopology* theTowerTopology;
   const HcalTopology* theHcalTopology;

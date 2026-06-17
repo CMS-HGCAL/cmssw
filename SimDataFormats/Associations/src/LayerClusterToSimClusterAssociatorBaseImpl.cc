@@ -2,18 +2,25 @@
 
 #include "SimDataFormats/Associations/interface/LayerClusterToSimClusterAssociatorBaseImpl.h"
 
-namespace hgcal {
-  LayerClusterToSimClusterAssociatorBaseImpl::LayerClusterToSimClusterAssociatorBaseImpl(){};
-  LayerClusterToSimClusterAssociatorBaseImpl::~LayerClusterToSimClusterAssociatorBaseImpl(){};
+namespace ticl {
+  template <typename CLUSTER>
+  LayerClusterToSimClusterAssociatorBaseImplT<CLUSTER>::LayerClusterToSimClusterAssociatorBaseImplT() {}
+  template <typename CLUSTER>
+  LayerClusterToSimClusterAssociatorBaseImplT<CLUSTER>::~LayerClusterToSimClusterAssociatorBaseImplT() {}
 
-  hgcal::RecoToSimCollectionWithSimClusters LayerClusterToSimClusterAssociatorBaseImpl::associateRecoToSim(
-      const edm::Handle<reco::CaloClusterCollection> &cCCH, const edm::Handle<SimClusterCollection> &sCCH) const {
-    return hgcal::RecoToSimCollectionWithSimClusters();
+  template <typename CLUSTER>
+  RecoToSimCollectionWithSimClustersT<CLUSTER> LayerClusterToSimClusterAssociatorBaseImplT<CLUSTER>::associateRecoToSim(
+      const edm::Handle<CLUSTER> &cCCH, const edm::Handle<SimClusterCollection> &sCCH) const {
+    return RecoToSimCollectionWithSimClustersT<CLUSTER>();
   }
 
-  hgcal::SimToRecoCollectionWithSimClusters LayerClusterToSimClusterAssociatorBaseImpl::associateSimToReco(
-      const edm::Handle<reco::CaloClusterCollection> &cCCH, const edm::Handle<SimClusterCollection> &sCCH) const {
-    return hgcal::SimToRecoCollectionWithSimClusters();
+  template <typename CLUSTER>
+  SimToRecoCollectionWithSimClustersT<CLUSTER> LayerClusterToSimClusterAssociatorBaseImplT<CLUSTER>::associateSimToReco(
+      const edm::Handle<CLUSTER> &cCCH, const edm::Handle<SimClusterCollection> &sCCH) const {
+    return SimToRecoCollectionWithSimClustersT<CLUSTER>();
   }
 
-}  // namespace hgcal
+  template class ticl::LayerClusterToSimClusterAssociatorBaseImplT<reco::CaloClusterCollection>;
+  template class ticl::LayerClusterToSimClusterAssociatorBaseImplT<reco::PFClusterCollection>;
+
+}  // namespace ticl

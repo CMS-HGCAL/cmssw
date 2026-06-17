@@ -19,7 +19,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   class TestAlpakaProducer : public global::EDProducer<> {
   public:
     TestAlpakaProducer(edm::ParameterSet const& config)
-        : objectToken_{produces()},
+        : EDProducer<>(config),
+          objectToken_{produces()},
           collectionToken_{produces()},
           deviceTokenMulti2_{produces()},
           deviceTokenMulti3_{produces()},
@@ -29,19 +30,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     void produce(edm::StreamID sid, device::Event& event, device::EventSetup const&) const override {
       // run the algorithm, potentially asynchronously
-      portabletest::TestDeviceCollection deviceCollection{size_, event.queue()};
+      portabletest::TestDeviceCollection deviceCollection{event.queue(), size_};
+      deviceCollection.zeroInitialise(event.queue());
+      algo_.checkZero(event.queue(), deviceCollection);
       algo_.fill(event.queue(), deviceCollection);
 
       portabletest::TestDeviceObject deviceObject{event.queue()};
+      deviceObject.zeroInitialise(event.queue());
+      algo_.checkZero(event.queue(), deviceObject);
       algo_.fillObject(event.queue(), deviceObject, 5., 12., 13., 42);
 
-      portabletest::TestDeviceCollection deviceProduct{size_, event.queue()};
-      algo_.fill(event.queue(), deviceProduct);
-
-      portabletest::TestDeviceMultiCollection2 deviceMultiProduct2{{{size_, size2_}}, event.queue()};
+      portabletest::TestDeviceCollection2 deviceMultiProduct2{event.queue(), size_, size2_};
+      deviceMultiProduct2.zeroInitialise(event.queue());
+      algo_.checkZero(event.queue(), deviceMultiProduct2);
       algo_.fillMulti2(event.queue(), deviceMultiProduct2);
 
-      portabletest::TestDeviceMultiCollection3 deviceMultiProduct3{{{size_, size2_, size3_}}, event.queue()};
+      portabletest::TestDeviceCollection3 deviceMultiProduct3{event.queue(), size_, size2_, size3_};
+      deviceMultiProduct3.zeroInitialise(event.queue());
+      algo_.checkZero(event.queue(), deviceMultiProduct3);
       algo_.fillMulti3(event.queue(), deviceMultiProduct3);
 
       // put the asynchronous products into the event without waiting
@@ -62,8 +68,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   private:
     const device::EDPutToken<portabletest::TestDeviceObject> objectToken_;
     const device::EDPutToken<portabletest::TestDeviceCollection> collectionToken_;
-    const device::EDPutToken<portabletest::TestDeviceMultiCollection2> deviceTokenMulti2_;
-    const device::EDPutToken<portabletest::TestDeviceMultiCollection3> deviceTokenMulti3_;
+    const device::EDPutToken<portabletest::TestDeviceCollection2> deviceTokenMulti2_;
+    const device::EDPutToken<portabletest::TestDeviceCollection3> deviceTokenMulti3_;
     const int32_t size_;
     const int32_t size2_;
     const int32_t size3_;

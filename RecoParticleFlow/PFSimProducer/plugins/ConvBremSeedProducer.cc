@@ -51,7 +51,7 @@
 
 #include <memory>
 
-class ConvBremSeedProducer : public edm::stream::EDProducer<> {
+class ConvBremSeedProducer : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   explicit ConvBremSeedProducer(const edm::ParameterSet&);
 
@@ -77,14 +77,19 @@ private:
 
   std::vector<bool> sharedHits(const std::vector<std::pair<TrajectorySeed, std::pair<GlobalVector, float> > >&);
 
-  edm::ParameterSet conf_;
+  const edm::EDGetTokenT<reco::PFClusterCollection> pfToken_;
+  const edm::EDGetTokenT<SiPixelRecHitCollection> pixelHitsToken_;
+  const edm::EDGetTokenT<SiStripRecHit2DCollection> rphirecHitsToken_;
+  const edm::EDGetTokenT<SiStripMatchedRecHit2DCollection> matchedrecHitsToken_;
+  const edm::EDGetTokenT<reco::GsfPFRecTrackCollection> thePfRecTrackToken_;
+
   const GeometricSearchTracker* geomSearchTracker_;
   const TrackerInteractionGeometry* geometry_;
   const TrackerGeometry* tracker_;
   const MagneticField* magfield_;
   const MagneticFieldMap* fieldMap_;
-  const PropagatorWithMaterial* propagator_;
-  const KFUpdator* kfUpdator_;
+  std::unique_ptr<const PropagatorWithMaterial> propagator_;
+  std::unique_ptr<const KFUpdator> kfUpdator_;
   const TransientTrackingRecHitBuilder* hitBuilder_;
   std::vector<const DetLayer*> layerMap_;
   int negLayerOffset_;
@@ -120,7 +125,12 @@ using namespace std;
 using namespace reco;
 
 ConvBremSeedProducer::ConvBremSeedProducer(const ParameterSet& iConfig)
-    : conf_(iConfig),
+    : pfToken_(consumes<reco::PFClusterCollection>(iConfig.getParameter<InputTag>("PFClusters"))),
+      pixelHitsToken_(consumes<SiPixelRecHitCollection>(iConfig.getParameter<InputTag>("pixelRecHits"))),
+      rphirecHitsToken_(consumes<SiStripRecHit2DCollection>(iConfig.getParameter<InputTag>("rphirecHits"))),
+      matchedrecHitsToken_(
+          consumes<SiStripMatchedRecHit2DCollection>(iConfig.getParameter<InputTag>("matchedrecHits"))),
+      thePfRecTrackToken_(consumes<reco::GsfPFRecTrackCollection>(iConfig.getParameter<InputTag>("PFRecTrackLabel"))),
       fieldMap_(nullptr),
       layerMap_(56, static_cast<const DetLayer*>(nullptr)),
       negLayerOffset_(27),
@@ -131,7 +141,7 @@ ConvBremSeedProducer::ConvBremSeedProducer(const ParameterSet& iConfig)
       magFieldToken_beginRun_(esConsumes<edm::Transition::BeginRun>()),
       magFieldMapToken_(esConsumes<edm::Transition::BeginRun>()),
       hitBuilderToken_(
-          esConsumes<edm::Transition::BeginRun>(edm::ESInputTag("", conf_.getParameter<string>("TTRHBuilder")))) {
+          esConsumes<edm::Transition::BeginRun>(edm::ESInputTag("", iConfig.getParameter<string>("TTRHBuilder")))) {
   produces<ConvBremSeedCollection>();
 }
 
@@ -143,24 +153,18 @@ void ConvBremSeedProducer::produce(Event& iEvent, const EventSetup& iSetup) {
   ///INPUT COLLECTIONS
 
   ///PF CLUSTERS
-  Handle<PFClusterCollection> PfC;
-  iEvent.getByLabel(conf_.getParameter<InputTag>("PFClusters"), PfC);
-  const PFClusterCollection& PPP = *(PfC.product());
+  const auto& PPP = iEvent.get(pfToken_);
 
   ///PIXEL
-  Handle<SiPixelRecHitCollection> pixelHits;
-  iEvent.getByLabel(conf_.getParameter<InputTag>("pixelRecHits"), pixelHits);
+  const auto& pixelHits = iEvent.getHandle(pixelHitsToken_);
 
   ///STRIP
-  Handle<SiStripRecHit2DCollection> rphirecHits;
-  iEvent.getByLabel(conf_.getParameter<InputTag>("rphirecHits"), rphirecHits);
-  Handle<SiStripMatchedRecHit2DCollection> matchedrecHits;
-  iEvent.getByLabel(conf_.getParameter<InputTag>("matchedrecHits"), matchedrecHits);
+  const auto& rphirecHits = iEvent.getHandle(rphirecHitsToken_);
+  const auto& matchedrecHits = iEvent.getHandle(matchedrecHitsToken_);
 
   //GSFPFRECTRACKS
-  Handle<GsfPFRecTrackCollection> thePfRecTrackCollection;
-  iEvent.getByLabel(conf_.getParameter<InputTag>("PFRecTrackLabel"), thePfRecTrackCollection);
-  const GsfPFRecTrackCollection PfRTkColl = *(thePfRecTrackCollection.product());
+  const auto& thePfRecTrackCollection = iEvent.getHandle(thePfRecTrackToken_);
+  const auto& PfRTkColl = *thePfRecTrackCollection;
 
   ///OUTPUT COLLECTION
   auto output = std::make_unique<ConvBremSeedCollection>();
@@ -430,13 +434,13 @@ void ConvBremSeedProducer::beginRun(const edm::Run& run, const EventSetup& iSetu
 
   hitBuilder_ = &iSetup.getData(hitBuilderToken_);
 
-  propagator_ = new PropagatorWithMaterial(alongMomentum, 0.0005, magfield_);
-  kfUpdator_ = new KFUpdator();
+  propagator_ = std::make_unique<PropagatorWithMaterial>(alongMomentum, 0.0005, magfield_);
+  kfUpdator_ = std::make_unique<KFUpdator>();
 }
 
 void ConvBremSeedProducer::endRun(const edm::Run& run, const EventSetup& iSetup) {
-  delete propagator_;
-  delete kfUpdator_;
+  propagator_.reset();
+  kfUpdator_.reset();
 }
 
 void ConvBremSeedProducer::initializeLayerMap() {

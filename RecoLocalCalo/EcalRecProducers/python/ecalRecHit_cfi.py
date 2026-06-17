@@ -100,13 +100,13 @@ fastSim.toModify(ecalRecHit,
                 )
 
 # use CC timing method for Run3 and Phase 2 (carried over from Run3 era)
-from Configuration.Eras.Modifier_run3_ecal_cff import run3_ecal
-run3_ecal.toModify(ecalRecHit,
+from Configuration.ProcessModifiers.ecal_cctiming_cff import ecal_cctiming
+ecal_cctiming.toModify(ecalRecHit,
     timeCalibTag = ':CC',
     timeOffsetTag = ':CC'
 )
 
-# this overrides the modifications made by run3_ecal if both modifiers are active
+# this overrides the modifications made by ecal_cctiming if both modifiers are active
 from Configuration.ProcessModifiers.gpuValidationEcal_cff import gpuValidationEcal
 gpuValidationEcal.toModify(ecalRecHit,
     timeCalibTag = ':',
@@ -125,3 +125,9 @@ phase2_ecal_devel.toModify(ecalRecHit,
     recoverEEIsolatedChannels = False
 )
 
+##
+## Modify for the tau embedding methods cleaning step
+##
+from Configuration.ProcessModifiers.tau_embedding_cleaning_cff import tau_embedding_cleaning
+from TauAnalysis.MCEmbeddingTools.Cleaning_RECO_cff import tau_embedding_ecalRecHit_cleaner
+tau_embedding_cleaning.toReplaceWith(ecalRecHit, tau_embedding_ecalRecHit_cleaner)

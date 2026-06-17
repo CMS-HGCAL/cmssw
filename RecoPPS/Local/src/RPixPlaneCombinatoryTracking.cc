@@ -469,7 +469,7 @@ void RPixPlaneCombinatoryTracking::findTracks(int run) {
        {
            {rpId_arm0_st2, {false, false, false, false, false, false}},  // Shift Period 0 Sec45
            {rpId_arm1_st2, {false, false, false, false, false, false}}   // Shift Period 1 Sec56
-       }}};                                                              // map< shiftedPeriod, map<DetID,shiftScheme> >
+       }}};  // map< shiftedPeriod, map<DetID,shiftScheme> >
   const auto &shiftStatusInitialRun = std::prev(isPlaneShifted.upper_bound(run));
   unsigned short shiftedROC = 10;
   CTPPSPixelIndices pixelIndices;
@@ -608,7 +608,7 @@ CTPPSPixelLocalTrack RPixPlaneCombinatoryTracking::fitTrack(PointInPlaneList poi
   math::Vector<4>::type zMatrixTransposeTimesVarianceMatrixTimesXyCoordinates =
       ROOT::Math::Transpose(zMatrix) * varianceMatrix * xyCoordinates;
   math::Vector<4>::type parameterVector = covarianceMatrix * zMatrixTransposeTimesVarianceMatrixTimesXyCoordinates;
-  math::Vector<2 *numberOfPlanes>::type xyCoordinatesMinusZmatrixTimesParameters =
+  math::Vector<2 * numberOfPlanes>::type xyCoordinatesMinusZmatrixTimesParameters =
       xyCoordinates - (zMatrix * parameterVector);
 
   double chiSquare = ROOT::Math::Dot(xyCoordinatesMinusZmatrixTimesParameters,
@@ -648,7 +648,7 @@ bool RPixPlaneCombinatoryTracking::calculatePointOnDetector(CTPPSPixelLocalTrack
                                                             CTPPSPixelDetId planeId,
                                                             GlobalPoint &planeLineIntercept) {
   double z0 = track->z0();
-  CTPPSPixelLocalTrack::ParameterVector parameters = track->parameterVector();
+  const CTPPSPixelLocalTrack::ParameterVector &parameters = track->parameterVector();
 
   math::Vector<3>::type pointOnLine(parameters[0], parameters[1], z0);
   GlobalVector tmpLineUnitVector = track->directionVector();

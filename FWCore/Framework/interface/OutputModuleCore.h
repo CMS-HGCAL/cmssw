@@ -29,7 +29,7 @@
 #include <set>
 
 // user include files
-#include "DataFormats/Provenance/interface/BranchDescription.h"
+#include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "DataFormats/Provenance/interface/BranchID.h"
 #include "DataFormats/Provenance/interface/BranchIDList.h"
 #include "DataFormats/Provenance/interface/ModuleDescription.h"
@@ -54,7 +54,7 @@ namespace edm {
   class ModuleCallingContext;
   class PreallocationConfiguration;
   class ActivityRegistry;
-  class ThinnedAssociationsHelper;
+  class SignallingProductRegistryFiller;
 
   template <typename T>
   class OutputModuleCommunicatorT;
@@ -90,12 +90,13 @@ namespace edm {
       /// -1 is used for unlimited.
       int remainingEvents() const { return remainingEvents_; }
 
-      bool selected(BranchDescription const& desc) const;
+      bool selected(ProductDescription const& desc) const;
 
-      void selectProducts(ProductRegistry const& preg, ThinnedAssociationsHelper const&, ProcessBlockHelperBase const&);
+      void selectProducts(ProductRegistry const& preg, ProcessBlockHelperBase const&);
       std::string const& processName() const { return process_name_; }
       SelectedProductsForBranchType const& keptProducts() const { return keptProducts_; }
       std::array<bool, NumBranchTypes> const& hasNewlyDroppedBranch() const { return hasNewlyDroppedBranch_; }
+      std::vector<std::string> const& orderedProcessNames() const { return orderedProcessNames_; }
 
       static void fillDescription(
           ParameterSetDescription& desc,
@@ -110,11 +111,9 @@ namespace edm {
 
       OutputProcessBlockHelper const& outputProcessBlockHelper() const { return outputProcessBlockHelper_; }
 
-      ThinnedAssociationsHelper const* thinnedAssociationsHelper() const;
-
       const ModuleDescription& moduleDescription() const { return moduleDescription_; }
 
-      void callWhenNewProductsRegistered(std::function<void(BranchDescription const&)> const& func) {
+      void callWhenNewProductsRegistered(std::function<void(ProductDescription const&)> const& func) {
         callWhenNewProductsRegistered_ = func;
       }
 
@@ -164,12 +163,13 @@ namespace edm {
       // newly-introduced interface.
       // TODO: Consider using shared pointers here?
 
-      // keptProducts_ are pointers to the BranchDescription objects describing
+      // keptProducts_ are pointers to the ProductDescription objects describing
       // the branches we are to write.
       //
-      // We do not own the BranchDescriptions to which we point.
+      // We do not own the ProductDescriptions to which we point.
       SelectedProductsForBranchType keptProducts_;
       std::array<bool, NumBranchTypes> hasNewlyDroppedBranch_;
+      std::vector<std::string> orderedProcessNames_;
 
       std::string process_name_;
       ProductSelectorRules productSelectorRules_;
@@ -179,8 +179,6 @@ namespace edm {
       bool wantAllEvents_;
       std::vector<detail::TriggerResultsBasedEventSelector> selectors_;
       ParameterSet selectEvents_;
-      std::vector<EDGetToken> tokensForEndPaths_;  //needed for FinalPath
-      bool onFinalPath_ = false;
       // ID of the ParameterSet that configured the event selector
       // subsystem.
       ParameterSetID selector_config_id_;
@@ -191,12 +189,9 @@ namespace edm {
       edm::propagate_const<std::unique_ptr<BranchIDLists>> branchIDLists_;
       BranchIDLists const* origBranchIDLists_;
 
-      edm::propagate_const<std::unique_ptr<ThinnedAssociationsHelper>> thinnedAssociationsHelper_;
-      std::map<BranchID, bool> keepAssociation_;
-
       OutputProcessBlockHelper outputProcessBlockHelper_;
 
-      std::function<void(BranchDescription const&)> callWhenNewProductsRegistered_;
+      std::function<void(ProductDescription const&)> callWhenNewProductsRegistered_;
 
       //------------------------------------------------------------------
       // private member functions
@@ -209,13 +204,11 @@ namespace edm {
       void doOpenFile(FileBlock const& fb);
       void doRespondToOpenInputFile(FileBlock const& fb);
       void doRespondToCloseInputFile(FileBlock const& fb);
-      void doRespondToCloseOutputFile() {}
-      void doRegisterThinnedAssociations(ProductRegistry const&, ThinnedAssociationsHelper&) {}
 
       /// Tell the OutputModule that is must end the current file.
       void doCloseFile();
 
-      void registerProductsAndCallbacks(OutputModuleCore const*, ProductRegistry*);
+      void registerProductsAndCallbacks(OutputModuleCore const*, SignallingProductRegistryFiller*);
 
       bool needToRunSelection() const noexcept;
       std::vector<ProductResolverIndexAndSkipBit> productsUsedBySelection() const noexcept;
@@ -230,6 +223,9 @@ namespace edm {
 
       virtual void write(EventForOutput const&) = 0;
 
+      /// @brief  called after data product selection has finished
+      /// @param  iReg ProductRegistry at the start of the job
+      virtual void initialRegistry(edm::ProductRegistry const& iReg) {}
       virtual void beginJob() {}
       virtual void endJob() {}
       virtual void writeLuminosityBlock(LuminosityBlockForOutput const&) = 0;
@@ -247,10 +243,12 @@ namespace edm {
 
       virtual void setProcessesWithSelectedMergeableRunProducts(std::set<std::string> const&) {}
 
+      virtual bool finalSelection(ProductDescription const& desc) const;
+
       bool hasAccumulator() const noexcept { return false; }
 
-      void keepThisBranch(BranchDescription const& desc,
-                          std::map<BranchID, BranchDescription const*>& trueBranchIDToKeptBranchDesc,
+      void keepThisBranch(ProductDescription const& desc,
+                          std::map<BranchID, ProductDescription const*>& trueBranchIDToKeptBranchDesc,
                           std::set<BranchID>& keptProductsInEvent);
 
       void setModuleDescription(ModuleDescription const& md) { moduleDescription_ = md; }

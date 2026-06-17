@@ -1,9 +1,9 @@
 import FWCore.ParameterSet.Config as cms
 from DQMServices.Core.DQMEDHarvester import DQMEDHarvester
-from RecoHGCal.TICL.iterativeTICL_cff import ticlIterLabelsMerge
-from Validation.HGCalValidation.HGCalValidator_cfi import hgcalValidator
+from RecoHGCal.TICL.iterativeTICL_cff import ticlIterLabels
+from Validation.HGCalValidation.HGCalValidator_cff import hgcalValidator
 
-tracksterLabels = ['ticlTracksters'+iteration for iteration in ticlIterLabelsMerge]
+tracksterLabels = ticlIterLabels.copy()
 tracksterLabels.extend(['ticlSimTracksters', 'ticlSimTracksters_fromCPs'])
 
 prefix = 'HGCAL/HGCalValidator/'
@@ -20,9 +20,9 @@ eff_layers.extend(["fake_phi_layer{:02d} 'LayerCluster Fake Rate vs #phi Layer{:
 eff_layers.extend(["merge_eta_layer{:02d} 'LayerCluster Merge Rate vs #eta Layer{:02d} in z-' NumMerge_LayerCluster_Eta_perlayer{:02d} Denom_LayerCluster_Eta_perlayer{:02d}".format(i, i%maxlayerzm+1, i, i) if (i<maxlayerzm) else "merge_eta_layer{:02d} 'LayerCluster Merge Rate vs #eta Layer{:02d} in z+' NumMerge_LayerCluster_Eta_perlayer{:02d} Denom_LayerCluster_Eta_perlayer{:02d}".format(i, i%maxlayerzm+1, i, i) for i in range(maxlayerzp) ])
 eff_layers.extend(["merge_phi_layer{:02d} 'LayerCluster Merge Rate vs #phi Layer{:02d} in z-' NumMerge_LayerCluster_Phi_perlayer{:02d} Denom_LayerCluster_Phi_perlayer{:02d}".format(i, i%maxlayerzm+1, i, i) if (i<maxlayerzm) else "merge_phi_layer{:02d} 'LayerCluster Merge Rate vs #phi Layer{:02d} in z+' NumMerge_LayerCluster_Phi_perlayer{:02d} Denom_LayerCluster_Phi_perlayer{:02d}".format(i, i%maxlayerzm+1, i, i) for i in range(maxlayerzp) ])
 
-lcToCP_linking = hgcalValidator.label_LCToCPLinking._InputTag__moduleLabel
+lcToCP_linking = hgcalValidator.label_LCToCPLinking.value()
 postProcessorHGCALlayerclusters = DQMEDHarvester('DQMGenericClient',
-    subDirs = cms.untracked.vstring(prefix + hgcalValidator.label_layerClusterPlots._InputTag__moduleLabel + '/' + lcToCP_linking),
+    subDirs = cms.untracked.vstring(prefix + hgcalValidator.label_layerClustersPlots.value() + '/' + lcToCP_linking),
     efficiency = cms.vstring(eff_layers),
     resolution = cms.vstring(),
     cumulativeDists = cms.untracked.vstring(),
@@ -40,7 +40,7 @@ eff_simclusters.extend(["fake_phi_layer{:02d} 'LayerCluster Fake Rate vs #phi La
 eff_simclusters.extend(["merge_eta_layer{:02d} 'LayerCluster Merge Rate vs #eta Layer{:02d} in z-' NumMerge_LayerCluster_in_SimCluster_Eta_perlayer{:02d} Denom_LayerCluster_in_SimCluster_Eta_perlayer{:02d}".format(i, i%maxlayerzm+1, i, i) if (i<maxlayerzm) else "merge_eta_layer{:02d} 'LayerCluster Merge Rate vs #eta Layer{:02d} in z+' NumMerge_LayerCluster_in_SimCluster_Eta_perlayer{:02d} Denom_LayerCluster_in_SimCluster_Eta_perlayer{:02d}".format(i, i%maxlayerzm+1, i, i) for i in range(maxlayerzp) ])
 eff_simclusters.extend(["merge_phi_layer{:02d} 'LayerCluster Merge Rate vs #phi Layer{:02d} in z-' NumMerge_LayerCluster_in_SimCluster_Phi_perlayer{:02d} Denom_LayerCluster_in_SimCluster_Phi_perlayer{:02d}".format(i, i%maxlayerzm+1, i, i) if (i<maxlayerzm) else "merge_phi_layer{:02d} 'LayerCluster Merge Rate vs #phi Layer{:02d} in z+' NumMerge_LayerCluster_in_SimCluster_Phi_perlayer{:02d} Denom_LayerCluster_in_SimCluster_Phi_perlayer{:02d}".format(i, i%maxlayerzm+1, i, i) for i in range(maxlayerzp) ])
 
-subdirsSim = [prefix + hgcalValidator.label_SimClusters._InputTag__moduleLabel + '/'+iteration+'/' for iteration in tracksterLabels]
+subdirsSim = [prefix + hgcalValidator.label_SimClusters.value() + '/'+iteration+'/' for iteration in tracksterLabels]
 postProcessorHGCALsimclusters = DQMEDHarvester('DQMGenericClient',
     subDirs = cms.untracked.vstring(subdirsSim),
     efficiency = cms.vstring(eff_simclusters),
@@ -53,7 +53,7 @@ postProcessorHGCALsimclusters = DQMEDHarvester('DQMGenericClient',
 
 eff_tracksters = []
 # Must be in sync with labels in HGVHistoProducerAlgo.cc
-simDict = {"CaloParticle":"_Link", "SimTrackster":"_PR"}
+simDict = {"SimTrackster_fromCP_byHits":"_byHits_CP", "SimTrackster_byLCs":"_byLCs", "SimTrackster_fromCP_byLCs":"_byLCs_CP", "SimTrackster_byHits":"_byHits"}
 metrics = {"purity":["Purity","_"], "effic":["Efficiency","Eff_"], "fake":["Fake Rate","_"], "duplicate":["Duplicate(Split)","Dup_"], "merge":["Merge Rate","Merge_"]}
 variables = {"eta":["#eta",""], "phi":["#phi",""], "energy":["energy"," [GeV]"], "pt":["p_{T}"," [GeV]"]}
 for elem in simDict:
@@ -67,15 +67,62 @@ for elem in simDict:
             V = v.capitalize()
             eff_tracksters.extend([m+"_"+v+simDict[elem]+" 'Trackster "+metrics[m][0]+" vs "+variables[v][0]+"' Num"+metrics[m][1]+"Trackster_"+V+simDict[elem]+" Denom_Trackster_"+V+simDict[elem]+fakerate])
 
-tsToCP_linking = hgcalValidator.label_TSToCPLinking.value()
-subdirsTracksters = [prefix+iteration+'/'+tsToCP_linking for iteration in tracksterLabels]
 
-tsToSTS_patternRec = hgcalValidator.label_TSToSTSPR.value()
-subdirsTracksters.extend(prefix+iteration+'/'+tsToSTS_patternRec for iteration in tracksterLabels)
+TSbyHits_CP = hgcalValidator.label_TSbyHitsCP.value()
+subdirsTracksters = [prefix+iteration+'/'+TSbyHits_CP for iteration in tracksterLabels]
+
+TSbyLCs = hgcalValidator.label_TSbyLCs.value()
+subdirsTracksters.extend(prefix+iteration+'/'+TSbyLCs for iteration in tracksterLabels)
+
+TSbyLCs_CP = hgcalValidator.label_TSbyLCsCP.value()
+subdirsTracksters.extend(prefix+iteration+'/'+TSbyLCs_CP for iteration in tracksterLabels)
+
+TSbyHits = hgcalValidator.label_TSbyHits.value()
+subdirsTracksters.extend(prefix+iteration+'/'+TSbyHits for iteration in tracksterLabels)
+
+
 
 postProcessorHGCALTracksters = DQMEDHarvester('DQMGenericClient',
   subDirs = cms.untracked.vstring(subdirsTracksters),
   efficiency = cms.vstring(eff_tracksters),
+  resolution = cms.vstring(),
+  cumulativeDists = cms.untracked.vstring(),
+  noFlowDists = cms.untracked.vstring(),
+  outputFileName = cms.untracked.string(""),
+  verbose = cms.untracked.uint32(4)
+)
+
+neutrals = ["photons", "neutral_pions", "neutral_hadrons"]
+charged = ["electrons", "muons", "charged_hadrons"]
+subDirsCandidates = [prefix + hgcalValidator.ticlCandidates.value() + "/" + c for cands in (neutrals, charged) for c in cands]
+eff_candidates = []
+
+for c in charged:
+    for var in variables.keys():
+        # efficiency
+        eff_candidates.append(f"eff_{c}_track_{var} '{c.replace('_', ' ')} candidates track efficiency vs {var}' num_track_cand_vs_{var}_{c} den_cand_vs_{var}_{c}")
+        eff_candidates.append(f"eff_{c}_pid_{var} '{c.replace('_', ' ')} candidates track + pid efficiency vs {var}' num_pid_cand_vs_{var}_{c} den_cand_vs_{var}_{c}")
+        eff_candidates.append(f"eff_{c}_energy_{var} '{c.replace('_', ' ')} candidates track + pid + energy efficiency vs {var}' num_energy_cand_vs_{var}_{c} den_cand_vs_{var}_{c}")
+        # fake
+        eff_candidates.append(f"fake_{c}_track_{var} '{c.replace('_', ' ')} candidates track fake vs {var}' num_fake_track_cand_vs_{var}_{c} den_fake_cand_vs_{var}_{c}")
+        eff_candidates.append(f"fake_{c}_pid_{var} '{c.replace('_', ' ')} candidates pid fake vs {var}' num_fake_pid_cand_vs_{var}_{c} den_fake_cand_vs_{var}_{c}")
+        eff_candidates.append(f"fake_{c}_energy_{var} '{c.replace('_', ' ')} candidates energy fake vs {var}' num_fake_energy_cand_vs_{var}_{c} den_fake_cand_vs_{var}_{c}")
+        eff_candidates.append(f"fake_{c}_total_{var} '{c.replace('_', ' ')} candidates track + pid + energy fake vs {var}' num_fake_total_cand_vs_{var}_{c} den_fake_cand_vs_{var}_{c}")
+
+for n in neutrals:
+    for var in variables.keys():
+        # efficiency
+        eff_candidates.append(f"eff_{n}_pid_{var} '{n.replace('_', ' ')} candidates pid efficiency vs {var}' num_pid_cand_vs_{var}_{n} den_cand_vs_{var}_{n}")
+        eff_candidates.append(f"eff_{n}_energy_{var} '{n.replace('_', ' ')} candidates pid + energy efficiency vs {var}' num_energy_cand_vs_{var}_{n} den_cand_vs_{var}_{n}")
+        # fake
+        eff_candidates.append(f"fake_{n}_pid_{var} '{n.replace('_', ' ')} candidates pid fake vs {var}' num_fake_pid_cand_vs_{var}_{n} den_fake_cand_vs_{var}_{n}")
+        eff_candidates.append(f"fake_{n}_energy_{var} '{n.replace('_', ' ')} candidates energy fake vs {var}' num_fake_energy_cand_vs_{var}_{n} den_fake_cand_vs_{var}_{n}")
+        eff_candidates.append(f"fake_{n}_total_{var} '{n.replace('_', ' ')} candidates pid + energy fake vs {var}' num_fake_total_cand_vs_{var}_{n} den_fake_cand_vs_{var}_{n}")
+
+
+postProcessorHGCALCandidates = DQMEDHarvester('DQMGenericClient',
+  subDirs = cms.untracked.vstring(subDirsCandidates),
+  efficiency = cms.vstring(eff_candidates),
   resolution = cms.vstring(),
   cumulativeDists = cms.untracked.vstring(),
   noFlowDists = cms.untracked.vstring(),

@@ -64,6 +64,7 @@ protected:
   void bookHistograms(DQMStore::IBooker &, edm::Run const &, edm::EventSetup const &) override;
 
 private:
+  std::string folder_;
   class Plot {
   public:
     Plot(MonitorElement *me) : plot_(me) {}
@@ -118,6 +119,12 @@ private:
           break;
         case FlatTable::ColumnType::UInt32:
           vfill<uint32_t>(table, icol, rowsel);
+          break;
+        case FlatTable::ColumnType::Int64:
+          vfill<int64_t>(table, icol, rowsel);
+          break;
+        case FlatTable::ColumnType::UInt64:
+          vfill<uint64_t>(table, icol, rowsel);
           break;
         case FlatTable::ColumnType::Bool:
           vfill<bool>(table, icol, rowsel);
@@ -235,7 +242,8 @@ private:
   edm::GetterOfProducts<FlatTable> getterOfProducts_;
 };
 
-NanoAODDQM::NanoAODDQM(const edm::ParameterSet &iConfig) : getterOfProducts_(edm::ProcessMatch("*"), this) {
+NanoAODDQM::NanoAODDQM(const edm::ParameterSet &iConfig)
+    : folder_(iConfig.getParameter<std::string>("folder")), getterOfProducts_(edm::ProcessMatch("*"), this) {
   const edm::ParameterSet &vplots = iConfig.getParameter<edm::ParameterSet>("vplots");
   for (const std::string &name : vplots.getParameterNamesForType<edm::ParameterSet>()) {
     auto &group = groups_[name];
@@ -290,16 +298,18 @@ void NanoAODDQM::fillDescriptions(edm::ConfigurationDescriptions &descriptions) 
   vplots.addNode(edm::ParameterWildcard<edm::ParameterSetDescription>("*", edm::RequireZeroOrMore, true, vplot));
   desc.add<edm::ParameterSetDescription>("vplots", vplots);
 
+  desc.add<std::string>("folder", "Physics/NanoAODDQM")->setComment("Base DQM folder where histograms are booked");
+
   descriptions.addWithDefaultLabel(desc);
 }
 
 void NanoAODDQM::bookHistograms(DQMStore::IBooker &booker, edm::Run const &, edm::EventSetup const &) {
-  booker.setCurrentFolder("Physics/NanoAODDQM");
+  booker.setCurrentFolder(folder_);
 
   for (auto &pair : groups_) {
-    booker.setCurrentFolder("Physics/NanoAODDQM/" + pair.first);
+    booker.setCurrentFolder(folder_ + "/" + pair.first);
     for (auto &sels : pair.second.selGroups) {
-      std::string dir("Physics/NanoAODDQM/" + pair.first);
+      std::string dir(folder_ + "/" + pair.first);
       if (!sels.nullCut())
         dir += "/" + sels.name;
       booker.setCurrentFolder(dir);

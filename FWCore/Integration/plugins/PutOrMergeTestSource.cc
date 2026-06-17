@@ -38,10 +38,9 @@ namespace edmtest {
     void readEvent_(EventPrincipal& eventPrincipal) final;
 
     int stage_;
-    ParameterSet const dummyPSet_;
-    BranchDescription thingDesc_;
-    BranchDescription thingWithMergeDesc_;
-    BranchDescription thingWithEqualDesc_;
+    ProductDescription thingDesc_;
+    ProductDescription thingWithMergeDesc_;
+    ProductDescription thingWithEqualDesc_;
     ProcessHistoryID historyID_;
   };
 }  // namespace edmtest
@@ -51,49 +50,21 @@ using namespace edmtest;
 PutOrMergeTestSource::PutOrMergeTestSource(ParameterSet const& iPS, InputSourceDescription const& iISD)
     : InputSource(iPS, iISD),
       stage_(0),
-      dummyPSet_([]() {
-        ParameterSet dummy;
-        dummy.registerIt();
-        return dummy;
-      }()),
-      thingDesc_(InRun,
-                 "thingWithMergeProducer",
-                 "PROD",
-                 "edmtest::Thing",
-                 "edmtestThing",
-                 "endRun",
-                 "PutOrMergeTestSource",
-                 dummyPSet_.id(),
-                 edm::TypeWithDict(typeid(edmtest::Thing)),
-                 false,
-                 true),
-      thingWithMergeDesc_(InRun,
-                          "thingWithMergeProducer",
-                          "PROD",
-                          "edmtest::ThingWithMerge",
-                          "edmtestThingWithMerge",
-                          "endRun",
-                          "PutOrMergeTestSource",
-                          dummyPSet_.id(),
-                          edm::TypeWithDict(typeid(edmtest::ThingWithMerge)),
-                          false,
-                          true),
+      thingDesc_(InRun, "thingWithMergeProducer", "PROD", "endRun", edm::TypeID(typeid(edmtest::Thing)), false, true),
+      thingWithMergeDesc_(
+          InRun, "thingWithMergeProducer", "PROD", "endRun", edm::TypeID(typeid(edmtest::ThingWithMerge)), false, true),
       thingWithEqualDesc_(InRun,
                           "thingWithMergeProducer",
                           "PROD",
-                          "edmtest::ThingWithIsEqual",
-                          "edmtestThingWithIsEqual",
                           "endRun",
-                          "PutOrMergeTestSource",
-                          dummyPSet_.id(),
-                          edm::TypeWithDict(typeid(edmtest::ThingWithIsEqual)),
+                          edm::TypeID(typeid(edmtest::ThingWithIsEqual)),
                           false,
                           true) {
   edm::ParameterSet dummyPset;
   dummyPset.registerIt();
 
   ProcessHistory history;
-  history.emplace_back("PROD", dummyPset.id(), "RELVERSION", "PASSID");
+  history.emplace_back("PROD", dummyPset.id(), "RELVERSION", HardwareResourcesDescription());
   processHistoryRegistry().registerProcessHistory(history);
   historyID_ = history.id();
 }
@@ -107,6 +78,7 @@ void PutOrMergeTestSource::registerProducts() {
   productRegistryUpdate().copyProduct(thingDesc_);
   productRegistryUpdate().copyProduct(thingWithMergeDesc_);
   productRegistryUpdate().copyProduct(thingWithEqualDesc_);
+  productRegistryUpdate().setProcessOrder({"PROD"});
 }
 
 InputSource::ItemTypeInfo PutOrMergeTestSource::getNextItemType() {

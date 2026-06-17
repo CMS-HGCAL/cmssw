@@ -42,14 +42,14 @@
 #include "Geometry/RPCGeometry/interface/RPCGeometry.h"
 #include "Geometry/Records/interface/MuonGeometryRecord.h"
 
+#include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
 #include "CLHEP/Random/RandomEngine.h"
 //
 // class declaration
 //
 
-class RPCChamberMasker : public edm::stream::EDProducer<> {
+class RPCChamberMasker : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   explicit RPCChamberMasker(const edm::ParameterSet&);
   ~RPCChamberMasker() override;

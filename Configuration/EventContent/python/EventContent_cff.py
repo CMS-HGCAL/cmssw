@@ -1,5 +1,5 @@
 import FWCore.ParameterSet.Config as cms
-
+import copy
 #
 # Event Content definition
 #
@@ -56,7 +56,7 @@ from RecoBTau.Configuration.RecoBTau_EventContent_cff import *
 from RecoBTag.Configuration.RecoBTag_EventContent_cff import *
 from RecoTauTag.Configuration.RecoTauTag_EventContent_cff import *
 from RecoVertex.Configuration.RecoVertex_EventContent_cff import *
-from RecoTracker.Configuration.RecoPixelVertexing_EventContent_cff import *
+from RecoVertex.Configuration.RecoPixelVertexing_EventContent_cff import *
 from RecoEgamma.Configuration.RecoEgamma_EventContent_cff import *
 from RecoParticleFlow.Configuration.RecoParticleFlow_EventContent_cff import *
 from RecoVertex.BeamSpotProducer.BeamSpot_EventContent_cff import *
@@ -95,7 +95,22 @@ from L1Trigger.Configuration.L1Trigger_EventContent_cff import *
 #
 #
 from HLTrigger.Configuration.HLTrigger_EventContent_cff import *
-#
+from Configuration.ProcessModifiers.rawSecond_cff import rawSecond
+rawSecond.toModify(HLTDebugFEVT,
+                              outputCommands = [x for x in HLTDebugFEVT.outputCommands if '_hltSiStripClusters2ApproxClusters_' not in x]+[
+                                  'keep *_hltSiStripClusters2ApproxClustersv1_*_*'
+                              ])
+rawSecond.toModify(HLTDebugRAW,
+                outputCommands = [x for x in HLTDebugRAW.outputCommands if '_hltSiStripClusters2ApproxClusters_' not in x]+[
+                                  'keep *_hltSiStripClusters2ApproxClustersv1_*_*'
+                              ])
+from HLTrigger.Configuration.HLTScouting_EventContent_cff import HLTScoutingExtra
+# Extend HLT dataformats to the previous scouting objects, to keep them when running on old data/MC
+HLTriggerMINIAODSIM.outputCommands.extend(HLTScoutingExtra.outputCommands)
+HLTriggerMINIAOD.outputCommands.extend(HLTScoutingExtra.outputCommands)
+HLTriggerAOD.outputCommands.extend(HLTScoutingExtra.outputCommands)
+HLTriggerRECO.outputCommands.extend(HLTScoutingExtra.outputCommands)
+HLTDebugFEVT.outputCommands.extend(HLTScoutingExtra.outputCommands)
 #
 # DQM
 #
@@ -103,10 +118,11 @@ from HLTrigger.Configuration.HLTrigger_EventContent_cff import *
 from DQMOffline.Configuration.DQMOffline_EventContent_cff import *
 #
 #
-# NANOAOD
+# NANOAOD (incl. the NANO(EDM)AOD event contents for Run-3 L1-Scouting data)
 #
 #
 from PhysicsTools.NanoAOD.NanoAODEDMEventContent_cff import *
+from PhysicsTools.NanoAOD.L1SCOUTNanoAODEDMEventContent_cff import *
 #
 #
 # FastSim
@@ -183,7 +199,10 @@ approxSiStripClusters.toModify(RAWEventContent,
                                   'keep *_hltSiStripClusters2ApproxClusters_*_*',
                                   'keep DetIds_hltSiStripRawToDigi_*_*'
                               ])
-
+rawSecond.toModify(RAWEventContent,
+                              outputCommands = [x for x in RAWEventContent.outputCommands if '_hltSiStripClusters2ApproxClusters_' not in x]+[
+                                  'keep *_hltSiStripClusters2ApproxClustersv1_*_*'
+                              ])
 #
 # HLTSCOUT Data Tier definition
 #
@@ -564,10 +583,16 @@ run3_GEM.toModify(FEVTEventContent,
     outputCommands = FEVTEventContent.outputCommands + ['keep *_muonGEMDigis_*_*'])
 pp_on_AA.toModify(FEVTEventContent, 
     outputCommands = FEVTEventContent.outputCommands + ['keep FEDRawDataCollection_rawDataRepacker_*_*'])
+approxSiStripClusters.toModify(FEVTEventContent,
+    outputCommands = FEVTEventContent.outputCommands + [
+        'keep FEDRawDataCollection_rawPrimeDataRepacker_*_*',
+        'keep *_hltSiStripClusters2ApproxClusters_*_*'])
 phase2_timing_layer.toModify(FEVTEventContent, 
     outputCommands = FEVTEventContent.outputCommands + RecoLocalFastTimeFEVT.outputCommands)
 phase2_timing_layer.toModify(FEVTEventContent, 
     outputCommands = FEVTEventContent.outputCommands + RecoMTDFEVT.outputCommands)
+from Configuration.ProcessModifiers.ticl_v5_cff import ticl_v5
+ticl_v5.toModify(FEVTEventContent, outputCommands=FEVTEventContent.outputCommands+TICLv5_FEVT.outputCommands)
 
 FEVTHLTALLEventContent = cms.PSet(
     outputCommands = cms.untracked.vstring('drop *'),
@@ -651,6 +676,11 @@ approxSiStripClusters.toModify(FEVTDEBUGEventContent,
                                   'keep *_hltSiStripClusters2ApproxClusters_*_*',
                                   'keep DetIds_hltSiStripRawToDigi_*_*'
                               ])
+rawSecond.toModify(FEVTDEBUGEventContent,
+                              outputCommands = [x for x in FEVTDEBUGEventContent.outputCommands if '_hltSiStripClusters2ApproxClusters_' not in x] + [
+                                  'keep *_hltSiStripClusters2ApproxClustersv1_*_*'
+                              ])
+ticl_v5.toModify(FEVTDEBUGEventContent, outputCommands=FEVTDEBUGEventContent.outputCommands+TICLv5_FEVT.outputCommands)
 #
 #
 # FEVTDEBUGHLT Data Tier definition
@@ -666,24 +696,65 @@ FEVTDEBUGHLTEventContent.outputCommands.append('keep *_*_MergedTrackTruth_*')
 FEVTDEBUGHLTEventContent.outputCommands.append('keep *_*_StripDigiSimLink_*')
 FEVTDEBUGHLTEventContent.outputCommands.append('keep *_*_PixelDigiSimLink_*')
 
+from Configuration.ProcessModifiers.hltClusterSplitting_cff import hltClusterSplitting
+hltClusterSplitting.toModify(FEVTDEBUGHLTEventContent,
+                              outputCommands = FEVTDEBUGHLTEventContent.outputCommands+[
+                                  'keep *_hltPixelVertices_*_*'
+                              ])
+
 approxSiStripClusters.toModify(FEVTDEBUGHLTEventContent,
                               outputCommands = FEVTDEBUGHLTEventContent.outputCommands+[
                                   'keep *_hltSiStripClusters2ApproxClusters_*_*',
                                   'keep DetIds_hltSiStripRawToDigi_*_*'
                               ])
+rawSecond.toModify(FEVTDEBUGHLTEventContent,
+                              outputCommands = [x for x in FEVTDEBUGHLTEventContent.outputCommands if '_hltSiStripClusters2ApproxClusters_' not in x] + [
+                                  'keep *_hltSiStripClusters2ApproxClustersv1_*_*'
+                              ])
 phase2_tracker.toModify(FEVTDEBUGHLTEventContent,
                         outputCommands = FEVTDEBUGHLTEventContent.outputCommands+[
+                            'keep *_hltSiPixelClusters_*_*',
+                            'keep *_hltSiPhase2Clusters_*_*',
                             'keep *_hltPhase2PixelTracks_*_*',
-                            'keep *_hltPhase2PixelVertices_*_*'
+                            'keep *_hltPhase2PixelVertices_*_*',
+                            'keep *_hltGeneralTracks_*_*',
+                            'keep *_hltInitialStepTrackSelectionHighPurity_*_*',
+                            'keep *_hltHighPtTripletStepTrackSelectionHighPurity_*_*',
+                            'keep *_hltInitialStepTracksT4T5TCLST_*_*',
+                            'keep *_hltOfflinePrimaryVertices_*_*',
                         ])
+
+from Configuration.ProcessModifiers.hltPhase2LegacyTracking_cff import hltPhase2LegacyTracking
+(phase2_tracker & ~hltPhase2LegacyTracking).toModify(FEVTDEBUGHLTEventContent,
+                                                     outputCommands = FEVTDEBUGHLTEventContent.outputCommands+[
+                                                         'keep *_hltPhase2PixelTracksCAExtension_*_*',
+                                                     ])
 
 phase2_common.toModify(FEVTDEBUGHLTEventContent,
                        outputCommands = FEVTDEBUGHLTEventContent.outputCommands+[
+                           'keep *_hltHGCalRecHit_*_*',
+                           'keep *_hltMergeLayerClusters_*_*',
+                           'keep *_hltParticleFlowRecHit*_*_*',
                            'keep *_hltEgammaGsfTracksL1Seeded_*_*',
                        ])
 
 phase2_muon.toModify(FEVTDEBUGHLTEventContent, 
-    outputCommands = FEVTDEBUGHLTEventContent.outputCommands + ['keep recoMuons_muons1stStep_*_*'])
+    outputCommands = FEVTDEBUGHLTEventContent.outputCommands + [
+        'keep recoMuons_muons1stStep_*_*',
+        'keep *_hltL2MuonSeedsFromL1TkMuon_*_*',
+        'keep *_hltL2MuonsFromL1TkMuon_*_*',
+        'keep *_hltIter2Phase2L3FromL1TkMuonMerged_*_*',
+        'keep *_hltPhase2L3OIMuonTrackSelectionHighPurity_*_*',
+        'keep *_hltPhase2L3MuonFilter_*_*',
+        'keep *_hltPhase2L3MuonMerged_*_*',
+        'keep *_hltPhase2L3GlbMuon_*_*',
+        'keep *_hltPhase2L3MuonsNoID_*_*',
+        'keep *_hltPhase2L3Muons_*_*'])
+
+phase2_hgcal.toModify(FEVTDEBUGHLTEventContent,
+    outputCommands = FEVTDEBUGHLTEventContent.outputCommands + TICL_FEVTHLT.outputCommands)
+
+ticl_v5.toModify(FEVTDEBUGHLTEventContent, outputCommands=FEVTDEBUGHLTEventContent.outputCommands+TICLv5_FEVTHLT.outputCommands)
 
 from Configuration.ProcessModifiers.premix_stage2_cff import premix_stage2
 
@@ -833,7 +904,10 @@ approxSiStripClusters.toModify(REPACKRAWEventContent,
                                    'drop FEDRawDataCollection_rawDataRepacker_*_*',
                                    'keep FEDRawDataCollection_rawPrimeDataRepacker_*_*'
                                ])
-
+rawSecond.toModify(REPACKRAWEventContent,
+                               outputCommands = [x for x in REPACKRAWEventContent.outputCommands if '_hltSiStripClusters2ApproxClusters_' not in x] + [
+                                   'keep *_hltSiStripClusters2ApproxClustersv1_*_*'
+                               ])
 REPACKRAWSIMEventContent = cms.PSet(
     outputCommands = cms.untracked.vstring(),
     splitLevel = cms.untracked.int32(0),
@@ -902,12 +976,18 @@ REDIGIEventContent.inputCommands.append('drop *_randomEngineStateProducer_*_*')
 # ROOT automatically determine when to flush is a surprisingly big overhead.
 #
 from PhysicsTools.PatAlgos.slimming.slimming_cff import MicroEventContent,MicroEventContentMC,MicroEventContentGEN
+from PhysicsTools.PatAlgos.slimming.MicroEventContent_cff import MiniAODOverrideBranchesSplitLevel
 
 MINIAODEventContent= cms.PSet(
     outputCommands = cms.untracked.vstring('drop *'),
     eventAutoFlushCompressedSize=cms.untracked.int32(-900),
     compressionAlgorithm=cms.untracked.string("LZMA"),
-    compressionLevel=cms.untracked.int32(4)
+    compressionLevel=cms.untracked.int32(4),
+    overrideBranchesSplitLevel=copy.deepcopy(MiniAODOverrideBranchesSplitLevel),
+    splitLevel=cms.untracked.int32(0),
+    dropMetaData=cms.untracked.string('ALL'),
+    fastCloning=cms.untracked.bool(False),
+    overrideInputFileSplitLevels=cms.untracked.bool(True)
 )
 MINIAODEventContent.outputCommands.extend(MicroEventContent.outputCommands)
 MINIAODEventContent.outputCommands.extend(HLTriggerMINIAOD.outputCommands)
@@ -916,10 +996,15 @@ MINIAODSIMEventContent= cms.PSet(
     outputCommands = cms.untracked.vstring('drop *'),
     eventAutoFlushCompressedSize=cms.untracked.int32(-900),
     compressionAlgorithm=cms.untracked.string("LZMA"),
-    compressionLevel=cms.untracked.int32(4)
+    compressionLevel=cms.untracked.int32(4),
+    overrideBranchesSplitLevel=copy.deepcopy(MiniAODOverrideBranchesSplitLevel),
+    splitLevel=cms.untracked.int32(0),
+    dropMetaData=cms.untracked.string('ALL'),
+    fastCloning=cms.untracked.bool(False),
+    overrideInputFileSplitLevels=cms.untracked.bool(True)
 )
 MINIAODSIMEventContent.outputCommands.extend(MicroEventContentMC.outputCommands)
-MINIAODSIMEventContent.outputCommands.extend(HLTriggerMINIAOD.outputCommands)
+MINIAODSIMEventContent.outputCommands.extend(HLTriggerMINIAODSIM.outputCommands)
 
 MINIGENEventContent= cms.PSet(
     outputCommands = cms.untracked.vstring('drop *'),
@@ -935,7 +1020,12 @@ RAWMINIAODEventContent= cms.PSet(
     outputCommands = cms.untracked.vstring('drop *'),
     eventAutoFlushCompressedSize=cms.untracked.int32(20*1024*1024),
     compressionAlgorithm=cms.untracked.string("LZMA"),
-    compressionLevel=cms.untracked.int32(4)
+    compressionLevel=cms.untracked.int32(4),
+    overrideBranchesSplitLevel=copy.deepcopy(MiniAODOverrideBranchesSplitLevel),
+    splitLevel=cms.untracked.int32(0),
+    dropMetaData=cms.untracked.string('ALL'),
+    fastCloning=cms.untracked.bool(False),
+    overrideInputFileSplitLevels=cms.untracked.bool(True)
 )
 RAWMINIAODEventContent.outputCommands.extend(MicroEventContent.outputCommands)
 RAWMINIAODEventContent.outputCommands.extend(L1TriggerRAW.outputCommands)
@@ -948,7 +1038,12 @@ RAWMINIAODSIMEventContent= cms.PSet(
     outputCommands = cms.untracked.vstring('drop *'),
     eventAutoFlushCompressedSize=cms.untracked.int32(20*1024*1024),
     compressionAlgorithm=cms.untracked.string("LZMA"),
-    compressionLevel=cms.untracked.int32(4)
+    compressionLevel=cms.untracked.int32(4),
+    overrideBranchesSplitLevel=copy.deepcopy(MiniAODOverrideBranchesSplitLevel),
+    splitLevel=cms.untracked.int32(0),
+    dropMetaData=cms.untracked.string('ALL'),
+    fastCloning=cms.untracked.bool(False),
+    overrideInputFileSplitLevels=cms.untracked.bool(True)
 )
 RAWMINIAODSIMEventContent.outputCommands.extend(RAWMINIAODEventContent.outputCommands)
 RAWMINIAODSIMEventContent.outputCommands.extend(MicroEventContentMC.outputCommands)
@@ -977,3 +1072,35 @@ for _entry in [FEVTDEBUGHLTEventContent,FEVTDEBUGEventContent,RECOSIMEventConten
 for _entry in [MINIAODEventContent, MINIAODSIMEventContent]:
     fastSim.toModify(_entry, outputCommands = _entry.outputCommands + fastSimEC.dropPatTrigger)
 
+# Tau Embedding EventContent
+from TauAnalysis.MCEmbeddingTools.Embedding_EventContent_cff import (
+    TauEmbCleaning,
+    TauEmbMerge,
+    TauEmbNano,
+    TauEmbSelection,
+    TauEmbSimGen,
+    TauEmbSimHLT,
+    TauEmbSimReco,
+)
+
+TauEmbeddingSelectionEventContent = RAWRECOEventContent.clone()
+TauEmbeddingSelectionEventContent.outputCommands.extend(TauEmbSelection.outputCommands)
+
+TauEmbeddingCleaningEventContent = RAWRECOEventContent.clone()
+TauEmbeddingCleaningEventContent.outputCommands.extend(TauEmbCleaning.outputCommands)
+
+TauEmbeddingSimGenEventContent = RAWSIMEventContent.clone()
+TauEmbeddingSimGenEventContent.outputCommands.extend(TauEmbSimGen.outputCommands)
+
+TauEmbeddingSimHLTEventContent = RAWSIMEventContent.clone()
+TauEmbeddingSimHLTEventContent.outputCommands.extend(TauEmbSimHLT.outputCommands)
+
+TauEmbeddingSimRecoEventContent = RAWRECOSIMHLTEventContent.clone()
+TauEmbeddingSimRecoEventContent.outputCommands.extend(TauEmbSimReco.outputCommands)
+
+TauEmbeddingMergeMINIAODEventContent = MINIAODSIMEventContent.clone()
+TauEmbeddingMergeMINIAODEventContent.outputCommands.extend(TauEmbMerge.outputCommands)
+
+# needs to have NANOAOD in its name to be recognized by cmsDriver as a NANOAOD output so that NanoAODOutputModule is used
+TauEmbeddingNANOAODEventContent = NANOAODSIMEventContent.clone()
+TauEmbeddingNANOAODEventContent.outputCommands.extend(TauEmbNano.outputCommands)

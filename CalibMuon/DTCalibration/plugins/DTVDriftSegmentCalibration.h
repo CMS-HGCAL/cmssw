@@ -12,12 +12,12 @@
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "CalibMuon/DTCalibration/interface/DTSegmentSelector.h"
 #include "DataFormats/DTRecHit/interface/DTRecSegment4DCollection.h"
+#include "DataFormats/MuonDetId/interface/DTChamberIdFwd.h"
 #include "Geometry/Records/interface/MuonGeometryRecord.h"
 #include "Geometry/DTGeometry/interface/DTGeometry.h"
 
 #include <map>
 
-class DTChamberId;
 class TFile;
 class TH1F;
 class TH2F;
@@ -32,7 +32,7 @@ public:
   void beginJob() override;
   void beginRun(const edm::Run& run, const edm::EventSetup& setup) override;
   void analyze(const edm::Event& event, const edm::EventSetup& eventSetup) override;
-  void endRun(const edm::Run& run, const edm::EventSetup& setup) override{};
+  void endRun(const edm::Run& run, const edm::EventSetup& setup) override {}
   void endJob() override;
 
 private:

@@ -7,10 +7,9 @@
 #include "DataFormats/ParticleFlowReco/interface/PFV0Fwd.h"
 #include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
 #include "DataFormats/Candidate/interface/VertexCompositeCandidateFwd.h"
+#include "DataFormats/EgammaCandidates/interface/ConversionFwd.h"
 #include <iostream>
 #include <vector>
-
-class Conversion;
 
 namespace reco {
 
@@ -25,7 +24,7 @@ namespace reco {
         : originalV0_(V0), pfTracks_(pftr), tracks_(tr) {}
 
     /// destructor
-    ~PFV0(){};
+    ~PFV0() {}
 
     /// Ref to the original V0
     const reco::VertexCompositeCandidateRef& originalV0() const { return originalV0_; }

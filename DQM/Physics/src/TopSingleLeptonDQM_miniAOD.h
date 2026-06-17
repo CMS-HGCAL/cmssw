@@ -35,7 +35,7 @@ namespace TopSingleLepton_miniAOD {
     /// default contructor
     MonitorEnsemble(const char* label, const edm::ParameterSet& cfg, edm::ConsumesCollector&& iC);
     /// default destructor
-    ~MonitorEnsemble(){};
+    ~MonitorEnsemble() {}
 
     /// book histograms in subdirectory _directory_
     void book(DQMStore::IBooker& ibooker);
@@ -94,7 +94,7 @@ namespace TopSingleLepton_miniAOD {
     /// to be of form signalPath:MonitorPath
     std::vector<std::string> triggerPaths_;
 
-    edm::InputTag rhoTag;
+    edm::EDGetTokenT<double> rhoToken_;
 
     /// electronId label
     edm::EDGetTokenT<edm::ValueMap<float> > electronId_;
@@ -184,7 +184,7 @@ public:
   /// default constructor
   TopSingleLeptonDQM_miniAOD(const edm::ParameterSet& cfg);
   /// default destructor
-  ~TopSingleLeptonDQM_miniAOD() override{};
+  ~TopSingleLeptonDQM_miniAOD() override {}
 
   /// do this during the event loop
   void analyze(const edm::Event& event, const edm::EventSetup& setup) override;

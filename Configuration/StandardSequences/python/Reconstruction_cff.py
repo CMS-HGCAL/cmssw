@@ -26,7 +26,7 @@ from RecoMuon.Configuration.RecoMuon_cff import *
 # Higher level objects
 from RecoVertex.Configuration.RecoVertex_cff import *
 from RecoEgamma.Configuration.RecoEgamma_cff import *
-from RecoTracker.Configuration.RecoPixelVertexing_cff import *
+from RecoVertex.Configuration.RecoPixelVertexing_cff import *
 
 
 from RecoJets.Configuration.RecoJetsGlobal_cff import *
@@ -139,9 +139,16 @@ globalreco = cms.Sequence(globalrecoTask)
 _run3_globalrecoTask = globalrecoTask.copyAndExclude([CastorFullRecoTask])
 run3_common.toReplaceWith(globalrecoTask, _run3_globalrecoTask)
 
-_fastSim_globalrecoTask = globalrecoTask.copyAndExclude([CastorFullRecoTask,muoncosmicrecoTask])
+# these modules are needed for other modules in this task
+# keep them together to ensure e.g. trackingOnly reco can work
+_fastSim_vertexrecoTask = vertexrecoTask.copy()
+_fastSim_vertexrecoTask.add(firstStepPrimaryVerticesUnsorted,initialStepTrackRefsForJets,firstStepPrimaryVertices)
+fastSim.toReplaceWith(vertexrecoTask,_fastSim_vertexrecoTask)
+
 # insert the few tracking modules to be run after mixing back in the globalreco sequence
+_fastSim_globalrecoTask = globalrecoTask.copyAndExclude([CastorFullRecoTask,muoncosmicrecoTask])
 _fastSim_globalrecoTask.add(newCombinedSeeds,trackExtrapolator,caloTowerForTrk,firstStepPrimaryVerticesUnsorted,ak4CaloJetsForTrk,initialStepTrackRefsForJets,firstStepPrimaryVertices)
+
 fastSim.toReplaceWith(globalrecoTask,_fastSim_globalrecoTask)
 
 from Configuration.Eras.Modifier_phase2_hgcal_cff import phase2_hgcal
@@ -187,13 +194,15 @@ from RecoHI.HiTracking.HILowPtConformalPixelTracks_cfi import *
 from RecoHI.HiCentralityAlgos.HiCentrality_cfi import hiCentrality
 from RecoHI.HiCentralityAlgos.HiClusterCompatibility_cfi import hiClusterCompatibility
 _highlevelreco_HITask = highlevelrecoTask.copy()
-_highlevelreco_HITask.add(hiConformalPixelTracksTaskPhase1)
+_highlevelreco_HITask.add(hiConformalPixelTracksTask)
 _highlevelreco_HITask.add(hiCentrality)
 _highlevelreco_HITask.add(hiClusterCompatibility)
 (pp_on_XeXe_2017 | pp_on_AA | run3_upc).toReplaceWith(highlevelrecoTask, _highlevelreco_HITask)
 pp_on_AA.toReplaceWith(highlevelrecoTask,highlevelrecoTask.copyAndExclude([PFTauTask]))
 from Configuration.Eras.Modifier_ppRef_2024_cff import ppRef_2024
 ppRef_2024.toReplaceWith(highlevelrecoTask, cms.Task(highlevelrecoTask.copy(), hiClusterCompatibility))
+from Configuration.ProcessModifiers.phase2_pp_on_AA_cff import phase2_pp_on_AA
+phase2_pp_on_AA.toReplaceWith(highlevelrecoTask, cms.Task(highlevelrecoTask.copy(), hiClusterCompatibility, hiCentrality))
 
 # not commisoned and not relevant in FastSim (?):
 _fastSim_highlevelrecoTask = highlevelrecoTask.copyAndExclude([muoncosmichighlevelrecoTask])
@@ -234,8 +243,13 @@ reconstruction_ecalOnlyTask = cms.Task(
 )
 reconstruction_ecalOnly = cms.Sequence(reconstruction_ecalOnlyTask)
 
+reconstruction_ecalOnlyPhase2Task = cms.Task(
+    bunchSpacingProducer,
+    ecalOnlyLocalRecoTask,
+    ecalClustersNoPFBoxTask
+)
 from Configuration.Eras.Modifier_phase2_ecal_devel_cff import phase2_ecal_devel
-phase2_ecal_devel.toReplaceWith(reconstruction_ecalOnlyTask, reconstruction_ecalOnlyTask.copyAndExclude([pfClusteringPSTask, pfClusteringECALTask, particleFlowSuperClusterECALOnly]))
+phase2_ecal_devel.toReplaceWith(reconstruction_ecalOnlyTask, reconstruction_ecalOnlyPhase2Task)
 
 reconstruction_hcalOnlyTask = cms.Task(
     bunchSpacingProducer,
@@ -302,6 +316,7 @@ modulesToRemove.append(hfreco)
 modulesToRemove.append(horeco)
 modulesToRemove.append(hcalnoise)
 modulesToRemove.append(zdcreco)
+modulesToRemove.append(zdcrecoRun3)
 modulesToRemove.append(castorreco)
 ##it's OK according to Ronny modulesToRemove.append(CSCHaloData)#needs digis
 reconstruction_fromRECO = reconstruction.copyAndExclude(modulesToRemove+noTrackingAndDependent)
@@ -317,3 +332,12 @@ reconstruction_HcalNZS = cms.Sequence(reconstruction_HcalNZSTask)
 #
 reconstruction_woCosmicMuonsTask = cms.Task(localrecoTask,globalrecoTask,highlevelrecoTask,logErrorHarvester)
 reconstruction_woCosmicMuons = cms.Sequence(reconstruction_woCosmicMuonsTask)
+
+##
+## Modify for the tau embedding methods reco sim step
+##
+from Configuration.ProcessModifiers.tau_embedding_sim_cff import tau_embedding_sim
+_tau_embedding_sim_globalreco_trackingTask = globalreco_trackingTask.copyAndExclude([offlineBeamSpotTask])
+tau_embedding_sim.toReplaceWith(globalreco_trackingTask, _tau_embedding_sim_globalreco_trackingTask)
+_tau_embedding_sim_reconstruction_pixelTrackingOnlyTask = reconstruction_pixelTrackingOnlyTask.copyAndExclude([offlineBeamSpotTask])
+tau_embedding_sim.toReplaceWith(reconstruction_pixelTrackingOnlyTask, _tau_embedding_sim_reconstruction_pixelTrackingOnlyTask)

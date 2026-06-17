@@ -1,67 +1,81 @@
-// Original author: Leonardo Cristella
+#include "LCToSCAssociatorByEnergyScoreProducer.h"
 
-// user include files
-#include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/global/EDProducer.h"
+#include <memory>
 
-#include "FWCore/Framework/interface/Event.h"
-#include "FWCore/Framework/interface/MakerMacros.h"
-
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "FWCore/Utilities/interface/EDGetToken.h"
-#include "FWCore/Utilities/interface/ESGetToken.h"
-
-#include "SimDataFormats/Associations/interface/LayerClusterToSimClusterAssociator.h"
-#include "LCToSCAssociatorByEnergyScoreImpl.h"
-
-class LCToSCAssociatorByEnergyScoreProducer : public edm::global::EDProducer<> {
-public:
-  explicit LCToSCAssociatorByEnergyScoreProducer(const edm::ParameterSet &);
-  ~LCToSCAssociatorByEnergyScoreProducer() override;
-
-  static void fillDescriptions(edm::ConfigurationDescriptions &descriptions);
-
-private:
-  void produce(edm::StreamID, edm::Event &, const edm::EventSetup &) const override;
-  edm::EDGetTokenT<std::unordered_map<DetId, const HGCRecHit *>> hitMap_;
-  edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeometry_;
-  const bool hardScatterOnly_;
-  std::shared_ptr<hgcal::RecHitTools> rhtools_;
-};
-
-LCToSCAssociatorByEnergyScoreProducer::LCToSCAssociatorByEnergyScoreProducer(const edm::ParameterSet &ps)
-    : hitMap_(consumes<std::unordered_map<DetId, const HGCRecHit *>>(ps.getParameter<edm::InputTag>("hitMapTag"))),
+template <typename HIT, typename CLUSTER>
+LCToSCAssociatorByEnergyScoreProducerT<HIT, CLUSTER>::LCToSCAssociatorByEnergyScoreProducerT(const edm::ParameterSet &ps)
+    : hitMap_(consumes<std::unordered_map<DetId, const unsigned int>>(ps.getParameter<edm::InputTag>("hitMapTag"))),
       caloGeometry_(esConsumes<CaloGeometry, CaloGeometryRecord>()),
-      hardScatterOnly_(ps.getParameter<bool>("hardScatterOnly")) {
-  rhtools_.reset(new hgcal::RecHitTools());
+      hardScatterOnly_(ps.getParameter<bool>("hardScatterOnly")),
+      hits_token_(consumes<multiCollectionT>(ps.getParameter<edm::InputTag>("hits"))) {
+  rhtools_ = std::make_shared<hgcal::RecHitTools>();
 
   // Register the product
-  produces<hgcal::LayerClusterToSimClusterAssociator>();
+  produces<ticl::LayerClusterToSimClusterAssociatorT<CLUSTER>>();
 }
 
-LCToSCAssociatorByEnergyScoreProducer::~LCToSCAssociatorByEnergyScoreProducer() {}
+template <typename HIT, typename CLUSTER>
+LCToSCAssociatorByEnergyScoreProducerT<HIT, CLUSTER>::~LCToSCAssociatorByEnergyScoreProducerT() {}
 
-void LCToSCAssociatorByEnergyScoreProducer::produce(edm::StreamID,
-                                                    edm::Event &iEvent,
-                                                    const edm::EventSetup &es) const {
+template <typename HIT, typename CLUSTER>
+void LCToSCAssociatorByEnergyScoreProducerT<HIT, CLUSTER>::produce(edm::StreamID,
+                                                                   edm::Event &iEvent,
+                                                                   const edm::EventSetup &es) const {
   edm::ESHandle<CaloGeometry> geom = es.getHandle(caloGeometry_);
   rhtools_->setGeometry(*geom);
 
-  const auto hitMap = &iEvent.get(hitMap_);
+  if (!iEvent.getHandle(hitMap_) || !iEvent.getHandle(hits_token_)) {
+    if (!iEvent.getHandle(hitMap_)) {
+      edm::LogWarning("LCToSCAssociatorByEnergyScoreProducer") << "Hit map not valid. Producing empty associator.";
+    }
+    if (!iEvent.getHandle(hits_token_)) {
+      edm::LogWarning("LCToSCAssociatorByEnergyScoreProducer")
+          << "Hit RefProdVector not available. Producing empty associator.";
+    }
 
-  auto impl =
-      std::make_unique<LCToSCAssociatorByEnergyScoreImpl>(iEvent.productGetter(), hardScatterOnly_, rhtools_, hitMap);
-  auto toPut = std::make_unique<hgcal::LayerClusterToSimClusterAssociator>(std::move(impl));
+    const std::unordered_map<DetId, const unsigned int> hitMap;  // empty map
+    const multiCollectionT hits;
+    auto impl = std::make_unique<LCToSCAssociatorByEnergyScoreImplT<HIT, CLUSTER>>(
+        iEvent.productGetter(), hardScatterOnly_, rhtools_, &hitMap, hits);
+    auto emptyAssociator = std::make_unique<ticl::LayerClusterToSimClusterAssociatorT<CLUSTER>>(std::move(impl));
+    iEvent.put(std::move(emptyAssociator));
+    return;
+  }
+
+  // Protection against missing HGCRecHitCollection
+  const auto hits = iEvent.get(hits_token_);
+  for (std::size_t index = 0; const auto &hgcRecHitCollection : hits) {
+    if (hgcRecHitCollection->empty()) {
+      edm::LogWarning("LCToSCAssociatorByEnergyScoreProducerT")
+          << "HGCRecHitCollections #" << index << " is not valid.";
+    }
+    index++;
+  }
+
+  const bool no_hits =
+      std::none_of(hits.begin(), hits.end(), [](const auto &subCollection) { return !subCollection->empty(); });
+
+  if (no_hits) {
+    edm::LogWarning("LCToSCAssociatorByEnergyScoreProducerT") << "No hits collected. Producing empty associator.";
+  }
+
+  const auto hitMap = &iEvent.get(hitMap_);
+  auto impl = std::make_unique<LCToSCAssociatorByEnergyScoreImplT<HIT, CLUSTER>>(
+      iEvent.productGetter(), hardScatterOnly_, rhtools_, hitMap, hits);
+  auto toPut = std::make_unique<ticl::LayerClusterToSimClusterAssociatorT<CLUSTER>>(std::move(impl));
   iEvent.put(std::move(toPut));
 }
 
-void LCToSCAssociatorByEnergyScoreProducer::fillDescriptions(edm::ConfigurationDescriptions &cfg) {
+template <typename HIT, typename CLUSTER>
+void LCToSCAssociatorByEnergyScoreProducerT<HIT, CLUSTER>::fillDescriptions(edm::ConfigurationDescriptions &cfg) {
   edm::ParameterSetDescription desc;
-  desc.add<edm::InputTag>("hitMapTag", edm::InputTag("hgcalRecHitMapProducer"));
   desc.add<bool>("hardScatterOnly", true);
-
-  cfg.add("simClusterAssociatorByEnergyScore", desc);
+  if constexpr (std::is_same_v<HIT, HGCRecHit>) {
+    desc.add<edm::InputTag>("hitMapTag", edm::InputTag("recHitMapProducer", "hgcalRecHitMap"));
+    desc.add<edm::InputTag>("hits", edm::InputTag("recHitMapProducer", "RefProdVectorHGCRecHitCollection"));
+  } else {
+    desc.add<edm::InputTag>("hitMapTag", edm::InputTag("recHitMapProducer", "barrelRecHitMap"));
+    desc.add<edm::InputTag>("hits", edm::InputTag("recHitMapProducer", "RefProdVectorPFRecHitCollection"));
+  }
+  cfg.addWithDefaultLabel(desc);
 }
-
-//define this as a plug-in
-DEFINE_FWK_MODULE(LCToSCAssociatorByEnergyScoreProducer);

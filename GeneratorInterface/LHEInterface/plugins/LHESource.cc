@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -9,12 +10,16 @@
 #include "FWCore/Framework/interface/EventPrincipal.h"
 #include "FWCore/Framework/interface/LuminosityBlockPrincipal.h"
 #include "FWCore/Framework/interface/RunPrincipal.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/Sources/interface/ProducerSourceBase.h"
 #include "FWCore/Utilities/interface/TypeID.h"
+#include "FWStorage/Catalog/interface/FromFiles.h"
 
 #include "DataFormats/Common/interface/OrphanHandle.h"
 #include "DataFormats/Provenance/interface/LuminosityBlockAuxiliary.h"
+#include "DataFormats/Provenance/interface/ProcessHistoryID.h"
 #include "DataFormats/Provenance/interface/RunAuxiliary.h"
 #include "DataFormats/Provenance/interface/Timestamp.h"
 
@@ -26,13 +31,48 @@
 #include "GeneratorInterface/LHEInterface/interface/LHEEvent.h"
 #include "GeneratorInterface/LHEInterface/interface/LHEReader.h"
 
-#include "LHESource.h"
+#include "LHEProvenanceHelper.h"
 
 using namespace lhef;
 
+class LHESource : public edm::ProducerSourceBase {
+public:
+  explicit LHESource(const edm::ParameterSet& params, const edm::InputSourceDescription& desc);
+  ~LHESource() override;
+
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+
+private:
+  void endJob() override;
+  bool setRunAndEventInfo(edm::EventID&, edm::TimeValue_t&, edm::EventAuxiliary::ExperimentType&) override;
+  void readRun_(edm::RunPrincipal& runPrincipal) override;
+  void readLuminosityBlock_(edm::LuminosityBlockPrincipal& lumiPrincipal) override;
+  void readEvent_(edm::EventPrincipal& eventPrincipal) override;
+  void produce(edm::Event&) override {}
+  std::shared_ptr<edm::RunAuxiliary> readRunAuxiliary_() override;
+  std::shared_ptr<edm::LuminosityBlockAuxiliary> readLuminosityBlockAuxiliary_() override;
+  size_t fileIndex() const override;
+
+  void nextEvent();
+
+  void putRunInfoProduct(edm::RunPrincipal&);
+  void fillRunInfoProduct(lhef::LHERunInfo const&, LHERunInfoProduct&);
+
+  edm::FromFiles fromFiles_;
+  std::unique_ptr<lhef::LHEReader> reader_;
+
+  std::shared_ptr<lhef::LHERunInfo> runInfoLast_;
+  std::shared_ptr<lhef::LHEEvent> partonLevel_;
+
+  std::unique_ptr<LHERunInfoProduct> runInfoProductLast_;
+  edm::LHEProvenanceHelper lheProvenanceHelper_;
+  edm::ProcessHistoryID phid_;
+};
+
 LHESource::LHESource(const edm::ParameterSet& params, const edm::InputSourceDescription& desc)
-    : ProducerSourceFromFiles(params, desc, false),
-      reader_(new LHEReader(fileNames(0), params.getUntrackedParameter<unsigned int>("skipEvents", 0))),
+    : ProducerSourceBase(params, desc, false),
+      fromFiles_(params),
+      reader_(new LHEReader(fromFiles_.fileNames(0), params.getUntrackedParameter<unsigned int>("skipEvents", 0))),
       lheProvenanceHelper_(edm::TypeID(typeid(LHEEventProduct)),
                            edm::TypeID(typeid(LHERunInfoProduct)),
                            productRegistryUpdate(),
@@ -62,7 +102,7 @@ void LHESource::nextEvent() {
     newFileOpened = false;
     partonLevel_ = reader_->next(&newFileOpened);
     if (newFileOpened) {
-      incrementFileIndex();
+      fromFiles_.incrementFileIndex();
     }
   } while (newFileOpened && !partonLevel_);
 
@@ -117,7 +157,7 @@ void LHESource::putRunInfoProduct(edm::RunPrincipal& iRunPrincipal) {
   if (runInfoProductLast_) {
     auto product = std::make_unique<LHERunInfoProduct>(*runInfoProductLast_);
     std::unique_ptr<edm::WrapperBase> rdp = std::make_unique<edm::Wrapper<LHERunInfoProduct>>(std::move(product));
-    iRunPrincipal.putOrMerge(lheProvenanceHelper_.runProductBranchDescription_, std::move(rdp));
+    iRunPrincipal.putOrMerge(lheProvenanceHelper_.runProductProductDescription_, std::move(rdp));
   }
 }
 
@@ -159,7 +199,7 @@ void LHESource::readEvent_(edm::EventPrincipal& eventPrincipal) {
                 std::bind(&LHEEventProduct::addComment, product.get(), std::placeholders::_1));
 
   std::unique_ptr<edm::WrapperBase> edp = std::make_unique<edm::Wrapper<LHEEventProduct>>(std::move(product));
-  eventPrincipal.put(lheProvenanceHelper_.eventProductBranchDescription_,
+  eventPrincipal.put(lheProvenanceHelper_.eventProductProductDescription_,
                      std::move(edp),
                      lheProvenanceHelper_.eventProductProvenance_);
 
@@ -187,10 +227,13 @@ std::shared_ptr<edm::LuminosityBlockAuxiliary> LHESource::readLuminosityBlockAux
   return aux;
 }
 
+size_t LHESource::fileIndex() const { return fromFiles_.fileIndex(); }
+
 void LHESource::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.setComment("A source which reads LHE files.");
-  edm::ProducerSourceFromFiles::fillDescription(desc);
+  edm::ProducerSourceBase::fillDescription(desc);
+  edm::FromFiles::fillDescription(desc);
   desc.addUntracked<unsigned int>("skipEvents", 0U)->setComment("Skip the first 'skipEvents' events.");
   descriptions.add("source", desc);
 }

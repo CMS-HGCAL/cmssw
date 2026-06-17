@@ -5,7 +5,7 @@
 //                  prefix, corrFileName, rcorFileName, puCorr, flag, numb,
 //                  isRealData, truncateFlag, useGen, scale, useScale, etalo,
 //                  etahi, runlo, runhi, phimin, phimax, zside, nvxlo, nvxhi,
-//                  rbxFile, exclude, etamax);
+//                  rbxFile, badRunFile, exclude, etamax);
 //  c1.Loop(nmax, debug);
 //  c1.savePlot(histFileName,append,all);
 //
@@ -27,6 +27,7 @@
 //                               (use "HcalIsoTrkAnalyzer")
 //   dupFileName (char*)       = name of the file containing list of entries
 //                               of duplicate events or depth dependent weights
+//                               or weights coming due to change in gains
 //                               (driven by flag)
 //   comFileName (char*)       = name of the file with list of run and event
 //                               number to be selected
@@ -40,7 +41,7 @@
 //   rcorFileName (char*)      = name of the text file having the correction
 //                               factors as a function of run numbers or depth
 //                               or entry number to be used for raddam/depth/
-//                               pileup/phisym dependent correction
+//                               pileup/phisym/phisym(s) dependent correction
 //                               (default="", no correction)
 //   puCorr (int)              = PU correction to be applied or not: 0 no
 //                               correction; < 0 use eDelta; > 0 rho dependent
@@ -48,14 +49,18 @@
 //   flag (int)                = 8 digit integer (xymlthdo) with control
 //                               information (x=3/2/1/0 for having 1000/500/50/
 //                               100 bins for response distribution in (0:5);
-//                               y=2/1/0 containing list of ieta, iphi of
-//                               channels to be selected (2); list containing
-//                               depth dependent weights for each ieta (1);
-//                               list of duplicate entries (0) in dupFileName;
+//                               y=3/2/1/0 containing list of run ranges and
+//                               ieta, depth for gain changes (3): list of
+//                               ieta, iphi of channels to be selected (2);
+//                               list containing depth dependent weights for
+//                               each ieta (1); list of duplicate entries (0)
+//                               in the dupFileName;
 //                               m=1/0 for (not) making plots for each RBX;
-//                               l=4/3/2/1/0 for type of rcorFileName (4 for
-//                               using results from phi-symmetry; 3 for
-//                               pileup correction using machine learning
+//                               l=5/4/3/2/1/0 for type of rcorFileName (5
+//                               for run-dependent correctons using results
+//                               from several phi symmetry studies; 4 for
+//                               using results from one phi-symmetry study;
+//                               3 for pileup correction using machine learning
 //                               method; 2 for overall response corrections;
 //                               1 for depth dependence corrections;
 //                               0 for raddam corrections);
@@ -75,26 +80,36 @@
 //                               The digit *r* is used to treat depth values:
 //                               (0) treat each depth independently; (1) all
 //                               depths of ieta 15, 16 of HB as depth 1; (2)
-//                               all depths in HB and HE as depth 1; (3) all
-//                               depths in HE with values > 1 as depth 2; (4)
-//                               all depths in HB with values > 1 as depth 2;
+//                               all depths in HB and HE as depth 1; (3) ignore
+//                               depth index in HE (depth index set to 1); (4)
+//                               ignore depth index in HB (depth index set 1);
 //                               (5) all depths in HB and HE with values > 1
-//                               as depth 2.
-//                               The digit *d* is used if zside is to be
-//                               ignored (1) or not (0)
+//                               as depth 2; (6) for depth = 1 and 2, depth =
+//                               1, else depth = 2; (7) in case of HB, depths
+//                               1 and 2 are set to 1, else depth = 2; for HE
+//                               ignore depth index; (8) Assign all depths > 4
+//                               as depth = 5; (9) Assign all depth = 1 as
+//                               depth = 2. The digit *d* is used if zside is
+//                               to be ignored (1) or not (0)
 //                               (Default 0)
 //   useGen (bool)             = true/false to use generator level momentum
 //                               or reconstruction level momentum
 //                               (default = false)
 //   scale (double)            = energy scale if correction factor to be used
 //                               (default = 1.0)
-//   useScale (int)            = two digit number (do) with o: as the flag for
-//                               application of scale factor (0: nowehere,
+//   useScale (int)            = three digit number (hdo) with o: as the flag
+//                               for application of scale factor (0: nowehere,
 //                               1: barrel; 2: endcap, 3: everywhere)
 //                               barrel => |ieta| < 16; endcap => |ieta| > 15;
 //                               d: as the format for threshold application,
 //                               0: no threshold; 1: 2022 prompt data; 2:
-//                               2022 reco data; 3: 2023 prompt data
+//                               2022 reco data; 3: 2023 prompt data; 4: 2025
+//                               Begin of Year; 5: Derived from the file
+//                               PFCuts_IOV_362975.txt.
+//                               h: for MIPCut to be used on ECAL energy;
+//                               0 -> 1 GeV; 1 -> 0.5 GeV; 2 -> 0.75 GeV;
+//                               3 -> 1.25 GeV; 4 -> 1.5 GeV; 5 -> 1.75 GeV;
+//                               6 -> 2.0 GeV
 //                               (default = 0)
 //   etalo/etahi (int,int)     = |eta| ranges (default = 0:30)
 //   runlo  (int)              = lower value of run number to be included (+ve)
@@ -113,6 +128,8 @@
 //                               to be consdered (default = ""). RBX's are
 //                               specified by zside*(Subdet*100+RBX #).
 //                               For HEP17 it will be 217
+//   badRunFile      (char *)  = Name of the file containing a list of runs
+//                               to be excluded
 //   exclude         (bool)    = RBX specified by the contents in *rbxFile* to
 //                               be exluded or only considered (default = false)
 //   etamax          (bool)    = if set and if the corr-factor not found in the
@@ -280,6 +297,7 @@ public:
                int nvxlo = 0,
                int nvxhi = 1000,
                const char *rbxFile = "",
+               const char *badRunFile = "",
                bool exclude = false,
                bool etamax = false);
   virtual ~CalibMonitor();
@@ -304,6 +322,8 @@ private:
   CalibCorr *cFactor_;
   CalibSelectRBX *cSelect_;
   CalibDuplicate *cDuplicate_;
+  CalibThreshold *cThr_;
+  CalibExcludeRuns *cRunEx_;
   const std::string fname_, dirnm_, prefix_, outFileName_;
   const int corrPU_, flag_, numb_;
   const bool isRealData_, useGen_;
@@ -317,6 +337,7 @@ private:
   int coarseBin_, plotType_;
   int flexibleSelect_, ifDepth_, duplicate_, thrForm_;
   double log2by18_;
+  double mipCut_;
   std::ofstream fileout_;
   std::vector<std::pair<int, int> > events_;
   std::vector<double> etas_, ps_, dl1_;
@@ -354,12 +375,15 @@ CalibMonitor::CalibMonitor(const char *fname,
                            int nvxlo,
                            int nvxhi,
                            const char *rbxFile,
+                           const char *badRunFile,
                            bool exc,
                            bool etam)
     : corrFactor_(nullptr),
       cFactor_(nullptr),
       cSelect_(nullptr),
       cDuplicate_(nullptr),
+      cThr_(nullptr),
+      cRunEx_(nullptr),
       fname_(std::string(fname)),
       dirnm_(std::string(dirnm)),
       prefix_(prefix),
@@ -402,8 +426,10 @@ CalibMonitor::CalibMonitor(const char *fname,
     runhi_ = std::abs(runhi_);
     includeRun_ = false;
   }
-  int useScale0 = useScale % 10;
-  thrForm_ = useScale / 10;
+  int useScale0 = (useScale % 10);
+  thrForm_ = ((useScale / 10) % 10);
+  mipCut_ = eMipCut((useScale / 100) % 10);
+
   char treeName[400];
   sprintf(treeName, "%s/CalibTree", dirnm_.c_str());
   TChain *chain = new TChain(treeName);
@@ -412,24 +438,36 @@ CalibMonitor::CalibMonitor(const char *fname,
             << " run range " << runlo_ << ":" << runhi_ << " (inclusion flag " << includeRun_ << ")\n Selection of RBX "
             << selRBX_ << " Vertex Range " << nvxlo_ << ":" << nvxhi_ << "\n corrFileName: " << corrFileName
             << " useScale " << useScale << ":" << scale << ":" << etam << "\n rcorFileName: " << rcorFileName
-            << " flag " << ifDepth_ << ":" << cutL1T_ << ":" << marina << " Threshold Flag " << thrForm_ << std::endl;
+            << " flag " << ifDepth_ << ":" << cutL1T_ << ":" << marina << " Threshold Flag " << thrForm_ << " MIP Cut "
+            << mipCut_ << std::endl;
   if (!fillChain(chain, fname)) {
     std::cout << "*****No valid tree chain can be obtained*****" << std::endl;
   } else {
     std::cout << "Proceed with a tree chain with " << chain->GetEntries() << " entries" << std::endl;
     corrFactor_ = new CalibCorrFactor(corrFileName, useScale0, scale, etam, marina, false);
     Init(chain, comFileName, outFName);
-    if (std::string(dupFileName) != "")
+    if (std::string(dupFileName) != "") {
+      std::cout << "dupFileName: " << dupFileName << std::endl;
       cDuplicate_ = new CalibDuplicate(dupFileName, duplicate_, false);
+    }
     if (std::string(rcorFileName) != "") {
+      std::cout << "rcorFileName: " << rcorFileName << std::endl;
       cFactor_ = new CalibCorr(rcorFileName, ifDepth_, false);
       if (cFactor_->absent())
         ifDepth_ = -1;
     } else {
       ifDepth_ = -1;
     }
-    if (std::string(rbxFile) != "")
+    if (std::string(rbxFile) != "") {
+      std::cout << "RBX File: " << rbxFile << std::endl;
       cSelect_ = new CalibSelectRBX(rbxFile, false);
+    }
+    if (thrForm_ > 0)
+      cThr_ = new CalibThreshold(thrForm_);
+    if (std::string(badRunFile) != "") {
+      std::cout << "File with list of excluded runs: " << badRunFile << std::endl;
+      cRunEx_ = new CalibExcludeRuns(badRunFile, false);
+    }
   }
 }
 
@@ -438,6 +476,8 @@ CalibMonitor::~CalibMonitor() {
   delete cFactor_;
   delete cSelect_;
   delete cDuplicate_;
+  delete cThr_;
+  delete cRunEx_;
   if (!fChain)
     return;
   delete fChain->GetCurrentFile();
@@ -952,8 +992,9 @@ void CalibMonitor::Loop(Long64_t nmax, bool debug) {
     } else if (kp == 5) {
       ++kount5[0];
     }
-    bool select = ((cDuplicate_ != nullptr) && (duplicate_ == 0)) ? (cDuplicate_->isDuplicate(jentry)) : true;
-    if (!select) {
+    bool select = ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr(0))) ? (cDuplicate_->isDuplicate(jentry)) : true;
+    bool reject = (cRunEx_ != nullptr) ? cRunEx_->exclude(t_Run) : false;
+    if ((!select) || reject) {
       ++duplicate;
       if (debug)
         std::cout << "Duplicate event " << t_Run << " " << t_Event << " " << t_p << std::endl;
@@ -1027,7 +1068,7 @@ void CalibMonitor::Loop(Long64_t nmax, bool debug) {
           continue;
       }
     }
-    if (cDuplicate_ != nullptr) {
+    if ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr(2))) {
       if (cDuplicate_->select(t_ieta, t_iphi))
         continue;
     }
@@ -1140,7 +1181,7 @@ void CalibMonitor::Loop(Long64_t nmax, bool debug) {
       eHcal = 0;
       for (unsigned int k = 0; k < t_HitEnergies->size(); ++k) {
         // Apply thresholds if necessary
-        bool okcell = (thrForm_ == 0) || ((*t_HitEnergies)[k] > threshold((*t_DetIds)[k], thrForm_));
+        bool okcell = (thrForm_ == 0) || ((*t_HitEnergies)[k] > (cThr_->threshold((*t_DetIds)[k])));
         // The masks are defined in DataFormats/HcalDetId/interface/HcalDetId.h
         if (okcell) {
           double cfac(1.0);
@@ -1150,8 +1191,13 @@ void CalibMonitor::Loop(Long64_t nmax, bool debug) {
           }
           if ((cFactor_ != nullptr) && (ifDepth_ != 3) && (ifDepth_ > 0))
             cfac *= cFactor_->getCorr(t_Run, (*t_DetIds)[k]);
-          if ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr()))
+          if ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr(1)))
             cfac *= cDuplicate_->getWeight((*t_DetIds)[k]);
+          if ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr(3))) {
+            int subdet, zside, ieta, iphi, depth;
+            unpackDetId((*t_DetIds)[k], subdet, zside, ieta, iphi, depth);
+            cfac *= cDuplicate_->getCorr(t_Run, ieta, depth);
+          }
           eHcal += (cfac * ((*t_HitEnergies)[k]));
           if (debug) {
             int subdet, zside, ieta, iphi, depth;
@@ -1212,7 +1258,7 @@ void CalibMonitor::Loop(Long64_t nmax, bool debug) {
           } else if (kp == 5) {
             ++kount5[9];
           }
-          if (t_eMipDR < 1.0) {
+          if (t_eMipDR < mipCut_) {
             if (p4060)
               ++kount50[10];
             if (kp == 0) {
@@ -1271,7 +1317,7 @@ void CalibMonitor::Loop(Long64_t nmax, bool debug) {
     if (debug) {
       std::cout << "Entry " << jentry << " p|eHcal|ratio " << pmom << "|" << t_eHcal << "|" << eHcal << "|" << rat
                 << "|" << kp << "|" << kv << "|" << jp << " Cuts " << t_qltyFlag << "|" << t_selectTk << "|"
-                << (t_hmaxNearP < cut) << "|" << (t_eMipDR < 1.0) << "|" << goodTk << "|" << (rat > rcut)
+                << (t_hmaxNearP < cut) << "|" << (t_eMipDR < mipCut_) << "|" << goodTk << "|" << (rat > rcut)
                 << " Select Phi " << selPhi << " hmaxNearP " << t_hmaxNearP << " eMipDR " << t_eMipDR << std::endl;
       std::cout << "D1 : " << kp << ":" << kp1 << ":" << kv << ":" << kv1 << ":" << kd << ":" << kd1 << ":" << jp
                 << std::endl;
@@ -1542,7 +1588,7 @@ bool CalibMonitor::goodTrack(double &eHcal, double &cuti, const Long64_t &entry,
     cut = 8.0 * exp(eta * log2by18_);
   }
   correctEnergy(eHcal, entry);
-  select = ((t_qltyFlag) && (t_selectTk) && (t_hmaxNearP < cut) && (t_eMipDR < 1.0) && (eHcal > 0.001));
+  select = ((t_qltyFlag) && (t_selectTk) && (t_hmaxNearP < cut) && (t_eMipDR < mipCut_) && (eHcal > 0.001));
   if (debug) {
     std::cout << " output " << select << " Based on " << t_qltyFlag << ":" << t_selectTk << ":" << t_hmaxNearP << ":"
               << cut << ":" << t_eMipDR << ":" << eHcal << std::endl;
@@ -1557,7 +1603,7 @@ bool CalibMonitor::selectPhi(bool debug) {
     // The masks are defined in DataFormats/HcalDetId/interface/HcalDetId.h
     for (unsigned int k = 0; k < t_HitEnergies->size(); ++k) {
       // Apply thresholds if necessary
-      bool okcell = (thrForm_ == 0) || ((*t_HitEnergies)[k] > threshold((*t_DetIds)[k], thrForm_));
+      bool okcell = (thrForm_ == 0) || ((*t_HitEnergies)[k] > (cThr_->threshold((*t_DetIds)[k])));
       if (okcell) {
         int iphi = ((*t_DetIds)[k]) & (0x3FF);
         int zside = ((*t_DetIds)[k] & 0x80000) ? (1) : (-1);
@@ -1745,28 +1791,38 @@ void CalibMonitor::correctEnergy(double &eHcal, const Long64_t &entry) {
       // The masks are defined in DataFormats/HcalDetId/interface/HcalDetId.h
       for (unsigned int idet = 0; idet < (*t_DetIds1).size(); idet++) {
         // Apply thresholds if necessary
-        bool okcell = (thrForm_ == 0) || ((*t_HitEnergies1)[idet] > threshold((*t_DetIds1)[idet], thrForm_));
+        bool okcell = (thrForm_ == 0) || ((*t_HitEnergies1)[idet] > (cThr_->threshold((*t_DetIds1)[idet])));
         if (okcell) {
           unsigned int id = truncateId((*t_DetIds1)[idet], truncateFlag_, false);
           double cfac = corrFactor_->getCorr(id);
           if ((cFactor_ != 0) && (ifDepth_ != 3) && (ifDepth_ > 0))
             cfac *= cFactor_->getCorr(t_Run, (*t_DetIds1)[idet]);
-          if ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr()))
+          if ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr(1)))
             cfac *= cDuplicate_->getWeight((*t_DetIds1)[idet]);
+          if ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr(3))) {
+            int subdet, zside, ieta, iphi, depth;
+            unpackDetId((*t_DetIds1)[idet], subdet, zside, ieta, iphi, depth);
+            cfac *= cDuplicate_->getCorr(t_Run, ieta, depth);
+          }
           double hitEn = cfac * (*t_HitEnergies1)[idet];
           Etot1 += hitEn;
         }
       }
       for (unsigned int idet = 0; idet < (*t_DetIds3).size(); idet++) {
         // Apply thresholds if necessary
-        bool okcell = (thrForm_ == 0) || ((*t_HitEnergies3)[idet] > threshold((*t_DetIds3)[idet], thrForm_));
+        bool okcell = (thrForm_ == 0) || ((*t_HitEnergies3)[idet] > (cThr_->threshold((*t_DetIds3)[idet])));
         if (okcell) {
           unsigned int id = truncateId((*t_DetIds3)[idet], truncateFlag_, false);
           double cfac = corrFactor_->getCorr(id);
           if ((cFactor_ != 0) && (ifDepth_ != 3) && (ifDepth_ > 0))
             cfac *= cFactor_->getCorr(t_Run, (*t_DetIds3)[idet]);
-          if ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr()))
+          if ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr(1)))
             cfac *= cDuplicate_->getWeight((*t_DetIds3)[idet]);
+          if ((cDuplicate_ != nullptr) && (cDuplicate_->doCorr(3))) {
+            int subdet, zside, ieta, iphi, depth;
+            unpackDetId((*t_DetIds3)[idet], subdet, zside, ieta, iphi, depth);
+            cfac *= cDuplicate_->getCorr(t_Run, ieta, depth);
+          }
           double hitEn = cfac * (*t_HitEnergies3)[idet];
           Etot3 += hitEn;
         }

@@ -14,8 +14,8 @@ hltTPClusterProducer = _tpClusterProducer.clone(
 )
 
 def _modifyForPhase2(tpClusterProducer):
-    tpClusterProducer.pixelClusterSrc = "siPixelClusters::HLT"
-    tpClusterProducer.phase2OTClusterSrc = "siPhase2Clusters::HLT"
+    tpClusterProducer.pixelClusterSrc = "hltSiPixelClusters"
+    tpClusterProducer.phase2OTClusterSrc = "hltSiPhase2Clusters"
 
 from Configuration.Eras.Modifier_phase2_tracker_cff import phase2_tracker
 phase2_tracker.toModify(hltTPClusterProducer, _modifyForPhase2)
@@ -38,6 +38,12 @@ hltTrackAssociatorByDeltaR.ConsiderAllSimHits = cms.bool(True)
 # snippets below are, however, kept for reference.
 tpToHLTpixelTrackAssociation = _trackingParticleRecoTrackAsssociation.clone(
     label_tr = cms.InputTag("hltPixelTracks"),
+    associator = cms.InputTag('hltTrackAssociatorByHits'),
+    ignoremissingtrackcollection = cms.untracked.bool(True)
+)
+
+tpToHLTpixelTracksCAExtAssociation = _trackingParticleRecoTrackAsssociation.clone(
+    label_tr = cms.InputTag("hltPhase2PixelTracksCAExtension"),
     associator = cms.InputTag('hltTrackAssociatorByHits'),
     ignoremissingtrackcollection = cms.untracked.bool(True)
 )
@@ -109,6 +115,7 @@ tpToHLTgsfTrackAssociation = tpToHLTpixelTrackAssociation.clone(
 tpToHLTtracksAssociationSequence = cms.Sequence(
     hltTrackAssociatorByHits +
     tpToHLTpixelTrackAssociation +
+    tpToHLTpixelTracksCAExtAssociation +
 #    tpToHLTiter0tracksAssociation +
     tpToHLTiter0HPtracksAssociation +
 #    tpToHLTiter1tracksAssociation +

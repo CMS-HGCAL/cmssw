@@ -4,3 +4,7 @@
 #include "DataFormats/HGCalDigi/interface/alpaka/HGCalDigiDevice.h"
 #include "DataFormats/HGCalDigi/interface/HGCalECONDPacketInfoSoA.h"
 #include "DataFormats/HGCalDigi/interface/alpaka/HGCalECONDPacketInfoDevice.h"
+#include "DataFormats/HGCalDigi/interface/HGCalFEDPacketInfoSoA.h"
+#include "DataFormats/HGCalDigi/interface/alpaka/HGCalFEDPacketInfoDevice.h"
+#include "DataFormats/HGCalDigi/interface/HGCalDigiTriggerSoA.h"
+#include "DataFormats/HGCalDigi/interface/alpaka/HGCalDigiTriggerDevice.h"

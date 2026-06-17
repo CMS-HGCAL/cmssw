@@ -115,7 +115,7 @@ FreeTrajectoryState MuonErrorMatrixAnalyzer::refLocusState(const FreeTrajectoryS
                                      << ((fts.momentum().z() > 0) ? "+" : "-") << theZ << " either.";
           return FreeTrajectoryState();
         }  //invalid state
-      }    //z plane is set
+      }  //z plane is set
       else {
         return FreeTrajectoryState();
       }
@@ -127,7 +127,7 @@ FreeTrajectoryState MuonErrorMatrixAnalyzer::refLocusState(const FreeTrajectoryS
         edm::LogError(theCategory) << " cannot propagate to the plane of Z: " << ((fts.momentum().z() > 0) ? "+" : "-")
                                    << theZ << " even though cylinder z indicates it should.";
       }  //invalid state
-    }    //z further than the planes
+    }  //z further than the planes
 
     LogDebug(theCategory) << "reference state is:\n" << onRef;
 
@@ -571,8 +571,13 @@ MuonErrorMatrixAnalyzer::extractRes MuonErrorMatrixAnalyzer::extract(TH2* h2) {
 
   TString fname(h2->GetName());
   fname += +"_fit_f2";
-  TF2* f2 = new TF2(
-      fname, "[0]*exp(-0.5*(((x-[1])/[2])**2+((y-[3])/[4])**2 -2*[5]*(x-[1])*(y-[3])/([4]*[2])))", -10, 10, -10, 10);
+  TF2* f2 = new TF2(fname,
+                    "[0]*exp(-0.5*(((x-[1])/[2])**2+((y-[3])/[4])**2 -2*[5]*(x-[1])*(y-[3])/([4]*[2])))",
+                    -10,
+                    10,
+                    -10,
+                    10,
+                    "NL");
   f2->SetParameters(h2->Integral(), 0, h2->GetRMS(1), 0, h2->GetRMS(2), h2->GetCorrelationFactor());
   f2->FixParameter(1, 0);
   f2->FixParameter(3, 0);
@@ -763,3 +768,6 @@ void MuonErrorMatrixAnalyzer::endJob() {
     thePlotFile->Close();
   }
 }
+
+#include "FWCore/Framework/interface/MakerMacros.h"
+DEFINE_FWK_MODULE(MuonErrorMatrixAnalyzer);

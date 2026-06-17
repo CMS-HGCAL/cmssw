@@ -35,8 +35,7 @@ namespace {
                      const GsfElectronAlgo::HeavyObjectCache* hoc,
                      reco::VertexCollection const& vertices,
                      bool dnnPFidEnabled,
-                     float extetaboundary,
-                     const std::vector<tensorflow::Session*>& tfSessions) {
+                     float extetaboundary) {
     std::vector<GsfElectron::MvaOutput> mva_outputs(electrons.size());
     size_t iele = 0;
     for (auto& el : electrons) {
@@ -53,7 +52,7 @@ namespace {
     if (dnnPFidEnabled) {
       // Here send the list of electrons to the ElectronDNNEstimator and get back the values for all the electrons in one go
       LogDebug("GsfElectronProducer") << "Getting DNN PFId for ele";
-      const auto& dnn_ele_pfid = hoc->iElectronDNNEstimator->evaluate(electrons, tfSessions);
+      const auto& dnn_ele_pfid = hoc->iElectronDNNEstimator->evaluate(electrons);
       int jele = 0;
       for (auto& el : electrons) {
         const auto& [iModel, values] = dnn_ele_pfid[jele];
@@ -129,7 +128,7 @@ public:
 
   void endStream() override;
 
-  static void globalEndJob(GsfElectronAlgo::HeavyObjectCache const*){};
+  static void globalEndJob(GsfElectronAlgo::HeavyObjectCache const*) {}
 
   // ------------ method called to produce the data  ------------
   void produce(edm::Event& event, const edm::EventSetup& setup) override;
@@ -164,8 +163,6 @@ private:
 
   bool dnnPFidEnabled_;
   float extetaboundary_;
-
-  std::vector<tensorflow::Session*> tfSessions_;
 
   edm::ESGetToken<HcalPFCuts, HcalPFCutsRcd> hcalCutsToken_;
   bool cutsFromDB_;
@@ -307,16 +304,16 @@ void GsfElectronProducer::fillDescriptions(edm::ConfigurationDescriptions& descr
     edm::ParameterSetDescription psd1;
     psd1.add<bool>("enabled", false);
     psd1.add<double>("extetaboundary", 2.65);
-    psd1.add<std::string>("inputTensorName", "FirstLayer_input");
-    psd1.add<std::string>("outputTensorName", "sequential/FinalLayer/Softmax");
+    psd1.add<std::string>("inputTensorName", "FirstLayer_input:0");
+    psd1.add<std::string>("outputTensorName", "sequential/FinalLayer/Softmax:0");
 
     psd1.add<std::vector<std::string>>(
         "modelsFiles",
-        {"RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Summer21_120X/lowpT/lowpT_modelDNN.pb",
-         "RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Summer21_120X/highpTEB/highpTEB_modelDNN.pb",
-         "RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Summer21_120X/highpTEE/highpTEE_modelDNN.pb",
-         "RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Winter22_122X/exteta1/modelDNN.pb",
-         "RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Winter22_122X/exteta2/modelDNN.pb"});
+        {"RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Summer21_120X/lowpT/lowpT_modelDNN.onnx",
+         "RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Summer21_120X/highpTEB/highpTEB_modelDNN.onnx",
+         "RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Summer21_120X/highpTEE/highpTEE_modelDNN.onnx",
+         "RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Winter22_122X/exteta1/modelDNN.onnx",
+         "RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Winter22_122X/exteta2/modelDNN.onnx"});
     psd1.add<std::vector<std::string>>(
         "scalersFiles",
         {"RecoEgamma/ElectronIdentification/data/Ele_PFID_dnn/Run3Summer21_120X/lowpT/lowpT_scaler.txt",
@@ -572,17 +569,9 @@ GsfElectronProducer::GsfElectronProducer(const edm::ParameterSet& cfg, const Gsf
       cfg.getParameter<edm::ParameterSet>("trkIsolHEEP03Cfg"),
       cfg.getParameter<edm::ParameterSet>("trkIsolHEEP04Cfg"),
       consumesCollector());
-
-  if (dnnPFidEnabled_) {
-    tfSessions_ = gcache->iElectronDNNEstimator->getSessions();
-  }
 }
 
-void GsfElectronProducer::endStream() {
-  for (auto session : tfSessions_) {
-    tensorflow::closeSession(session);
-  }
-}
+void GsfElectronProducer::endStream() {}
 
 void GsfElectronProducer::checkEcalSeedingParameters(edm::ParameterSet const& pset) {
   if (!pset.exists("SeedConfiguration")) {
@@ -761,8 +750,7 @@ void GsfElectronProducer::produce(edm::Event& event, const edm::EventSetup& setu
     for (auto& el : electrons) {
       el.setMvaInput(gsfMVAInputMap.find(el.gsfTrack())->second);  // set Run2 MVA inputs
     }
-    setMVAOutputs(
-        electrons, globalCache(), event.get(inputCfg_.vtxCollectionTag), dnnPFidEnabled_, extetaboundary_, tfSessions_);
+    setMVAOutputs(electrons, globalCache(), event.get(inputCfg_.vtxCollectionTag), dnnPFidEnabled_, extetaboundary_);
   }
 
   // all electrons

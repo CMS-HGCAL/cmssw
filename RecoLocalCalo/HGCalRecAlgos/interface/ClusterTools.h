@@ -9,6 +9,9 @@
 #include "DataFormats/HGCRecHit/interface/HGCRecHitCollections.h"
 #include "DataFormats/CaloRecHit/interface/CaloCluster.h"
 #include "DataFormats/ParticleFlowReco/interface/HGCalMultiCluster.h"
+#include "DataFormats/DetId/interface/DetIdFwd.h"
+#include "DataFormats/Common/interface/MultiSpan.h"
+
 #include "Geometry/CaloGeometry/interface/CaloGeometry.h"
 #include "Geometry/Records/interface/CaloGeometryRecord.h"
 
@@ -17,7 +20,6 @@
 
 class HGCalGeometry;
 class HGCalDDDConstants;
-class DetId;
 
 namespace edm {
   class Event;
@@ -60,9 +62,12 @@ namespace hgcal {
 
     RecHitTools rhtools_;
     const edm::EDGetTokenT<HGCRecHitCollection> eetok, fhtok, bhtok;
+    const edm::EDGetTokenT<std::unordered_map<DetId, const unsigned int>> hitMapToken_;
     const edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeometryToken_;
 
     const HGCRecHitCollection *eerh_, *fhrh_, *bhrh_;
+    const std::unordered_map<DetId, const unsigned int> *hitMap_;
+    std::unique_ptr<edm::MultiSpan<HGCRecHit>> rechitSpan_;
   };
 }  // namespace hgcal
 

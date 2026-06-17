@@ -12,6 +12,7 @@
 #include "SimDataFormats/TrackerDigiSimLink/interface/PixelDigiSimLink.h"
 #include "DataFormats/SiPixelDigi/interface/PixelDigi.h"
 #include "DataFormats/Phase2TrackerDigi/interface/Phase2TrackerDigi.h"
+#include "DataFormats/DetId/interface/DetIdFwd.h"
 
 #include "SimTracker/Common/interface/DigitizerUtility.h"
 #include "SimTracker/Common/interface/SiPixelChargeReweightingAlgorithm.h"
@@ -30,7 +31,6 @@ namespace CLHEP {
   class RandFlat;
 }  // namespace CLHEP
 
-class DetId;
 class GaussianTailNoiseGenerator;
 class SiG4UniversalFluctuation;
 class SiPixelGainCalibrationOfflineSimService;
@@ -151,6 +151,7 @@ protected:
 
   const float theTofLowerCut_;                  // Cut on the particle TOF
   const float theTofUpperCut_;                  // Cut on the particle TOF
+  const float cosmicShift_;                     // Cosmic shift to apply before the ToF cut.
   const float tanLorentzAnglePerTesla_Endcap_;  //FPix Lorentz angle tangent per Tesla
   const float tanLorentzAnglePerTesla_Barrel_;  //BPix Lorentz angle tangent per Tesla
 

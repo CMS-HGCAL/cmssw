@@ -1,6 +1,7 @@
 
 #include "FWCore/ParameterSet/interface/ParameterDescriptionNode.h"
 #include "FWCore/ParameterSet/interface/ParameterDescriptionCases.h"
+#include "FWCore/ParameterSet/interface/Entry.h"
 #include "FWCore/ParameterSet/src/ANDGroupDescription.h"
 #include "FWCore/ParameterSet/src/ORGroupDescription.h"
 #include "FWCore/ParameterSet/src/XORGroupDescription.h"
@@ -43,6 +44,7 @@ namespace edm {
   TYPE_TO_ENUM(double, k_double)
   TYPE_TO_ENUM(std::vector<double>, k_vdouble)
   TYPE_TO_ENUM(bool, k_bool)
+  TYPE_TO_ENUM(std::vector<bool>, k_vbool)
   TYPE_TO_ENUM(std::string, k_stringRaw)
   TYPE_TO_ENUM(std::vector<std::string>, k_vstringRaw)
   TYPE_TO_ENUM(EventID, k_EventID)
@@ -77,6 +79,7 @@ namespace edm {
       TYPE_TO_NAME(double);
       TYPE_TO_NAME(vdouble);
       TYPE_TO_NAME(bool);
+      TYPE_TO_NAME(vbool);
       TYPE_TO_NAME2(k_stringRaw, string);
       TYPE_TO_NAME2(k_vstringRaw, vstring);
       TYPE_TO_NAME(EventID);
@@ -100,6 +103,16 @@ namespace edm {
     return "";
   }
 
+  bool compareEntryCodeToParameterType(char code, ParameterTypes type) {
+    if (code == detail::kTPSet) {
+      return type == k_PSet;
+    }
+    if (code == detail::kTvPSet) {
+      return type == k_VPSet;
+    }
+    return code == static_cast<char>(type);
+  }
+
   Comment::Comment() {}
   Comment::Comment(std::string const& iComment) : comment_(iComment) {}
   Comment::Comment(char const* iComment) : comment_(iComment) {}
@@ -110,11 +123,14 @@ namespace edm {
 
   void ParameterDescriptionNode::setComment(char const* value) { comment_ = value; }
 
-  void ParameterDescriptionNode::print(std::ostream& os, bool optional, bool writeToCfi, DocFormatHelper& dfh) const {
+  void ParameterDescriptionNode::print(std::ostream& os,
+                                       Modifier modifier,
+                                       bool writeToCfi,
+                                       DocFormatHelper& dfh) const {
     if (hasNestedContent()) {
       dfh.incrementCounter();
     }
-    print_(os, optional, writeToCfi, dfh);
+    print_(os, modifier, writeToCfi, dfh);
   }
 
   void ParameterDescriptionNode::printNestedContent(std::ostream& os, bool optional, DocFormatHelper& dfh) const {

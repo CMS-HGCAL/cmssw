@@ -12,12 +12,17 @@ ecalDrivenElectronSeeds.initialSeedsVector = newCombinedSeeds.seedCollections
 
 from Configuration.ProcessModifiers.pp_on_AA_cff import pp_on_AA
 pp_on_AA.toModify(ecalDrivenElectronSeeds, SCEtCut = 15.0)
+pp_on_AA.toModify(ecalDrivenElectronSeeds, maxHOverEBarrel = 0.5, maxHOverEEndcaps = 0.5)
 
 from Configuration.Eras.Modifier_phase2_hgcal_cff import phase2_hgcal
 phase2_hgcal.toModify(
     ecalDrivenElectronSeeds,
     endcapSuperClusters = 'particleFlowSuperClusterHGCal',
     allowHGCal = True,
+)
+phase2_hgcal.toModify(
+    ecalDrivenElectronSeeds.HGCalConfig,
+    hgcalHitMap = cms.InputTag("recHitMapProducer", "hgcalRecHitMap"),
 )
 
 from Configuration.ProcessModifiers.egamma_lowPt_exclusive_cff import egamma_lowPt_exclusive

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cmath>
 #include <string>
+#include <algorithm>
 #include "CalibCalorimetry/HcalTPGAlgos/interface/HcaluLUTTPGCoder.h"
 #include "CalibFormats/HcalObjects/interface/HcalCoderDb.h"
 #include "CalibFormats/HcalObjects/interface/HcalCalibrations.h"
@@ -29,7 +30,6 @@
 #include "CalibCalorimetry/HcalTPGAlgos/interface/LutXml.h"
 
 const float HcaluLUTTPGCoder::lsb_ = 1. / 16;
-const float HcaluLUTTPGCoder::zdc_lsb_ = 50.;
 
 const int HcaluLUTTPGCoder::QIE8_LUT_BITMASK;
 const int HcaluLUTTPGCoder::QIE10_LUT_BITMASK;
@@ -40,9 +40,13 @@ constexpr double MaximumFractionalError = 0.002;  // 0.2% error allowed from thi
 
 HcaluLUTTPGCoder::HcaluLUTTPGCoder()
     : topo_{},
+      emap_{},
       delay_{},
       LUTGenerationMode_{},
+      overrideFGHF_{},
       FG_HF_thresholds_{},
+      overrideHBLLP_{},
+      HB_LLP_thresholds_{},
       bitToMask_{},
       firstHBEta_{},
       lastHBEta_{},
@@ -71,13 +75,19 @@ HcaluLUTTPGCoder::HcaluLUTTPGCoder()
       linearLSB_QIE11_{},
       linearLSB_QIE11Overlap_{} {}
 
-HcaluLUTTPGCoder::HcaluLUTTPGCoder(const HcalTopology* top, const HcalTimeSlew* delay) { init(top, delay); }
+HcaluLUTTPGCoder::HcaluLUTTPGCoder(const HcalTopology* top, const HcalElectronicsMap* emap, const HcalTimeSlew* delay) {
+  init(top, emap, delay);
+}
 
-void HcaluLUTTPGCoder::init(const HcalTopology* top, const HcalTimeSlew* delay) {
+void HcaluLUTTPGCoder::init(const HcalTopology* top, const HcalElectronicsMap* emap, const HcalTimeSlew* delay) {
   topo_ = top;
+  emap_ = emap;
   delay_ = delay;
   LUTGenerationMode_ = true;
-  FG_HF_thresholds_ = {0, 0};
+  overrideFGHF_ = false;
+  FG_HF_thresholds_.fill(0);
+  overrideHBLLP_ = false;
+  HB_LLP_thresholds_.fill(0);
   bitToMask_ = 0;
   allLinear_ = false;
   contain1TSHB_ = false;
@@ -275,15 +285,15 @@ void HcaluLUTTPGCoder::update(const char* filename, bool appendMSB) {
             } else
               inputLUT_[lutId][adc] = lutFromFile[i][adc];
           }  // for adc
-        }    // for depth
-      }      // for iphi
-    }        // for ieta
-  }          // for nCol
+        }  // for depth
+      }  // for iphi
+    }  // for ieta
+  }  // for nCol
 }
 
 void HcaluLUTTPGCoder::updateXML(const char* filename) {
   LutXml* _xml = new LutXml(filename);
-  _xml->create_lut_map();
+  _xml->create_lut_map(emap_);
   HcalSubdetector subdet[3] = {HcalBarrel, HcalEndcap, HcalForward};
   for (int ieta = -HcalDetId::kHcalEtaMask2; ieta <= (int)(HcalDetId::kHcalEtaMask2); ++ieta) {
     for (unsigned int iphi = 0; iphi <= HcalDetId::kHcalPhiMask2; ++iphi) {
@@ -367,8 +377,6 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
 
   // Here we will determine if we are using new version of TPs (1TS)
   // i.e. are we using a new pulse filter scheme.
-  const HcalElectronicsMap* emap = conditions.getHcalMapping();
-
   int lastHBRing = topo_->lastHBRing();
   int lastHERing = topo_->lastHERing();
 
@@ -378,13 +386,41 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
   bool foundHE = false;
   bool newHBtp = false;
   bool newHEtp = false;
-  std::vector<HcalElectronicsId> vIds = emap->allElectronicsIdTrigger();
+  std::vector<HcalElectronicsId> vIds = emap_->allElectronicsIdTrigger();
+
+  // Access TPParameters to get HF fine-grain thresholds
+  const HcalTPParameters* tpparameters = conditions.getHcalTPParameters();
+
+  // Read thresholds from auxi1 field
+  // aux1: 32-bit auxiliary word. Currently, only the low 16 bits are used (HF MinBias FG thresholds). The high 16 bits are reserved for future use.
+  const uint32_t aux1 = tpparameters->getAuxi1();
+  unsigned fg_hf_lo, fg_hf_hi;
+
+  // The first 16 bits of auxi1 are empty OR the switch is open: Read from configuration parameters
+  const bool zerothresFGHF = (aux1 & 0xFFFFu) == 0u;
+  if (overrideFGHF_ || zerothresFGHF) {
+    fg_hf_lo = FG_HF_thresholds_[0];
+    fg_hf_hi = FG_HF_thresholds_[1];
+  } else {
+    // First 8-bits: low threshold
+    // Second 8-bits: high threshold
+    fg_hf_lo = aux1 & 0xFFu;
+    fg_hf_hi = (aux1 >> 8) & 0xFFu;
+  }
+
+  // Sanity check: low less than high
+  if (fg_hf_hi < fg_hf_lo) {
+    edm::LogError("HcaluLUTTPGCoder")
+        << "ERROR: HF fine-grain thresholds, taken from auxi1 field of HcalTPParameters, are possibly mis-ordered: "
+        << "lower threshold (" << fg_hf_lo << ") > high threshold (" << fg_hf_hi << ").";
+  }
+
   for (std::vector<HcalElectronicsId>::const_iterator eId = vIds.begin(); eId != vIds.end(); eId++) {
     // The first HB or HE id is enough to tell whether to use new scheme in HB or HE
     if (foundHB and foundHE)
       break;
 
-    HcalTrigTowerDetId hcalTTDetId(emap->lookupTrigger(*eId));
+    HcalTrigTowerDetId hcalTTDetId(emap_->lookupTrigger(*eId));
     if (hcalTTDetId.null())
       continue;
 
@@ -407,6 +443,37 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
     }
   }
 
+  // Read auxi2 field of TPParameters to get HB LLP bit energy thresholds
+  const uint32_t aux2 = tpparameters->getAuxi2();
+  unsigned bit12_energy, bit13_energy, bit14_energy, bit15_energy;
+
+  // Auxi2 is empty OR the switch is open: Read from configuration parameters
+  if (overrideHBLLP_ || (aux2 == 0u)) {
+    bit12_energy = HB_LLP_thresholds_[0];
+    bit13_energy = HB_LLP_thresholds_[1];
+    bit14_energy = HB_LLP_thresholds_[2];
+    bit15_energy = HB_LLP_thresholds_[3];
+  } else {
+    // Each energy threshold is an 8-bit word
+    bit12_energy = aux2 & 0xFFu;
+    bit13_energy = (aux2 >> 8) & 0xFFu;
+    bit14_energy = (aux2 >> 16) & 0xFFu;
+    bit15_energy = (aux2 >> 24) & 0xFFu;
+  }
+
+  bool is2018OrLater = topo_->triggerMode() >= HcalTopologyMode::TriggerMode_2018 or
+                       topo_->triggerMode() == HcalTopologyMode::TriggerMode_2018legacy;
+
+  // The number of pedestal widths for ZS is packed into the third byte
+  // of the 32 bit auxi1 variable from HcalTPParameters
+  // Assume a fixed-point SF of 1 / 16 to convert to final number of widths
+  float nPedWidthsForZSfromDB = ((aux1 & 0xFF0000u) >> 16) / 16.0;
+
+  // If overriding with corresponding param in python or the extracted value from third byte of HcalTPParameters auxi1 is 0,
+  // use the param from python. Otherwise, take the value as extracted from DB
+  float nPedWidthsForZSfinal =
+      (overrideDBnPedWidthsForZS_ or nPedWidthsForZSfromDB == 0) ? nPedWidthsForZS_ : nPedWidthsForZSfromDB;
+
   for (const auto& id : metadata->getAllChannels()) {
     if (id.det() == DetId::Hcal and topo_->valid(id)) {
       HcalDetId cell(id);
@@ -419,27 +486,18 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
       const HcalQIEShape* shape = conditions.getHcalShape(cell);
       HcalCoderDb coder(*channelCoder, *shape);
       const HcalLutMetadatum* meta = metadata->getValues(cell);
-
-      // defaults for energy requirement for bits 12-15 are high / low to avoid FG bit 0-4 being set when not intended
-      unsigned int bit12_energy = 0;
-      unsigned int bit13_energy = 0;
-      unsigned int bit14_energy = 999;
-      unsigned int bit15_energy = 999;
-
-      bool is2018OrLater = topo_->triggerMode() >= HcalTopologyMode::TriggerMode_2018 or
-                           topo_->triggerMode() == HcalTopologyMode::TriggerMode_2018legacy;
-      if (is2018OrLater or topo_->dddConstants()->isPlan1(cell)) {
-        bit12_energy = 16;  // depths 1,2 max energy
-        bit13_energy = 80;  // depths 3+ min energy
-        bit14_energy = 64;  // prompt min energy
-        bit15_energy = 64;  // delayed min energy
-      }
-
       int lutId = getLUTId(cell);
       Lut& lut = inputLUT_[lutId];
       float ped = 0;
+      float pedwidth = 0;
       float gain = 0;
       uint32_t status = 0;
+
+      const HcalCalibrationWidths& calibrationWidths = conditions.getHcalCalibrationWidths(cell);
+      for (auto capId : {0, 1, 2, 3}) {
+        pedwidth += calibrationWidths.effpedestal(capId);
+      }
+      pedwidth /= 4.0;
 
       if (LUTGenerationMode_) {
         const HcalCalibrations& calibrations = conditions.getHcalCalibrations(cell);
@@ -533,17 +591,22 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
               }
             }
             if (allLinear_)
-              lut[adc] = (LutElement)std::min(
-                  std::max(0,
-                           int((adc2fC(adc) - ped) * gain * rcalib * nonlinearityCorrection * containmentCorrection /
-                               linearLSB / cosh_ieta(cell.ietaAbs(), cell.depth(), HcalEndcap))),
-                  MASK);
+              lut[adc] =
+                  adc2fC(adc) - (ped + nPedWidthsForZSfinal * pedwidth) <= 0
+                      ? 0
+                      : (LutElement)std::min(std::max(0,
+                                                      int((adc2fC(adc) - ped) * gain * rcalib * nonlinearityCorrection *
+                                                          containmentCorrection / linearLSB /
+                                                          cosh_ieta(cell.ietaAbs(), cell.depth(), HcalEndcap))),
+                                             MASK);
             else
               lut[adc] =
-                  (LutElement)std::min(std::max(0,
-                                                int((adc2fC(adc) - ped) * gain * rcalib * nonlinearityCorrection *
-                                                    containmentCorrection / nominalgain_ / granularity)),
-                                       MASK);
+                  adc2fC(adc) - (ped + nPedWidthsForZSfinal * pedwidth) <= 0
+                      ? 0
+                      : (LutElement)std::min(std::max(0,
+                                                      int((adc2fC(adc) - ped) * gain * rcalib * nonlinearityCorrection *
+                                                          containmentCorrection / nominalgain_ / granularity)),
+                                             MASK);
 
             unsigned int linearizedADC =
                 lut[adc];  // used for bits 12, 13, 14, 15 for Group 0 LUT for LLP time and depth bits that rely on linearized energies
@@ -575,9 +638,9 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
           else {
             lut[adc] = std::min(
                 std::max(0, int((adc2fC(adc) - ped) * gain * rcalib / lsb_ / cosh_ieta_[cell.ietaAbs()])), MASK);
-            if (adc > FG_HF_thresholds_[0])
+            if (adc > fg_hf_lo)
               lut[adc] |= QIE10_LUT_MSB0;
-            if (adc > FG_HF_thresholds_[1])
+            if (adc > fg_hf_hi)
               lut[adc] |= QIE10_LUT_MSB1;
           }
         }
@@ -595,10 +658,21 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
       const HcalLutMetadatum* meta = metadata->getValues(cell);
 
       auto tpParam = conditions.getHcalTPChannelParameter(cell, false);
-      int weight = tpParam->getauxi1();
+      const int weight = tpParam->getauxi1();
+      int factorGeVPerCount = tpParam->getauxi2();
+      if (factorGeVPerCount == 0) {
+        edm::LogWarning("HcaluLUTTPGCoder")
+            << "WARNING: ZDC trigger spacing factor, taken from auxi2 field of HCALTPChannelParameters for the cell "
+               "with (zside, section, channel) =  ("
+            << cell.zside() << " , " << cell.section() << " , " << cell.channel()
+            << ") is set to the "
+               "default value of 0, which is an incompatible value for a spacing factor. Setting the value to 50 and "
+               "continuing.";
+        factorGeVPerCount = 50;
+      }
 
-      int lutId = getLUTId(cell);
-      int lutId_ootpu = lutId + sizeZDC_;
+      const int lutId = getLUTId(cell);
+      const int lutId_ootpu = lutId + sizeZDC_;
       Lut& lut = inputLUT_[lutId];
       Lut& lut_ootpu = inputLUT_[lutId_ootpu];
       float ped = 0;
@@ -652,13 +726,13 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
           lut[adc] = 0;
           lut_ootpu[adc] = 0;
         } else {
-          if ((adc2fC(adc) - ped) < (pedWidth * 5.)) {
+          if ((adc2fC(adc) - ped) < pedWidth) {
             lut[adc] = 0;
             lut_ootpu[adc] = 0;
           } else {
-            lut[adc] = std::min(std::max(0, int((adc2fC(adc) - ped) * gain * rcalib / zdc_lsb_)), MASK);
-            lut_ootpu[adc] =
-                std::min(std::max(0, int((adc2fC(adc) - ped) * gain * rcalib * weight / (zdc_lsb_ * 256))), MASK);
+            auto lut_term = (adc2fC(adc) - ped) * gain * rcalib / factorGeVPerCount;
+            lut[adc] = std::clamp(int(lut_term), 0, MASK);
+            lut_ootpu[adc] = std::clamp(int(lut_term * weight / 256), 0, MASK);
           }
         }
       }

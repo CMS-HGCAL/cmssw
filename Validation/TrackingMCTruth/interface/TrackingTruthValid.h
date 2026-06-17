@@ -5,10 +5,9 @@
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "DQMServices/Core/interface/DQMStore.h"
+#include "SimDataFormats/TrackingAnalysis/interface/TrackingParticleFwd.h"
 
 #include <string>
-
-class TrackingParticle;
 
 class TrackingTruthValid : public DQMEDAnalyzer {
 public:
@@ -16,7 +15,7 @@ public:
   // Constructor
   explicit TrackingTruthValid(const edm::ParameterSet &conf);
   // Destructor
-  ~TrackingTruthValid() override{};
+  ~TrackingTruthValid() override {}
 
   void analyze(const edm::Event &, const edm::EventSetup &) override;
 

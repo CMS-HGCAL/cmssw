@@ -17,14 +17,12 @@
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
-namespace edm {
-  class HepMCProduct;
-}
+#include "SimDataFormats/GeneratorProducts/interface/HepMCProductFwd.h"
 
 class MCPdgIndexFilter : public edm::global::EDFilter<> {
 public:
   explicit MCPdgIndexFilter(const edm::ParameterSet&);
-  ~MCPdgIndexFilter() override{};
+  ~MCPdgIndexFilter() override {}
 
   bool filter(edm::StreamID, edm::Event&, const edm::EventSetup&) const override;
 

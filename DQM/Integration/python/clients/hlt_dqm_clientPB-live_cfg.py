@@ -24,13 +24,13 @@ else:
 #### DQM Environment
 #----------------------------
 process.load("DQM.Integration.config.environment_cfi")
-process.dqmEnv.subSystemFolder = 'HLTpb'
+process.dqmEnv.subSystemFolder = 'HLTpb' if unitTest else options.clientTag
 process.dqmEnv.eventInfoFolder = 'EventInfo'
-process.dqmSaver.tag = 'HLTpb'
+process.dqmSaver.tag = 'HLTpb' if unitTest else options.clientTag
 #process.dqmSaver.path = './HLT'
 process.dqmSaver.runNumber = options.runNumber
-process.dqmSaverPB.tag = 'HLTpb'
-process.dqmSaverPB.runNumber = options.runNumber
+# process.dqmSaverPB.tag = 'HLTpb'
+# process.dqmSaverPB.runNumber = options.runNumber
 #-----------------------------
 
 # customise for playback
@@ -81,4 +81,4 @@ process.psColumnVsLumi = process.dqmCorrelationClient.clone(
 )
 
 print("Final Source settings:", process.source)
-process.p = cms.EndPath( process.fastTimerServiceClient + process.throughputServiceClient + process.psColumnVsLumi + process.dqmEnv + process.dqmSaver + process.dqmSaverPB )
+process.p = cms.EndPath( process.fastTimerServiceClient + process.throughputServiceClient + process.psColumnVsLumi + process.dqmEnv + process.dqmSaver )#+ process.dqmSaverPB )

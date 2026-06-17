@@ -264,8 +264,8 @@ double L1MuonRecoTreeProducer::match_trigger(std::vector<int> &trigIndices,
         }
 
       }  // loop over different trigger objects
-    }    // if trigger is in event (should apply hltFilter with used trigger...)
-  }      // loop over muon candidates
+    }  // if trigger is in event (should apply hltFilter with used trigger...)
+  }  // loop over muon candidates
 
   return matchDeltaR;
 }
@@ -572,7 +572,7 @@ void L1MuonRecoTreeProducer::analyze(const edm::Event &iEvent, const edm::EventS
           if (isoMatchDeltaR < triggerMaxDeltaR_)
             hasIsoTriggered = 1;
         }  // end if (triggerEvent.isValid())
-      }    // end if (triggerResults.isValid())
+      }  // end if (triggerResults.isValid())
 
       // fill trigger matching variables:
       muonData->hlt_isomu.push_back(hasIsoTriggered);
@@ -737,7 +737,7 @@ void L1MuonRecoTreeProducer::analyze(const edm::Event &iEvent, const edm::EventS
                 ring == rpcHitData->ring.at(iRpcHit) && fabs(xLoc - rpcHitData->xLoc.at(iRpcHit)) < 0.01)
 
               rpcHitData->muonId.at(iRpcHit) = muonData->nMuons;  // CB rpc hit belongs to mu imu
-                  // due to cleaning as in 2012 1 rpc hit belogns to 1 mu
+            // due to cleaning as in 2012 1 rpc hit belogns to 1 mu
           }
         }
       }
@@ -1257,7 +1257,7 @@ void L1MuonRecoTreeProducer::analyze(const edm::Event &iEvent, const edm::EventS
       }  // end of IF IS STANDALONE
 
     }  // end of if type 012 found
-  }    // end of muon loop
+  }  // end of muon loop
 
   tree_->Fill();
 }
@@ -1360,7 +1360,7 @@ void L1MuonRecoTreeProducer::beginRun(const edm::Run &run, const edm::EventSetup
         //assert(false);
       }
     }  // end for isoTriggerNames
-  }    // end if (triggerMatching_)
+  }  // end if (triggerMatching_)
 }
 
 void L1MuonRecoTreeProducer::endRun(const edm::Run &run, const edm::EventSetup &eventSetup) {}

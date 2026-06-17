@@ -20,6 +20,7 @@ SiStripCluster::SiStripCluster(const SiStripDigiRange& range) : firstStrip_(rang
     v.push_back(i->adc());
   }
   amplitudes_ = v;
+  initQB();
 }
 
 SiStripCluster::SiStripCluster(const SiStripApproximateCluster cluster, const uint16_t maxStrips) : error_x(-99999.9) {
@@ -36,35 +37,27 @@ SiStripCluster::SiStripCluster(const SiStripApproximateCluster cluster, const ui
   if UNLIKELY (firstStrip_ + cluster.width() > maxStrips) {
     firstStrip_ = maxStrips - cluster.width();
   }
+  firstStrip_ |= approximateMask;
 }
 
-int SiStripCluster::charge() const {
-  if (barycenter_ > 0)
-    return charge_;
-  return std::accumulate(begin(), end(), int(0));
-}
+SiStripCluster::SiStripCluster(const v1::SiStripApproximateCluster cluster,
+                               const uint16_t maxStrips,
+                               float p_bc,
+                               unsigned int module_length,
+                               unsigned int previous_module_length)
+    : error_x(-99999.9) {
+  barycenter_ = cluster.barycenter(p_bc, module_length, previous_module_length);
+  charge_ = cluster.width() * cluster.avgCharge();
+  amplitudes_.resize(cluster.width(), cluster.avgCharge());
+  filter_ = cluster.filter();
 
-float SiStripCluster::barycenter() const {
-  if (barycenter_ > 0)
-    return barycenter_;
+  float halfwidth_ = 0.5f * float(cluster.width());
 
-  int sumx = 0;
-  int suma = 0;
-  auto asize = size();
-  for (auto i = 0U; i < asize; ++i) {
-    sumx += i * amplitudes_[i];
-    suma += amplitudes_[i];
+  //initialize firstStrip_
+  firstStrip_ = std::max(barycenter_ - halfwidth_, 0.f);
+
+  if UNLIKELY (firstStrip_ + cluster.width() > maxStrips) {
+    firstStrip_ = maxStrips - cluster.width();
   }
-
-  // strip centers are offcet by half pitch w.r.t. strip numbers,
-  // so one has to add 0.5 to get the correct barycenter position.
-  // Need to mask off the high bit of firstStrip_, which contains the merged status.
-  return float((firstStrip_ & stripIndexMask)) + float(sumx) / float(suma) + 0.5f;
+  firstStrip_ |= approximateMask;
 }
-bool SiStripCluster::filter() const {
-  if (barycenter_ > 0)
-    return filter_;
-  return false;
-}
-
-bool SiStripCluster::isFromApprox() const { return (barycenter_ > 0); }

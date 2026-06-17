@@ -1,9 +1,9 @@
+#include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
 #include "FWCore/Framework/interface/global/EDFilter.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Utilities/interface/EDPutToken.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
 
 #include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenRunInfoProduct.h"
@@ -24,7 +24,6 @@
 #include "CLHEP/Random/RanecuEngine.h"
 
 #include <cstdio>
-#include <iostream>
 
 using namespace edm::shared_memory;
 namespace externalgen {
@@ -279,7 +278,10 @@ std::shared_ptr<externalgen::RunCache> ExternalGeneratorFilter::globalBeginRun(e
 void ExternalGeneratorFilter::streamBeginRun(edm::StreamID iID, edm::Run const& iRun, edm::EventSetup const&) const {}
 void ExternalGeneratorFilter::streamEndRun(edm::StreamID iID, edm::Run const& iRun, edm::EventSetup const&) const {
   if (iID.value() == 0) {
-    runCache(iRun.index())->runInfo_ = *streamCache(iID)->endRunProduce(iRun.run());
+    auto v = streamCache(iID)->endRunProduce(iRun.run());
+    if (v) {
+      runCache(iRun.index())->runInfo_ = *v;
+    }
   } else {
     (void)streamCache(iID)->endRunProduce(iRun.run());
   }
@@ -336,16 +338,23 @@ void ExternalGeneratorFilter::streamEndLuminosityBlockSummary(edm::StreamID iID,
                                                               edm::LuminosityBlock const& iLuminosityBlock,
                                                               edm::EventSetup const&,
                                                               GenLumiInfoProduct* iProduct) const {
-  iProduct->mergeProduct(*streamCache(iID)->endLumiProduce(iLuminosityBlock.run()));
+  if (iProduct and streamCache(iID)) {
+    auto v = streamCache(iID)->endLumiProduce(iLuminosityBlock.run());
+    if (v) {
+      iProduct->mergeProduct(*v);
+    }
+  }
 
-  if (!luminosityBlockCache(iLuminosityBlock.index())->selectedStreamTransitionsCompleted_) {
-    externalgen::StreamCache* expected = nullptr;
-    if (availableForBeginLumi_.compare_exchange_strong(expected, streamCache(iID))) {
-      luminosityBlockCache(iLuminosityBlock.index())->selectedStreamTransitionsCompleted_ = true;
-      state_.store(State::kReadyForNextGlobalBeginLumi);
+  if (luminosityBlockCache(iLuminosityBlock.index())) {
+    if (!luminosityBlockCache(iLuminosityBlock.index())->selectedStreamTransitionsCompleted_) {
+      externalgen::StreamCache* expected = nullptr;
+      if (availableForBeginLumi_.compare_exchange_strong(expected, streamCache(iID))) {
+        luminosityBlockCache(iLuminosityBlock.index())->selectedStreamTransitionsCompleted_ = true;
+        state_.store(State::kReadyForNextGlobalBeginLumi);
 
-    } else {
-      luminosityBlockCache(iLuminosityBlock.index())->cacheForAStreamThatCompleted_ = streamCache(iID);
+      } else {
+        luminosityBlockCache(iLuminosityBlock.index())->cacheForAStreamThatCompleted_ = streamCache(iID);
+      }
     }
   }
 }
@@ -364,7 +373,9 @@ void ExternalGeneratorFilter::globalEndLuminosityBlockProduce(edm::LuminosityBlo
     availableForBeginLumi_.store(luminosityBlockCache(iLuminosityBlock.index())->cacheForAStreamThatCompleted_);
     state_.store(State::kReadyForNextGlobalBeginLumi);
   }
-  iLuminosityBlock.emplace(lumiInfoToken_, *iProduct);
+  if (iProduct) {
+    iLuminosityBlock.emplace(lumiInfoToken_, *iProduct);
+  }
 }
 
 DEFINE_FWK_MODULE(ExternalGeneratorFilter);

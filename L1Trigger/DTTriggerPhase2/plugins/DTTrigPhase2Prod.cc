@@ -39,6 +39,8 @@
 #include "L1Trigger/DTTriggerPhase2/interface/MPFilter.h"
 #include "L1Trigger/DTTriggerPhase2/interface/MPSLFilter.h"
 #include "L1Trigger/DTTriggerPhase2/interface/MPCorFilter.h"
+#include "L1Trigger/DTTriggerPhase2/interface/MPCoincidenceFilter.h"
+#include "L1Trigger/DTTriggerPhase2/interface/MPThetaMatching.h"
 #include "L1Trigger/DTTriggerPhase2/interface/MPQualityEnhancerFilter.h"
 #include "L1Trigger/DTTriggerPhase2/interface/MPRedundantFilter.h"
 #include "L1Trigger/DTTriggerPhase2/interface/MPCleanHitsFilter.h"
@@ -77,7 +79,7 @@ using namespace edm;
 using namespace std;
 using namespace cmsdt;
 
-class DTTrigPhase2Prod : public edm::stream::EDProducer<> {
+class DTTrigPhase2Prod : public edm::stream::EDProducer<edm::stream::WatchRuns> {
   typedef std::map<DTChamberId, DTDigiCollection, std::less<DTChamberId>> DTDigiMap;
   typedef DTDigiMap::iterator DTDigiMap_iterator;
   typedef DTDigiMap::const_iterator DTDigiMap_const_iterator;
@@ -120,7 +122,6 @@ public:
   // data-members
   const DTGeometry* dtGeo_;
   edm::ESGetToken<DTGeometry, MuonGeometryRecord> dtGeomH;
-  std::vector<std::pair<int, MuonPath>> primitives_;
 
 private:
   // Trigger Configuration Manager CCB validity flag
@@ -135,6 +136,11 @@ private:
   double dT0_correlate_TP_;
   int scenario_;
   int df_extended_;
+  int co_option_;  //coincidence
+  int co_quality_;
+  int co_wh2option_;
+  int th_option_;  //theta matching
+  int th_quality_;
   int max_index_;
 
   bool output_mixer_;
@@ -162,15 +168,17 @@ private:
   std::unique_ptr<MuonPathAnalyzer> mpathassociator_;
   std::unique_ptr<MuonPathConfirmator> mpathconfirmator_;
   std::unique_ptr<MPFilter> mpathcorfilter_;
+  std::unique_ptr<MPFilter> mpathcoifilter_;
+  std::unique_ptr<MPFilter> mpaththetamatching_;
   std::shared_ptr<GlobalCoordsObtainer> globalcoordsobtainer_;
 
   // Buffering
   bool activateBuffer_;
   int superCellhalfspacewidth_;
   float superCelltimewidth_;
-  std::vector<DTDigiCollection*> distribDigis(std::queue<std::pair<DTLayerId, DTDigi>>& inQ);
+  std::vector<DTDigiCollection> distribDigis(std::queue<std::pair<DTLayerId, DTDigi>>& inQ);
   void processDigi(std::queue<std::pair<DTLayerId, DTDigi>>& inQ,
-                   std::vector<std::queue<std::pair<DTLayerId, DTDigi>>*>& vec);
+                   std::vector<std::queue<std::pair<DTLayerId, DTDigi>>>& vec);
 
   // RPC
   std::unique_ptr<RPCIntegrator> rpc_integrator_;
@@ -204,6 +212,11 @@ DTTrigPhase2Prod::DTTrigPhase2Prod(const ParameterSet& pset)
   scenario_ = pset.getParameter<int>("scenario");
 
   df_extended_ = pset.getParameter<int>("df_extended");
+  co_option_ = pset.getParameter<int>("co_option");
+  co_quality_ = pset.getParameter<int>("co_quality");
+  co_wh2option_ = pset.getParameter<int>("co_wh2option");
+  th_option_ = pset.getParameter<int>("th_option");
+  th_quality_ = pset.getParameter<int>("th_quality");
   max_index_ = pset.getParameter<int>("max_primitives") - 1;
 
   dtDigisToken_ = consumes<DTDigiCollection>(pset.getParameter<edm::InputTag>("digiTag"));
@@ -261,6 +274,8 @@ DTTrigPhase2Prod::DTTrigPhase2Prod(const ParameterSet& pset)
   mpathconfirmator_ = std::make_unique<MuonPathConfirmator>(pset, consumesColl);
   mpathassociator_ = std::make_unique<MuonPathCorFitter>(pset, consumesColl, globalcoordsobtainer_);
   mpathcorfilter_ = std::make_unique<MPCorFilter>(pset);
+  mpathcoifilter_ = std::make_unique<MPCoincidenceFilter>(pset);
+  mpaththetamatching_ = std::make_unique<MPThetaMatching>(pset);
   rpc_integrator_ = std::make_unique<RPCIntegrator>(pset, consumesColl);
 
   dtGeomH = esConsumes<DTGeometry, MuonGeometryRecord, edm::Transition::BeginRun>();
@@ -285,6 +300,8 @@ void DTTrigPhase2Prod::beginRun(edm::Run const& iRun, const edm::EventSetup& iEv
   mpathhitsfilter_->initialise(iEventSetup);
   mpathassociator_->initialise(iEventSetup);  // Associator object initialisation
   mpathcorfilter_->initialise(iEventSetup);
+  mpathcoifilter_->initialise(iEventSetup);
+  mpaththetamatching_->initialise(iEventSetup);
 
   if (auto geom = iEventSetup.getHandle(dtGeomH)) {
     dtGeo_ = &(*geom);
@@ -357,14 +374,14 @@ void DTTrigPhase2Prod::produce(Event& iEvent, const EventSetup& iEventSetup) {
       tmpvec.clear();
 
       // Distribute the digis from the queue into supercells
-      std::vector<DTDigiCollection*> superCells;
+      std::vector<DTDigiCollection> superCells;
       superCells = distribDigis(timequeue);
 
       // Process each supercell & collect the resulting muonpaths (as the muonpaths std::vector is only enlarged each time
       // the groupings access it, it's not needed to "collect" the final products).
 
       while (!superCells.empty()) {
-        grouping_obj_->run(iEvent, iEventSetup, *(superCells.back()), muonpaths[chid.rawId()]);
+        grouping_obj_->run(iEvent, iEventSetup, superCells.back(), muonpaths[chid.rawId()]);
         superCells.pop_back();
       }
     } else {
@@ -818,6 +835,53 @@ void DTTrigPhase2Prod::produce(Event& iEvent, const EventSetup& iEventSetup) {
   correlatedMetaPrimitives.clear();
   filteredMetaPrimitives.clear();
 
+  // Coincidence (co) filter
+
+  std::vector<metaPrimitive> allMetaPrimitives;
+  for (auto& ch_filtcorrelatedMetaPrimitives : filtCorrelatedMetaPrimitives) {
+    for (const auto& metaPrimitiveIt : ch_filtcorrelatedMetaPrimitives.second) {
+      allMetaPrimitives.push_back(metaPrimitiveIt);
+    }
+  }
+
+  std::map<int, std::vector<metaPrimitive>> coMetaPrimitives;
+  if (algo_ == Standard) {
+    for (auto& ch_filtcorrelatedMetaPrimitives : filtCorrelatedMetaPrimitives) {
+      if (!skip_processing_)
+        mpathcoifilter_->run(iEvent,
+                             iEventSetup,
+                             allMetaPrimitives,
+                             filtCorrelatedMetaPrimitives[ch_filtcorrelatedMetaPrimitives.first],
+                             coMetaPrimitives[ch_filtcorrelatedMetaPrimitives.first]);
+      else {
+        for (auto& mp : ch_filtcorrelatedMetaPrimitives.second) {
+          coMetaPrimitives[ch_filtcorrelatedMetaPrimitives.first].push_back(mp);
+        }
+      }
+    }
+  }
+
+  allMetaPrimitives.clear();
+
+  // Theta (th) matching filter
+  std::map<int, std::vector<metaPrimitive>> thMatchedMetaPrimitives;
+  if (algo_ == Standard) {
+    for (auto& ch_filtcoMetaPrimitives : coMetaPrimitives) {
+      if (!skip_processing_)
+        mpaththetamatching_->run(iEvent,
+                                 iEventSetup,
+                                 coMetaPrimitives[ch_filtcoMetaPrimitives.first],
+                                 thMatchedMetaPrimitives[ch_filtcoMetaPrimitives.first]);
+      else {
+        for (auto& mp : ch_filtcoMetaPrimitives.second) {
+          thMatchedMetaPrimitives[ch_filtcoMetaPrimitives.first].push_back(mp);
+        }
+      }
+    }
+  }
+
+  /////////////
+
   double shift_back = 0;
   if (scenario_ == MC)  //scope for MC
     shift_back = 400;
@@ -830,8 +894,8 @@ void DTTrigPhase2Prod::produce(Event& iEvent, const EventSetup& iEventSetup) {
   if (useRPC_) {
     rpc_integrator_->initialise(iEventSetup, shift_back);
     rpc_integrator_->prepareMetaPrimitives(rpcRecHits);
-    for (auto& ch_correlatedMetaPrimitives : filtCorrelatedMetaPrimitives) {
-      rpc_integrator_->matchWithDTAndUseRPCTime(ch_correlatedMetaPrimitives.second);  // Probably this is a FIXME
+    for (auto& ch_thMatchedMetaPrimitives : thMatchedMetaPrimitives) {
+      rpc_integrator_->matchWithDTAndUseRPCTime(ch_thMatchedMetaPrimitives.second);  // Probably this is a FIXME
     }
     rpc_integrator_->makeRPCOnlySegments();
     rpc_integrator_->storeRPCSingleHits();
@@ -846,12 +910,12 @@ void DTTrigPhase2Prod::produce(Event& iEvent, const EventSetup& iEventSetup) {
 
   // Assigning index value
   if (!skip_processing_)
-    for (auto& ch_correlatedMetaPrimitives : filtCorrelatedMetaPrimitives) {
-      assignIndex(ch_correlatedMetaPrimitives.second);
+    for (auto& ch_thMatchedMetaPrimitives : thMatchedMetaPrimitives) {
+      assignIndex(ch_thMatchedMetaPrimitives.second);
     }
 
-  for (auto& ch_correlatedMetaPrimitives : filtCorrelatedMetaPrimitives) {
-    for (const auto& metaPrimitiveIt : ch_correlatedMetaPrimitives.second) {
+  for (auto& ch_thMatchedMetaPrimitives : thMatchedMetaPrimitives) {
+    for (const auto& metaPrimitiveIt : ch_thMatchedMetaPrimitives.second) {
       DTChamberId chId(metaPrimitiveIt.rawId);
       DTSuperLayerId slId(metaPrimitiveIt.rawId);
       if (debug_)
@@ -1172,7 +1236,7 @@ void DTTrigPhase2Prod::assignIndexPerBX(std::vector<metaPrimitive>& inMPaths) {
         }
       }
     }  // ending second for
-  }    // ending first for
+  }  // ending first for
 }
 
 int DTTrigPhase2Prod::assignQualityOrder(const metaPrimitive& mP) const {
@@ -1182,35 +1246,36 @@ int DTTrigPhase2Prod::assignQualityOrder(const metaPrimitive& mP) const {
   return qmap_.find(mP.quality)->second;
 }
 
-std::vector<DTDigiCollection*> DTTrigPhase2Prod::distribDigis(std::queue<std::pair<DTLayerId, DTDigi>>& inQ) {
-  std::vector<std::queue<std::pair<DTLayerId, DTDigi>>*> tmpVector;
+std::vector<DTDigiCollection> DTTrigPhase2Prod::distribDigis(std::queue<std::pair<DTLayerId, DTDigi>>& inQ) {
+  // Use value-based containers to avoid returning pointers to local variables.
+  std::vector<std::queue<std::pair<DTLayerId, DTDigi>>> tmpVector;
   tmpVector.clear();
-  std::vector<DTDigiCollection*> collVector;
+  std::vector<DTDigiCollection> collVector;
   collVector.clear();
   while (!inQ.empty()) {
     processDigi(inQ, tmpVector);
   }
   for (auto& sQ : tmpVector) {
     DTDigiCollection tmpColl;
-    while (!sQ->empty()) {
-      tmpColl.insertDigi((sQ->front().first), (sQ->front().second));
-      sQ->pop();
+    while (!sQ.empty()) {
+      tmpColl.insertDigi((sQ.front().first), (sQ.front().second));
+      sQ.pop();
     }
-    collVector.push_back(&tmpColl);
+    collVector.push_back(std::move(tmpColl));
   }
   return collVector;
 }
 
 void DTTrigPhase2Prod::processDigi(std::queue<std::pair<DTLayerId, DTDigi>>& inQ,
-                                   std::vector<std::queue<std::pair<DTLayerId, DTDigi>>*>& vec) {
+                                   std::vector<std::queue<std::pair<DTLayerId, DTDigi>>>& vec) {
   bool classified = false;
   if (!vec.empty()) {
     for (auto& sC : vec) {  // Conditions for entering a super cell.
-      if ((sC->front().second.time() + superCelltimewidth_) > inQ.front().second.time()) {
+      if ((sC.front().second.time() + superCelltimewidth_) > inQ.front().second.time()) {
         // Time requirement
-        if (TMath::Abs(sC->front().second.wire() - inQ.front().second.wire()) <= superCellhalfspacewidth_) {
+        if (std::abs(sC.front().second.wire() - inQ.front().second.wire()) <= superCellhalfspacewidth_) {
           // Spatial requirement
-          sC->push(std::move(inQ.front()));
+          sC.push(std::move(inQ.front()));
           classified = true;
         }
       }
@@ -1228,7 +1293,7 @@ void DTTrigPhase2Prod::processDigi(std::queue<std::pair<DTLayerId, DTDigi>>& inQ
   newQueue.push(tmpPair);
   inQ.pop();
 
-  vec.push_back(&newQueue);
+  vec.push_back(std::move(newQueue));
 }
 
 void DTTrigPhase2Prod::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -1253,6 +1318,11 @@ void DTTrigPhase2Prod::fillDescriptions(edm::ConfigurationDescriptions& descript
   desc.add<double>("minx_match_2digis", 1.0);
   desc.add<int>("scenario", 0);
   desc.add<int>("df_extended", 0);
+  desc.add<int>("co_option", 0);
+  desc.add<int>("co_quality", 0);
+  desc.add<int>("co_wh2option", 0);
+  desc.add<int>("th_option", 0);
+  desc.add<int>("th_quality", 0);
   desc.add<int>("max_primitives", 999);
   desc.add<bool>("output_mixer", false);
   desc.add<bool>("output_latpredictor", false);

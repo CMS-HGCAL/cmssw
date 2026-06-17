@@ -1,7 +1,11 @@
 #include "EventFilter//Utilities/interface/DAQSourceModelsScoutingRun3.h"
 
+using namespace edm::streamer;
+
 void DataModeScoutingRun3::makeDirectoryEntries(std::vector<std::string> const& baseDirs,
                                                 std::vector<int> const& numSources,
+                                                std::vector<int> const& sourceIDs,
+                                                std::string const& sourceIdentifier,
                                                 std::string const& runDir) {
   std::filesystem::path runDirP(runDir);
   for (auto& baseDir : baseDirs) {
@@ -73,7 +77,7 @@ void DataModeScoutingRun3::readEvent(edm::EventPrincipal& eventPrincipal) {
 
   std::unique_ptr<edm::WrapperBase> edp(new edm::Wrapper<SDSRawDataCollection>(std::move(rawData)));
   eventPrincipal.put(
-      daqProvenanceHelpers_[0]->branchDescription(), std::move(edp), daqProvenanceHelpers_[0]->dummyProvenance());
+      daqProvenanceHelpers_[0]->productDescription(), std::move(edp), daqProvenanceHelpers_[0]->dummyProvenance());
 
   eventCached_ = false;
 }
@@ -102,12 +106,12 @@ void DataModeScoutingRun3::fillSDSRawDataCollection(SDSRawDataCollection& rawDat
 std::vector<std::shared_ptr<const edm::DaqProvenanceHelper>>& DataModeScoutingRun3::makeDaqProvenanceHelpers() {
   //set SRD data collection
   daqProvenanceHelpers_.clear();
-  daqProvenanceHelpers_.emplace_back(std::make_shared<const edm::DaqProvenanceHelper>(
-      edm::TypeID(typeid(SDSRawDataCollection)), "SDSRawDataCollection", "SDSRawDataCollection", "DAQSource"));
+  daqProvenanceHelpers_.emplace_back(
+      std::make_shared<const edm::DaqProvenanceHelper>(edm::TypeID(typeid(SDSRawDataCollection)), "DAQSource"));
   return daqProvenanceHelpers_;
 }
 
-bool DataModeScoutingRun3::nextEventView() {
+bool DataModeScoutingRun3::nextEventView(RawInputFile*) {
   blockCompleted_ = false;
   if (eventCached_)
     return true;

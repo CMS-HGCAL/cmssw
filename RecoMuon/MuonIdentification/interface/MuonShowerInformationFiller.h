@@ -46,11 +46,9 @@ namespace edm {
 }  // namespace edm
 namespace reco {
   class TransientTrack;
-  struct MuonShower;
 }  // namespace reco
 
 class MuonServiceProxy;
-class Trajectory;
 class Cylinder;
 class Disk;
 class BarrelDetLayer;
@@ -73,7 +71,7 @@ public:
 
 public:
   ///constructors
-  MuonShowerInformationFiller(){};
+  MuonShowerInformationFiller() {}
   MuonShowerInformationFiller(const edm::ParameterSet&, edm::ConsumesCollector&);
 
   ///destructor

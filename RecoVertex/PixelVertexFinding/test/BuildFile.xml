@@ -1,0 +1,41 @@
+<use name="boost"/>
+<use name="root"/>
+<use name="FWCore/Framework"/>
+<use name="FWCore/ParameterSet"/>
+<use name="MagneticField/Engine"/>
+<use name="MagneticField/Records"/>
+<use name="RecoVertex/KalmanVertexFit"/>
+<use name="SimDataFormats/Track"/>
+<use name="TrackingTools/TransientTrack"/>
+
+<bin file="alpaka/VertexFinder_t.cc alpaka/VertexFinder_t.dev.cc" name="deviceVertexFinderOneKernel_t">
+  <use name="alpaka"/>
+  <!-- work around for cms-sw/cmssw#45179 -->
+  <use name="no-array-bounds-flag" for="alpaka/serial"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <flags ALPAKA_BACKENDS="1"/>
+  <flags CXXFLAGS="-g -DGPU_DEBUG -DONE_KERNEL"/>
+</bin>
+
+<bin file="alpaka/VertexFinder_t.cc alpaka/VertexFinder_t.dev.cc" name="deviceVertexFinderByDensity_t">
+  <!-- work around for cms-sw/cmssw#45179 -->
+  <use name="no-array-bounds-flag" for="alpaka/serial"/>
+  <use name="alpaka"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <flags ALPAKA_BACKENDS="1"/>
+  <flags CXXFLAGS="-g -DGPU_DEBUG"/>
+</bin>
+
+<bin file="alpaka/VertexFinder_t.cc alpaka/VertexFinder_t.dev.cc" name="deviceVertexFinderDBSCAN_t">
+  <use name="alpaka"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <flags ALPAKA_BACKENDS="1"/>
+  <flags CXXFLAGS="-g -DGPU_DEBUG -DUSE_DBSCAN"/>
+</bin>
+
+<bin file="alpaka/VertexFinder_t.cc alpaka/VertexFinder_t.dev.cc" name="deviceVertexFinderIterative_t">
+  <use name="alpaka"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <flags ALPAKA_BACKENDS="1"/>
+  <flags CXXFLAGS="-g -DGPU_DEBUG -DUSE_ITERATIVE"/>
+</bin>

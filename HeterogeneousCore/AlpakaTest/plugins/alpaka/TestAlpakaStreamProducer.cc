@@ -24,7 +24,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   class TestAlpakaStreamProducer : public stream::EDProducer<> {
   public:
     TestAlpakaStreamProducer(edm::ParameterSet const& config)
-        : size_{config.getParameter<edm::ParameterSet>("size").getParameter<int32_t>(
+        : EDProducer<>(config),
+          size_{config.getParameter<edm::ParameterSet>("size").getParameter<int32_t>(
               EDM_STRINGIZE(ALPAKA_ACCELERATOR_NAMESPACE))},
           size2_{config.getParameter<edm::ParameterSet>("size").getParameter<int32_t>(
               EDM_STRINGIZE(ALPAKA_ACCELERATOR_NAMESPACE))},
@@ -41,11 +42,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       [[maybe_unused]] auto inpData = iEvent.getHandle(getToken_);
       [[maybe_unused]] auto const& esData = iSetup.getData(esToken_);
 
-      auto deviceProduct = std::make_unique<portabletest::TestDeviceCollection>(size_, iEvent.queue());
-      auto deviceProductMulti2 = std::make_unique<portabletest::TestDeviceMultiCollection2>(
-          portabletest::TestDeviceMultiCollection2::SizesArray{{size_, size2_}}, iEvent.queue());
-      auto deviceProductMulti3 = std::make_unique<portabletest::TestDeviceMultiCollection3>(
-          portabletest::TestDeviceMultiCollection3::SizesArray{{size_, size2_, size3_}}, iEvent.queue());
+      auto deviceProduct = std::make_unique<portabletest::TestDeviceCollection>(iEvent.queue(), size_);
+      auto deviceProductMulti2 = std::make_unique<portabletest::TestDeviceCollection2>(iEvent.queue(), size_, size2_);
+      auto deviceProductMulti3 =
+          std::make_unique<portabletest::TestDeviceCollection3>(iEvent.queue(), size_, size2_, size3_);
 
       // run the algorithm, potentially asynchronously
       algo_.fill(iEvent.queue(), *deviceProduct);
@@ -76,8 +76,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::EDGetTokenT<edmtest::IntProduct> getToken_;
     device::ESGetToken<cms::alpakatest::AlpakaESTestDataB<Device>, AlpakaESTestRecordB> esToken_;
     device::EDPutToken<portabletest::TestDeviceCollection> devicePutToken_;
-    device::EDPutToken<portabletest::TestDeviceMultiCollection2> devicePutTokenMulti2_;
-    device::EDPutToken<portabletest::TestDeviceMultiCollection3> devicePutTokenMulti3_;
+    device::EDPutToken<portabletest::TestDeviceCollection2> devicePutTokenMulti2_;
+    device::EDPutToken<portabletest::TestDeviceCollection3> devicePutTokenMulti3_;
     const int32_t size_;
     const int32_t size2_;
     const int32_t size3_;

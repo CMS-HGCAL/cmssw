@@ -26,6 +26,7 @@
 // user include files
 #include "DataFormats/FWLite/interface/EventBase.h"
 #include "DataFormats/FWLite/interface/ChainEvent.h"
+#include "DataFormats/Provenance/interface/ProductDescriptionFwd.h"
 #include "FWCore/Utilities/interface/propagate_const.h"
 
 // forward declarations
@@ -33,7 +34,6 @@ namespace edm {
   class WrapperBase;
   class ProductRegistry;
   class ProcessHistory;
-  class BranchDescription;
   class EDProductGetter;
   class EventAux;
   class TriggerResults;
@@ -97,7 +97,7 @@ namespace fwlite {
 
     edm::EventAuxiliary const& eventAuxiliary() const override;
 
-    std::vector<edm::BranchDescription> const& getBranchDescriptions() const;
+    std::vector<edm::ProductDescription> const& getProductDescriptions() const;
     std::vector<std::string> const& getProcessHistory() const;
     edm::ProcessHistory const& processHistory() const override;
     TFile* getTFile() const { return event1_->getTFile(); }
@@ -128,17 +128,6 @@ namespace fwlite {
     // ---------- member functions ---------------------------
 
     edm::WrapperBase const* getByProductID(edm::ProductID const&) const override;
-
-    std::optional<std::tuple<edm::WrapperBase const*, unsigned int>> getThinnedProduct(edm::ProductID const& pid,
-                                                                                       unsigned int key) const;
-
-    void getThinnedProducts(edm::ProductID const& pid,
-                            std::vector<edm::WrapperBase const*>& foundContainers,
-                            std::vector<unsigned int>& keys) const;
-
-    edm::OptionalThinnedKey getThinnedKeyFrom(edm::ProductID const& parent,
-                                              unsigned int key,
-                                              edm::ProductID const& thinned) const;
 
   private:
     bool getByTokenImp(edm::EDGetToken, edm::WrapperBase const*&) const override;

@@ -30,7 +30,7 @@ typedef ROOT::Math::Plane3D::Vector Vector;
 typedef ROOT::Math::Plane3D::Point Point;
 typedef ROOT::Math::Transform3DPJ Transform3DR;
 
-EcalHitMaker::EcalHitMaker(CaloGeometryHelper* theCalo,
+EcalHitMaker::EcalHitMaker(const CaloGeometryHelper* theCalo,
                            const XYZPoint& ecalentrance,
                            const DetId& cell,
                            int onEcal,
@@ -360,7 +360,7 @@ void EcalHitMaker::setTrackParameters(const XYZNormal& normal, double X0depthoff
         //  regionOfInterest_[ic].setX0Back(9999);
         //}
       }  //EMSHOWER
-    }    // ndir
+    }  // ndir
     //      myHistos->fill("h6000",segments_[ecalFirstSegment_].entrance().eta(),maxX0_);
   }
   //  std::cout << "Leaving setTrackParameters" << std::endl
@@ -1095,7 +1095,7 @@ void EcalHitMaker::convertIntegerCoordinates(double x, double y, unsigned& ix, u
     iy = (unsigned)tiy;
 }
 
-const std::map<CaloHitID, float>& EcalHitMaker::getHits() {
+const CaloHitMap& EcalHitMaker::getHits() {
   if (hitmaphasbeencalculated_)
     return hitMap_;
   for (unsigned ic = 0; ic < ncrystals_; ++ic) {

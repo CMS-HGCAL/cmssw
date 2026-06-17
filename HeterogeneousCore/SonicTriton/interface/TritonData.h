@@ -2,10 +2,10 @@
 #define HeterogeneousCore_SonicTriton_TritonData
 
 #include "FWCore/Utilities/interface/Exception.h"
-#include "FWCore/Utilities/interface/Span.h"
 #include "HeterogeneousCore/SonicTriton/interface/triton_utils.h"
 
 #include <vector>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <numeric>
@@ -34,7 +34,7 @@ class TritonGpuShmResource;
 template <typename DT>
 using TritonInput = std::vector<std::vector<DT>>;
 template <typename DT>
-using TritonOutput = std::vector<edm::Span<const DT*>>;
+using TritonOutput = std::vector<std::span<const DT>>;
 
 //other useful typdefs
 template <typename DT>
@@ -49,7 +49,7 @@ public:
   using Result = triton::client::InferResult;
   using TensorMetadata = inference::ModelMetadataResponse_TensorMetadata;
   using ShapeType = std::vector<int64_t>;
-  using ShapeView = edm::Span<ShapeType::const_iterator>;
+  using ShapeView = std::span<const typename ShapeType::value_type>;
 
   //constructor
   TritonData(const std::string& name, const TensorMetadata& model_info, TritonClient* client, const std::string& pid);
@@ -148,7 +148,8 @@ private:
   IO* data(unsigned entry = 0) { return entries_[entry].data_.get(); }
   void updateMem(size_t size);
   void computeSizes();
-  triton::client::InferenceServerGrpcClient* client();
+  TritonClient* client();
+  triton::client::InferenceServerGrpcClient* grpcClient();
   template <typename DT>
   void checkType() const {
     if (!triton_utils::checkType<DT>(dtype_))

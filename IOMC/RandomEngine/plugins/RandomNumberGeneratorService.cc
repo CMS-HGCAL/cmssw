@@ -86,6 +86,11 @@ namespace edm {
                                                << "states two different ways in the same process.\n";
       }
 
+      if (not restoreStateTag_.label().empty()) {
+        restoreStateBeginLumiToken_ = consumes<RandomEngineStates, InLumi>(restoreStateBeginLumiTag_);
+        restoreStateToken_ = consumes<RandomEngineStates>(restoreStateTag_);
+      }
+
       // The saveFileName must correspond to a file name without any path specification.
       // Throw if that is not true.
       if (!saveFileName_.empty() && (saveFileName_.find('/') != std::string::npos)) {
@@ -192,6 +197,11 @@ namespace edm {
 
       activityRegistry.watchPreallocate(this, &RandomNumberGeneratorService::preallocate);
 
+      activityRegistry.watchPreBeginJob(this, &RandomNumberGeneratorService::preBeginJob);
+      activityRegistry.watchPostBeginJob(this, &RandomNumberGeneratorService::postBeginJob);
+      activityRegistry.watchPreEndJob(this, &RandomNumberGeneratorService::preEndJob);
+      activityRegistry.watchPostEndJob(this, &RandomNumberGeneratorService::postEndJob);
+
       if (enableChecking_) {
         activityRegistry.watchPreModuleBeginStream(this, &RandomNumberGeneratorService::preModuleBeginStream);
         activityRegistry.watchPostModuleBeginStream(this, &RandomNumberGeneratorService::postModuleBeginStream);
@@ -213,20 +223,17 @@ namespace edm {
       }
     }
 
-    RandomNumberGeneratorService::~RandomNumberGeneratorService() {}
+    RandomNumberGeneratorService::~RandomNumberGeneratorService() noexcept(true) {}
 
-    void RandomNumberGeneratorService::consumes(ConsumesCollector&& iC) const {
-      iC.consumes<RandomEngineStates, InLumi>(restoreStateBeginLumiTag_);
-      iC.consumes<RandomEngineStates>(restoreStateTag_);
-    }
+    EDConsumerBase* RandomNumberGeneratorService::consumer() { return this; }
 
     CLHEP::HepRandomEngine& RandomNumberGeneratorService::getEngine(StreamID const& streamID) {
       ModuleCallingContext const* mcc = CurrentModuleOnThread::getCurrentModuleOnThread();
-      if (mcc == nullptr) {
+      if (mcc == nullptr || beginJobEndJobActive_) {
         throw Exception(errors::LogicError)
             << "RandomNumberGeneratorService::getEngine\n"
                "Requested a random number engine from the RandomNumberGeneratorService\n"
-               "when no module was active. ModuleCallingContext is null\n";
+               "while ModuleCallingContext is null or during beginJob or endJob transitions.\n";
       }
       unsigned int moduleID = mcc->moduleDescription()->id();
 
@@ -256,11 +263,11 @@ namespace edm {
 
     CLHEP::HepRandomEngine& RandomNumberGeneratorService::getEngine(LuminosityBlockIndex const& lumiIndex) {
       ModuleCallingContext const* mcc = CurrentModuleOnThread::getCurrentModuleOnThread();
-      if (mcc == nullptr) {
+      if (mcc == nullptr || beginJobEndJobActive_) {
         throw Exception(errors::LogicError)
             << "RandomNumberGeneratorService::getEngine\n"
                "Requested a random number engine from the RandomNumberGeneratorService\n"
-               "when no module was active. ModuleCallingContext is null\n";
+               "while ModuleCallingContext is null or during beginJob or endJob transitions.\n";
       }
       unsigned int moduleID = mcc->moduleDescription()->id();
 
@@ -302,11 +309,11 @@ namespace edm {
     std::uint32_t RandomNumberGeneratorService::mySeed() const {
       std::string label;
       ModuleCallingContext const* mcc = CurrentModuleOnThread::getCurrentModuleOnThread();
-      if (mcc == nullptr) {
+      if (mcc == nullptr || beginJobEndJobActive_) {
         throw Exception(errors::LogicError)
-            << "RandomNumberGeneratorService::getEngine()\n"
-               "Requested a random number engine from the RandomNumberGeneratorService\n"
-               "from an unallowed transition. ModuleCallingContext is null\n";
+            << "RandomNumberGeneratorService::mySeed()\n"
+               "Requested a random number seed from the RandomNumberGeneratorService\n"
+               "while ModuleCallingContext is null or during beginJob or endJob transitions.\n";
       } else {
         label = mcc->moduleDescription()->moduleLabel();
       }
@@ -422,6 +429,14 @@ namespace edm {
         print(std::cout);
       }
     }
+
+    void RandomNumberGeneratorService::preBeginJob(ProcessContext const&) { beginJobEndJobActive_ = true; }
+
+    void RandomNumberGeneratorService::postBeginJob() { beginJobEndJobActive_ = false; }
+
+    void RandomNumberGeneratorService::preEndJob() { beginJobEndJobActive_ = true; }
+
+    void RandomNumberGeneratorService::postEndJob() { beginJobEndJobActive_ = false; }
 
     void RandomNumberGeneratorService::preBeginLumi(LuminosityBlock const& lumi) {
       if (!restoreStateTag_.label().empty()) {
@@ -652,8 +667,7 @@ namespace edm {
         }
       }
 
-      Handle<RandomEngineStates> states;
-      lumi.getByLabel(restoreStateBeginLumiTag_, states);
+      Handle<RandomEngineStates> states = lumi.getHandle(restoreStateBeginLumiToken_);
 
       if (!states.isValid()) {
         throw Exception(errors::ProductNotFound)
@@ -669,9 +683,7 @@ namespace edm {
     }
 
     void RandomNumberGeneratorService::readFromEvent(Event const& event) {
-      Handle<RandomEngineStates> states;
-
-      event.getByLabel(restoreStateTag_, states);
+      Handle<RandomEngineStates> states = event.getHandle(restoreStateToken_);
 
       if (!states.isValid()) {
         throw Exception(errors::ProductNotFound)
@@ -1116,7 +1128,7 @@ namespace edm {
           }
           moduleIDVector.emplace_back(&engines.back(), moduleID);
         }  // if moduleID valid
-      }    // loop over seedsAndMap
+      }  // loop over seedsAndMap
       std::sort(moduleIDVector.begin(), moduleIDVector.end());
     }
 

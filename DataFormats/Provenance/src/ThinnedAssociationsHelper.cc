@@ -1,9 +1,9 @@
 #include "DataFormats/Provenance/interface/ThinnedAssociationsHelper.h"
-#include "DataFormats/Provenance/interface/BranchDescription.h"
+#include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "FWCore/Utilities/interface/EDMException.h"
 #include <algorithm>
 
-#include <fmt/format.h>
+#include <format>
 
 namespace edm {
 
@@ -72,7 +72,7 @@ namespace edm {
         ensureSlimmingConstraints();
       } catch (edm::Exception& ex) {
         ex.addContext("Calling ThinnedAssociationsHelper::addAssociation()");
-        ex.addAdditionalInfo(fmt::format("When adding a slimmed collection with BranchID {}", branches.thinned().id()));
+        ex.addAdditionalInfo(std::format("When adding a slimmed collection with BranchID {}", branches.thinned().id()));
         throw ex;
       }
     }
@@ -188,7 +188,7 @@ namespace edm {
   }
 
   void ThinnedAssociationsHelper::selectAssociationProducts(
-      std::vector<BranchDescription const*> const& associationDescriptions,
+      std::vector<ProductDescription const*> const& associationDescriptions,
       std::set<BranchID> const& keptProductsInEvent,
       std::map<BranchID, bool>& keepAssociation) const {
     keepAssociation.clear();

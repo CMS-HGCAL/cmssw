@@ -1,8 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-
-#include <fmt/format.h>
+#include <format>
 
 #include "CondFormats/SiStripObjects/interface/SiStripFedCabling.h"
 #include "DataFormats/FEDRawData/interface/FEDHeader.h"
@@ -136,7 +135,7 @@ namespace sistrip {
 
           //need to construct full object to copy full header
           if (rawfedData.size() == 0)
-            warnings_.add("Invalid raw data for FED, skipping", fmt::format("id {0}", *ifed));
+            warnings_.add("Invalid raw data for FED, skipping", std::format("id {0}", *ifed));
           const auto st_buffer = preconstructCheckFEDBuffer(rawfedData, true);
           if (FEDBufferStatusCode::SUCCESS != st_buffer) {
             edm::LogWarning("DigiToRaw") << "[sistrip::DigiToRaw::createFedBuffers_]"
@@ -150,7 +149,7 @@ namespace sistrip {
                                          << " Could not construct FEDBuffer for FED " << *ifed << std::endl;
           }
           if (fedbuffer.headerType() == sistrip::HEADER_TYPE_INVALID) {
-            warnings_.add("Invalid header type for FED, skipping", fmt::format("id {0}", *ifed));
+            warnings_.add("Invalid header type for FED, skipping", std::format("id {0}", *ifed));
             continue;
           }
 
@@ -224,7 +223,7 @@ namespace sistrip {
               (bufferGenerator_.feHeader())
                   .setChannelStatus(iFE, iFEUnitChannel, fedFeHeader->getChannelStatus(iFE, iFEUnitChannel));
             }  //loop on channels
-          }    //loop on fe units
+          }  //loop on fe units
           bufferGenerator_.setFEUnitEnables(feEnabledVec);
 
           if (edm::isDebugEnabled()) {
@@ -431,8 +430,8 @@ namespace sistrip {
                                          << debugStream.str();
           }
         }  //loop on feds
-      }    //end if-else for copying header
-    }      //try
+      }  //end if-else for copying header
+    }  //try
     catch (const std::exception& e) {
       if (edm::isDebugEnabled()) {
         edm::LogWarning("DigiToRaw") << "DigiToRaw::createFedBuffers] "

@@ -5174,7 +5174,7 @@ float CSCTFPtMethods::Pt2Stn(int type, float eta, float dphi, int fr) const {
     eta = static_cast<float>(fabs(static_cast<double>(eta)));
   if (dphi < 0.0)
     dphi = static_cast<float>(fabs(static_cast<double>(dphi)));
-    ///DEA:  kluge to get verilog and original model to agree
+  ///DEA:  kluge to get verilog and original model to agree
 #ifdef L1CSC_STANDALONE
   if (type == kME1andME2 && eta <= 1.25)
     fr = 1;
@@ -5688,7 +5688,7 @@ float CSCTFPtMethods::Pt2Stn2010(int type, float eta, float dphi, int fr, int me
           PTsolv = pt - 0.5 * step;
           break;
         }  // lpt = 0 between lpt1 and lpt2 => maximum pt_solv is a solution of the likelihood
-           /*
+        /*
                       if(pt == 140.){
                             v[0] = 200;
                             lpt2_1 = Likelihood2(par_phi12, par1, par_sig1, v);
@@ -5715,9 +5715,9 @@ float CSCTFPtMethods::Pt2Stn2010(int type, float eta, float dphi, int fr, int me
         }
         pt = pt - step;
       }  // end while
-         //*********** end solve equation for muon plus
-         //************* solve equation dLog(Likelihood)/dpt = 0 for muon minus ;
-         // for one station method we know sing of muon: dphi > 0 for muon minus!!! => dphi = -dphi < 0
+      //*********** end solve equation for muon plus
+      //************* solve equation dLog(Likelihood)/dpt = 0 for muon minus ;
+      // for one station method we know sing of muon: dphi > 0 for muon minus!!! => dphi = -dphi < 0
       dphi = -dphi;
       pt = 140;
       dpt = 0.1;
@@ -5749,7 +5749,7 @@ float CSCTFPtMethods::Pt2Stn2010(int type, float eta, float dphi, int fr, int me
           PTsolvMinus = pt - 0.5 * step;
           break;
         }  // lpt = 0 between lpt1 and lpt2 => maximum pt_solv is a solution of the likelihood
-           /*
+        /*
                       if(pt == 140.){
                             v[0] = 200;
                             lpt2_1 = Likelihood2(par_phi12, par1, par_sig1, v);
@@ -5777,9 +5777,9 @@ float CSCTFPtMethods::Pt2Stn2010(int type, float eta, float dphi, int fr, int me
         }
         pt = pt - step;
       }  // end while
-         //          }// if(fabs(dphi) >= 0.002)
-         //          else
-         //          {PTsolv = 137.5;}
+      //          }// if(fabs(dphi) >= 0.002)
+      //          else
+      //          {PTsolv = 137.5;}
 
       //*********** end solve equation for muon minus
       PTsolv = (PTsolv > PTsolvMinus) ? PTsolv
@@ -5794,7 +5794,7 @@ float CSCTFPtMethods::Pt2Stn2010(int type, float eta, float dphi, int fr, int me
       dphi = -dphi;  //return to correct sing dphi
 
     }  //if(fabs(eta_TracMy)
-  }    //end "for by iETA"
+  }  //end "for by iETA"
 
   float Pt = PTsolv;
   if (Pt > 10 && fabs(dphi) >= 0.1)
@@ -5826,64 +5826,64 @@ float CSCTFPtMethods::Pt2Stn2011(int type, float eta, float dphi, int fr, int me
       int iETA1 = iETA;
       int iETA2 = iETA;
 
-      const double(*Amean12FnoME11)[15] = AB_mu12FnoME11;
-      const double(*Asig12FnoME11)[15] = AB_sig12FnoME11;
-      const double(*Amean12RnoME11)[15] = AB_mu12RnoME11;
-      const double(*Asig12RnoME11)[15] = AB_sig12RnoME11;
+      const double (*Amean12FnoME11)[15] = AB_mu12FnoME11;
+      const double (*Asig12FnoME11)[15] = AB_sig12FnoME11;
+      const double (*Amean12RnoME11)[15] = AB_mu12RnoME11;
+      const double (*Asig12RnoME11)[15] = AB_sig12RnoME11;
 
-      const double(*Amean13FnoME11)[15] = AB_mu13FnoME11;
-      const double(*Asig13FnoME11)[15] = AB_sig13FnoME11;
-      const double(*Amean13RnoME11)[15] = AB_mu13RnoME11;
-      const double(*Asig13RnoME11)[15] = AB_sig13RnoME11;
+      const double (*Amean13FnoME11)[15] = AB_mu13FnoME11;
+      const double (*Asig13FnoME11)[15] = AB_sig13FnoME11;
+      const double (*Amean13RnoME11)[15] = AB_mu13RnoME11;
+      const double (*Asig13RnoME11)[15] = AB_sig13RnoME11;
 
-      const double(*Amean14FnoME11)[15] = AB_mu14FnoME11;
-      const double(*Asig14FnoME11)[15] = AB_sig14FnoME11;
-      const double(*Amean14RnoME11)[15] = AB_mu14RnoME11;
-      const double(*Asig14RnoME11)[15] = AB_sig14RnoME11;
+      const double (*Amean14FnoME11)[15] = AB_mu14FnoME11;
+      const double (*Asig14FnoME11)[15] = AB_sig14FnoME11;
+      const double (*Amean14RnoME11)[15] = AB_mu14RnoME11;
+      const double (*Asig14RnoME11)[15] = AB_sig14RnoME11;
       //
-      const double(*Amean12FME11)[15] = AB_mu12FME11;
-      const double(*Asig12FME11)[15] = AB_sig12FME11;
-      const double(*Amean12RME11)[15] = AB_mu12RME11;
-      const double(*Asig12RME11)[15] = AB_sig12RME11;
+      const double (*Amean12FME11)[15] = AB_mu12FME11;
+      const double (*Asig12FME11)[15] = AB_sig12FME11;
+      const double (*Amean12RME11)[15] = AB_mu12RME11;
+      const double (*Asig12RME11)[15] = AB_sig12RME11;
 
-      const double(*Amean13FME11)[15] = AB_mu13FME11;
-      const double(*Asig13FME11)[15] = AB_sig13FME11;
-      const double(*Amean13RME11)[15] = AB_mu13RME11;
-      const double(*Asig13RME11)[15] = AB_sig13RME11;
+      const double (*Amean13FME11)[15] = AB_mu13FME11;
+      const double (*Asig13FME11)[15] = AB_sig13FME11;
+      const double (*Amean13RME11)[15] = AB_mu13RME11;
+      const double (*Asig13RME11)[15] = AB_sig13RME11;
 
-      const double(*Amean14FME11)[15] = AB_mu14FME11;
-      const double(*Asig14FME11)[15] = AB_sig14FME11;
-      const double(*Amean14RME11)[15] = AB_mu14RME11;
-      const double(*Asig14RME11)[15] = AB_sig14RME11;
+      const double (*Amean14FME11)[15] = AB_mu14FME11;
+      const double (*Asig14FME11)[15] = AB_sig14FME11;
+      const double (*Amean14RME11)[15] = AB_mu14RME11;
+      const double (*Asig14RME11)[15] = AB_sig14RME11;
       //
-      const double(*Amean12F)[15] = AB_mu12F;
-      const double(*Asig12F)[15] = AB_sig12F;
-      const double(*Amean12R)[15] = AB_mu12R;
-      const double(*Asig12R)[15] = AB_sig12R;
+      const double (*Amean12F)[15] = AB_mu12F;
+      const double (*Asig12F)[15] = AB_sig12F;
+      const double (*Amean12R)[15] = AB_mu12R;
+      const double (*Asig12R)[15] = AB_sig12R;
 
-      const double(*Amean13F)[15] = AB_mu13F;
-      const double(*Asig13F)[15] = AB_sig13F;
-      const double(*Amean13R)[15] = AB_mu13R;
-      const double(*Asig13R)[15] = AB_sig13R;
+      const double (*Amean13F)[15] = AB_mu13F;
+      const double (*Asig13F)[15] = AB_sig13F;
+      const double (*Amean13R)[15] = AB_mu13R;
+      const double (*Asig13R)[15] = AB_sig13R;
 
-      const double(*Amean14F)[15] = AB_mu14F;
-      const double(*Asig14F)[15] = AB_sig14F;
-      const double(*Amean14R)[15] = AB_mu14R;
-      const double(*Asig14R)[15] = AB_sig14R;
+      const double (*Amean14F)[15] = AB_mu14F;
+      const double (*Asig14F)[15] = AB_sig14F;
+      const double (*Amean14R)[15] = AB_mu14R;
+      const double (*Asig14R)[15] = AB_sig14R;
 
-      const double(*Amean23)[15] = AB_mu23;
-      const double(*Asig23)[15] = AB_sig23;
-      const double(*Amean24)[15] = AB_mu24;
-      const double(*Asig24)[15] = AB_sig24;
-      const double(*Amean34)[15] = AB_mu34;
-      const double(*Asig34)[15] = AB_sig34;
+      const double (*Amean23)[15] = AB_mu23;
+      const double (*Asig23)[15] = AB_sig23;
+      const double (*Amean24)[15] = AB_mu24;
+      const double (*Asig24)[15] = AB_sig24;
+      const double (*Amean34)[15] = AB_mu34;
+      const double (*Asig34)[15] = AB_sig34;
 
-      const double(*Amean51)[15] = AB_mu51;
-      const double(*Asig51)[15] = AB_sig51;
-      const double(*Amean52)[15] = AB_mu52;
-      const double(*Asig52)[15] = AB_sig52;
-      const double(*Amean53)[15] = AB_mu53;
-      const double(*Asig53)[15] = AB_sig53;
+      const double (*Amean51)[15] = AB_mu51;
+      const double (*Asig51)[15] = AB_sig51;
+      const double (*Amean52)[15] = AB_mu52;
+      const double (*Asig52)[15] = AB_sig52;
+      const double (*Amean53)[15] = AB_mu53;
+      const double (*Asig53)[15] = AB_sig53;
 
       switch (type)  // type = mode here
       {
@@ -6276,7 +6276,7 @@ float CSCTFPtMethods::Pt2Stn2011(int type, float eta, float dphi, int fr, int me
           PTsolv = pt - 0.5 * step;
           break;
         }  // lpt = 0 between lpt1 and lpt2 => maximum pt_solv is a solution of the likelihood
-           /*
+        /*
                       if(pt == 140.){
                             v[0] = 200;
                             lpt2_1 = Likelihood2_2011(par_phi12, par1, par_sig1, v);
@@ -6303,9 +6303,9 @@ float CSCTFPtMethods::Pt2Stn2011(int type, float eta, float dphi, int fr, int me
         }
         pt = pt - step;
       }  // end while
-         //*********** end solve equation for muon plus
-         //************* solve equation dLog(Likelihood)/dpt = 0 for muon minus ;
-         // for one station method we know sing of muon: dphi > 0 for muon minus!!! => dphi = -dphi < 0
+      //*********** end solve equation for muon plus
+      //************* solve equation dLog(Likelihood)/dpt = 0 for muon minus ;
+      // for one station method we know sing of muon: dphi > 0 for muon minus!!! => dphi = -dphi < 0
       dphi = -dphi;
       pt = 140;
       dpt = 0.1;
@@ -6337,7 +6337,7 @@ float CSCTFPtMethods::Pt2Stn2011(int type, float eta, float dphi, int fr, int me
           PTsolvMinus = pt - 0.5 * step;
           break;
         }  // lpt = 0 between lpt1 and lpt2 => maximum pt_solv is a solution of the likelihood
-           /*
+        /*
                       if(pt == 140.){
                             v[0] = 200;
                             lpt2_1 = Likelihood2_2011(par_phi12, par1, par_sig1, v);
@@ -6365,9 +6365,9 @@ float CSCTFPtMethods::Pt2Stn2011(int type, float eta, float dphi, int fr, int me
         }
         pt = pt - step;
       }  // end while
-         //          }// if(fabs(dphi) >= 0.002)
-         //          else
-         //          {PTsolv = 137.5;}
+      //          }// if(fabs(dphi) >= 0.002)
+      //          else
+      //          {PTsolv = 137.5;}
 
       //*********** end solve equation for muon minus
       PTsolv = (PTsolv > PTsolvMinus) ? PTsolv
@@ -6381,7 +6381,7 @@ float CSCTFPtMethods::Pt2Stn2011(int type, float eta, float dphi, int fr, int me
       dphi = -dphi;  //return to correct sing dphi
 
     }  //if(fabs(eta_TracMy)
-  }    //end "for by iETA"
+  }  //end "for by iETA"
 
   float Pt = PTsolv;
 
@@ -6699,7 +6699,7 @@ float CSCTFPtMethods::Pt3Stn2010(int type, float eta, float dphi1, float dphi2, 
             PTsolv = pt - 0.5 * step;
             break;
           }  // lpt = 0 between lpt1 and lpt2 => maximum pt_solv is a solution of the likelihood
-             /*
+          /*
                       if(pt == 140.){
                            v[0] = 200.;
                            lpt2_1 = Likelihood(par_phi12, par_phi23, par1, par2, par_sig1, par_sig2, par_rho, v);
@@ -6727,9 +6727,9 @@ float CSCTFPtMethods::Pt3Stn2010(int type, float eta, float dphi1, float dphi2, 
           }
           pt = pt - step;
         }  // end while
-           //*********** end solve equation for muon plus
-           //************* solve equation dLog(Likelihood)/dpt = 0 for muon minus ;
-           // for one station method we know sing of muon: dphi1 > 0 for muon minus!!! => dphi1 = -dphi1 < 0
+        //*********** end solve equation for muon plus
+        //************* solve equation dLog(Likelihood)/dpt = 0 for muon minus ;
+        // for one station method we know sing of muon: dphi1 > 0 for muon minus!!! => dphi1 = -dphi1 < 0
         dphi1 = -dphi1;
         dphi2 = -dphi2;
         pt = 140;
@@ -6792,7 +6792,7 @@ float CSCTFPtMethods::Pt3Stn2010(int type, float eta, float dphi1, float dphi2, 
           }
           pt = pt - step;
         }  // end while
-           //*********** end solve equation for muon minus
+        //*********** end solve equation for muon minus
         PTsolv = (PTsolv > PTsolvMinus)
                      ? PTsolv
                      : PTsolvMinus;  // select Maximum solution from muon plus and moun minus hypotesis
@@ -6838,51 +6838,51 @@ float CSCTFPtMethods::Pt3Stn2011(int type, float eta, float dphi1, float dphi2, 
       int iETA2 = iETA;
 
       // defind which parameters will be use
-      const double(*Amean12F)[15] = AB_mu12F;
-      const double(*Asig12F)[15] = AB_sig12F;
-      const double(*Amean12R)[15] = AB_mu12R;
-      const double(*Asig12R)[15] = AB_sig12R;
+      const double (*Amean12F)[15] = AB_mu12F;
+      const double (*Asig12F)[15] = AB_sig12F;
+      const double (*Amean12R)[15] = AB_mu12R;
+      const double (*Asig12R)[15] = AB_sig12R;
 
-      const double(*Amean13F)[15] = AB_mu13F;
-      const double(*Asig13F)[15] = AB_sig13F;
-      const double(*Amean13R)[15] = AB_mu13R;
-      const double(*Asig13R)[15] = AB_sig13R;
+      const double (*Amean13F)[15] = AB_mu13F;
+      const double (*Asig13F)[15] = AB_sig13F;
+      const double (*Amean13R)[15] = AB_mu13R;
+      const double (*Asig13R)[15] = AB_sig13R;
 
       //const double(*Amean14F)[15] = AB_mu14F;
       //const double(*Asig14F)[15] = AB_sig14F;
       //const double(*Amean14R)[15] = AB_mu14R;
       //const double(*Asig14R)[15] = AB_sig14R;
 
-      const double(*Amean23)[15] = AB_mu23;
-      const double(*Asig23)[15] = AB_sig23;
-      const double(*Amean24)[15] = AB_mu24;
-      const double(*Asig24)[15] = AB_sig24;
-      const double(*Amean34)[15] = AB_mu34;
-      const double(*Asig34)[15] = AB_sig34;
+      const double (*Amean23)[15] = AB_mu23;
+      const double (*Asig23)[15] = AB_sig23;
+      const double (*Amean24)[15] = AB_mu24;
+      const double (*Asig24)[15] = AB_sig24;
+      const double (*Amean34)[15] = AB_mu34;
+      const double (*Asig34)[15] = AB_sig34;
 
-      const double(*Amean5)[15] = AB_mu5;
-      const double(*Asig5)[15] = AB_sig5;
-      const double(*Amean51)[15] = AB_mu51;
-      const double(*Asig51)[15] = AB_sig51;
-      const double(*Amean52)[15] = AB_mu52;
-      const double(*Asig52)[15] = AB_sig52;
-      const double(*Amean53)[15] = AB_mu53;
-      const double(*Asig53)[15] = AB_sig53;
+      const double (*Amean5)[15] = AB_mu5;
+      const double (*Asig5)[15] = AB_sig5;
+      const double (*Amean51)[15] = AB_mu51;
+      const double (*Asig51)[15] = AB_sig51;
+      const double (*Amean52)[15] = AB_mu52;
+      const double (*Asig52)[15] = AB_sig52;
+      const double (*Amean53)[15] = AB_mu53;
+      const double (*Asig53)[15] = AB_sig53;
 
-      const double(*Arho123F)[15] = AB_rho123F;
-      const double(*Arho123R)[15] = AB_rho123R;
-      const double(*Arho124F)[15] = AB_rho124F;
-      const double(*Arho124R)[15] = AB_rho124R;
-      const double(*Arho134F)[15] = AB_rho134F;
-      const double(*Arho134R)[15] = AB_rho134R;
-      const double(*Arho234)[15] = AB_rho234;
+      const double (*Arho123F)[15] = AB_rho123F;
+      const double (*Arho123R)[15] = AB_rho123R;
+      const double (*Arho124F)[15] = AB_rho124F;
+      const double (*Arho124R)[15] = AB_rho124R;
+      const double (*Arho134F)[15] = AB_rho134F;
+      const double (*Arho134R)[15] = AB_rho134R;
+      const double (*Arho234)[15] = AB_rho234;
 
-      const double(*Arho51B)[15] = AB_rho51B;
-      const double(*Arho52B)[15] = AB_rho52B;
-      const double(*Arho53B)[15] = AB_rho53B;
-      const double(*Arho512)[15] = AB_rho512;
-      const double(*Arho513)[15] = AB_rho513;
-      const double(*Arho523)[15] = AB_rho523;
+      const double (*Arho51B)[15] = AB_rho51B;
+      const double (*Arho52B)[15] = AB_rho52B;
+      const double (*Arho53B)[15] = AB_rho53B;
+      const double (*Arho512)[15] = AB_rho512;
+      const double (*Arho513)[15] = AB_rho513;
+      const double (*Arho523)[15] = AB_rho523;
 
       //cout << "iETA = " << iETA
       //     << " AB_mu51[0][iETA] = " << AB_mu51[0][iETA] << " pointer = " << (*(Amean51+0))[iETA]
@@ -7286,9 +7286,9 @@ float CSCTFPtMethods::Pt3Stn2011(int type, float eta, float dphi1, float dphi2, 
           }
           pt = pt - step;
         }  // end while
-           //*********** end solve equation for muon plus
-           //************* solve equation dLog(Likelihood)/dpt = 0 for muon minus ;
-           // for one station method we know sing of muon: dphi1 > 0 for muon minus!!! => dphi1 = -dphi1 < 0
+        //*********** end solve equation for muon plus
+        //************* solve equation dLog(Likelihood)/dpt = 0 for muon minus ;
+        // for one station method we know sing of muon: dphi1 > 0 for muon minus!!! => dphi1 = -dphi1 < 0
         dphi1 = -dphi1;
         dphi2 = -dphi2;
         pt = 140;
@@ -7332,7 +7332,7 @@ float CSCTFPtMethods::Pt3Stn2011(int type, float eta, float dphi1, float dphi2, 
           }
           pt = pt - step;
         }  // end while
-           //*********** end solve equation for muon minus
+        //*********** end solve equation for muon minus
         PTsolv = (PTsolv > PTsolvMinus)
                      ? PTsolv
                      : PTsolvMinus;  // select Maximum solution from muon plus and moun minus hypotesis
@@ -7653,7 +7653,7 @@ float CSCTFPtMethods::Pt2Stn2012(int type, float eta, float dphi, int PtbyMLH, f
       dphi = -dphi;  //return to correct sing dphi
 
     }  //if(fabs(eta_TracMy)
-  }    //end "for by iETA"
+  }  //end "for by iETA"
 
   float Pt = PTsolv;
   if (Pt > 10 && fabs(dphi) >= 0.1)
@@ -8088,51 +8088,51 @@ float CSCTFPtMethods::Pt3Stn2012_DT(
       int iETA2 = iETA;
 
       // defind which parameters will be use
-      const double(*Amean12F)[15] = AB_mu12F;
-      const double(*Asig12F)[15] = AB_sig12F;
-      const double(*Amean12R)[15] = AB_mu12R;
-      const double(*Asig12R)[15] = AB_sig12R;
+      const double (*Amean12F)[15] = AB_mu12F;
+      const double (*Asig12F)[15] = AB_sig12F;
+      const double (*Amean12R)[15] = AB_mu12R;
+      const double (*Asig12R)[15] = AB_sig12R;
 
-      const double(*Amean13F)[15] = AB_mu13F;
-      const double(*Asig13F)[15] = AB_sig13F;
-      const double(*Amean13R)[15] = AB_mu13R;
-      const double(*Asig13R)[15] = AB_sig13R;
+      const double (*Amean13F)[15] = AB_mu13F;
+      const double (*Asig13F)[15] = AB_sig13F;
+      const double (*Amean13R)[15] = AB_mu13R;
+      const double (*Asig13R)[15] = AB_sig13R;
 
       //const double(*Amean14F)[15] = AB_mu14F;
       //const double(*Asig14F)[15] = AB_sig14F;
       //const double(*Amean14R)[15] = AB_mu14R;
       //const double(*Asig14R)[15] = AB_sig14R;
 
-      const double(*Amean23)[15] = AB_mu23;
-      const double(*Asig23)[15] = AB_sig23;
-      const double(*Amean24)[15] = AB_mu24;
-      const double(*Asig24)[15] = AB_sig24;
-      const double(*Amean34)[15] = AB_mu34;
-      const double(*Asig34)[15] = AB_sig34;
+      const double (*Amean23)[15] = AB_mu23;
+      const double (*Asig23)[15] = AB_sig23;
+      const double (*Amean24)[15] = AB_mu24;
+      const double (*Asig24)[15] = AB_sig24;
+      const double (*Amean34)[15] = AB_mu34;
+      const double (*Asig34)[15] = AB_sig34;
 
-      const double(*Amean5)[15] = AB_mu5;
-      const double(*Asig5)[15] = AB_sig5;
-      const double(*Amean51)[15] = AB_mu51;
-      const double(*Asig51)[15] = AB_sig51;
-      const double(*Amean52)[15] = AB_mu52;
-      const double(*Asig52)[15] = AB_sig52;
-      const double(*Amean53)[15] = AB_mu53;
-      const double(*Asig53)[15] = AB_sig53;
+      const double (*Amean5)[15] = AB_mu5;
+      const double (*Asig5)[15] = AB_sig5;
+      const double (*Amean51)[15] = AB_mu51;
+      const double (*Asig51)[15] = AB_sig51;
+      const double (*Amean52)[15] = AB_mu52;
+      const double (*Asig52)[15] = AB_sig52;
+      const double (*Amean53)[15] = AB_mu53;
+      const double (*Asig53)[15] = AB_sig53;
 
-      const double(*Arho123F)[15] = AB_rho123F;
-      const double(*Arho123R)[15] = AB_rho123R;
-      const double(*Arho124F)[15] = AB_rho124F;
-      const double(*Arho124R)[15] = AB_rho124R;
-      const double(*Arho134F)[15] = AB_rho134F;
-      const double(*Arho134R)[15] = AB_rho134R;
-      const double(*Arho234)[15] = AB_rho234;
+      const double (*Arho123F)[15] = AB_rho123F;
+      const double (*Arho123R)[15] = AB_rho123R;
+      const double (*Arho124F)[15] = AB_rho124F;
+      const double (*Arho124R)[15] = AB_rho124R;
+      const double (*Arho134F)[15] = AB_rho134F;
+      const double (*Arho134R)[15] = AB_rho134R;
+      const double (*Arho234)[15] = AB_rho234;
 
-      const double(*Arho51B)[15] = AB_rho51B;
-      const double(*Arho52B)[15] = AB_rho52B;
-      const double(*Arho53B)[15] = AB_rho53B;
-      const double(*Arho512)[15] = AB_rho512;
-      const double(*Arho513)[15] = AB_rho513;
-      const double(*Arho523)[15] = AB_rho523;
+      const double (*Arho51B)[15] = AB_rho51B;
+      const double (*Arho52B)[15] = AB_rho52B;
+      const double (*Arho53B)[15] = AB_rho53B;
+      const double (*Arho512)[15] = AB_rho512;
+      const double (*Arho513)[15] = AB_rho513;
+      const double (*Arho523)[15] = AB_rho523;
 
       //cout << "iETA = " << iETA
       //     << " AB_mu51[0][iETA] = " << AB_mu51[0][iETA] << " pointer = " << (*(Amean51+0))[iETA]
@@ -8632,64 +8632,64 @@ float CSCTFPtMethods::Pt2Stn2012_DT(
       int iETA1 = iETA;
       int iETA2 = iETA;
 
-      const double(*Amean12FnoME11)[15] = AB_mu12FnoME11;
-      const double(*Asig12FnoME11)[15] = AB_sig12FnoME11;
-      const double(*Amean12RnoME11)[15] = AB_mu12RnoME11;
-      const double(*Asig12RnoME11)[15] = AB_sig12RnoME11;
+      const double (*Amean12FnoME11)[15] = AB_mu12FnoME11;
+      const double (*Asig12FnoME11)[15] = AB_sig12FnoME11;
+      const double (*Amean12RnoME11)[15] = AB_mu12RnoME11;
+      const double (*Asig12RnoME11)[15] = AB_sig12RnoME11;
 
-      const double(*Amean13FnoME11)[15] = AB_mu13FnoME11;
-      const double(*Asig13FnoME11)[15] = AB_sig13FnoME11;
-      const double(*Amean13RnoME11)[15] = AB_mu13RnoME11;
-      const double(*Asig13RnoME11)[15] = AB_sig13RnoME11;
+      const double (*Amean13FnoME11)[15] = AB_mu13FnoME11;
+      const double (*Asig13FnoME11)[15] = AB_sig13FnoME11;
+      const double (*Amean13RnoME11)[15] = AB_mu13RnoME11;
+      const double (*Asig13RnoME11)[15] = AB_sig13RnoME11;
 
-      const double(*Amean14FnoME11)[15] = AB_mu14FnoME11;
-      const double(*Asig14FnoME11)[15] = AB_sig14FnoME11;
-      const double(*Amean14RnoME11)[15] = AB_mu14RnoME11;
-      const double(*Asig14RnoME11)[15] = AB_sig14RnoME11;
+      const double (*Amean14FnoME11)[15] = AB_mu14FnoME11;
+      const double (*Asig14FnoME11)[15] = AB_sig14FnoME11;
+      const double (*Amean14RnoME11)[15] = AB_mu14RnoME11;
+      const double (*Asig14RnoME11)[15] = AB_sig14RnoME11;
       //
-      const double(*Amean12FME11)[15] = AB_mu12FME11;
-      const double(*Asig12FME11)[15] = AB_sig12FME11;
-      const double(*Amean12RME11)[15] = AB_mu12RME11;
-      const double(*Asig12RME11)[15] = AB_sig12RME11;
+      const double (*Amean12FME11)[15] = AB_mu12FME11;
+      const double (*Asig12FME11)[15] = AB_sig12FME11;
+      const double (*Amean12RME11)[15] = AB_mu12RME11;
+      const double (*Asig12RME11)[15] = AB_sig12RME11;
 
-      const double(*Amean13FME11)[15] = AB_mu13FME11;
-      const double(*Asig13FME11)[15] = AB_sig13FME11;
-      const double(*Amean13RME11)[15] = AB_mu13RME11;
-      const double(*Asig13RME11)[15] = AB_sig13RME11;
+      const double (*Amean13FME11)[15] = AB_mu13FME11;
+      const double (*Asig13FME11)[15] = AB_sig13FME11;
+      const double (*Amean13RME11)[15] = AB_mu13RME11;
+      const double (*Asig13RME11)[15] = AB_sig13RME11;
 
-      const double(*Amean14FME11)[15] = AB_mu14FME11;
-      const double(*Asig14FME11)[15] = AB_sig14FME11;
-      const double(*Amean14RME11)[15] = AB_mu14RME11;
-      const double(*Asig14RME11)[15] = AB_sig14RME11;
+      const double (*Amean14FME11)[15] = AB_mu14FME11;
+      const double (*Asig14FME11)[15] = AB_sig14FME11;
+      const double (*Amean14RME11)[15] = AB_mu14RME11;
+      const double (*Asig14RME11)[15] = AB_sig14RME11;
       //
-      const double(*Amean12F)[15] = AB_mu12F;
-      const double(*Asig12F)[15] = AB_sig12F;
-      const double(*Amean12R)[15] = AB_mu12R;
-      const double(*Asig12R)[15] = AB_sig12R;
+      const double (*Amean12F)[15] = AB_mu12F;
+      const double (*Asig12F)[15] = AB_sig12F;
+      const double (*Amean12R)[15] = AB_mu12R;
+      const double (*Asig12R)[15] = AB_sig12R;
 
-      const double(*Amean13F)[15] = AB_mu13F;
-      const double(*Asig13F)[15] = AB_sig13F;
-      const double(*Amean13R)[15] = AB_mu13R;
-      const double(*Asig13R)[15] = AB_sig13R;
+      const double (*Amean13F)[15] = AB_mu13F;
+      const double (*Asig13F)[15] = AB_sig13F;
+      const double (*Amean13R)[15] = AB_mu13R;
+      const double (*Asig13R)[15] = AB_sig13R;
 
-      const double(*Amean14F)[15] = AB_mu14F;
-      const double(*Asig14F)[15] = AB_sig14F;
-      const double(*Amean14R)[15] = AB_mu14R;
-      const double(*Asig14R)[15] = AB_sig14R;
+      const double (*Amean14F)[15] = AB_mu14F;
+      const double (*Asig14F)[15] = AB_sig14F;
+      const double (*Amean14R)[15] = AB_mu14R;
+      const double (*Asig14R)[15] = AB_sig14R;
 
-      const double(*Amean23)[15] = AB_mu23;
-      const double(*Asig23)[15] = AB_sig23;
-      const double(*Amean24)[15] = AB_mu24;
-      const double(*Asig24)[15] = AB_sig24;
-      const double(*Amean34)[15] = AB_mu34;
-      const double(*Asig34)[15] = AB_sig34;
+      const double (*Amean23)[15] = AB_mu23;
+      const double (*Asig23)[15] = AB_sig23;
+      const double (*Amean24)[15] = AB_mu24;
+      const double (*Asig24)[15] = AB_sig24;
+      const double (*Amean34)[15] = AB_mu34;
+      const double (*Asig34)[15] = AB_sig34;
 
-      const double(*Amean51)[15] = AB_mu51;
-      const double(*Asig51)[15] = AB_sig51;
-      const double(*Amean52)[15] = AB_mu52;
-      const double(*Asig52)[15] = AB_sig52;
-      const double(*Amean53)[15] = AB_mu53;
-      const double(*Asig53)[15] = AB_sig53;
+      const double (*Amean51)[15] = AB_mu51;
+      const double (*Asig51)[15] = AB_sig51;
+      const double (*Amean52)[15] = AB_mu52;
+      const double (*Asig52)[15] = AB_sig52;
+      const double (*Amean53)[15] = AB_mu53;
+      const double (*Asig53)[15] = AB_sig53;
 
       switch (type)  // type = mode here
       {
@@ -9142,7 +9142,7 @@ float CSCTFPtMethods::Pt2Stn2012_DT(
       dphi = -dphi;  //return to correct sing dphi
 
     }  //if(fabs(eta_TracMy)
-  }    //end "for by iETA"
+  }  //end "for by iETA"
 
   float Pt = PTsolv;
 

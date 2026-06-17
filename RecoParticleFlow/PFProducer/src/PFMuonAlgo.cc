@@ -16,12 +16,12 @@ using namespace boost;
 
 PFMuonAlgo::PFMuonAlgo(const edm::ParameterSet& iConfig, bool postMuonCleaning)
 
-    : pfCosmicsMuonCleanedCandidates_(std::make_unique<reco::PFCandidateCollection>()),
-      pfCleanedTrackerAndGlobalMuonCandidates_(std::make_unique<reco::PFCandidateCollection>()),
-      pfFakeMuonCleanedCandidates_(std::make_unique<reco::PFCandidateCollection>()),
-      pfPunchThroughMuonCleanedCandidates_(std::make_unique<reco::PFCandidateCollection>()),
-      pfPunchThroughHadronCleanedCandidates_(std::make_unique<reco::PFCandidateCollection>()),
-      pfAddedMuonCandidates_(std::make_unique<reco::PFCandidateCollection>()),
+    : pfCosmicsMuonCleanedCandidates_(),
+      pfCleanedTrackerAndGlobalMuonCandidates_(),
+      pfFakeMuonCleanedCandidates_(),
+      pfPunchThroughMuonCleanedCandidates_(),
+      pfPunchThroughHadronCleanedCandidates_(),
+      pfAddedMuonCandidates_(),
 
       maxDPtOPt_(iConfig.getParameter<double>("maxDPtOPt")),
       trackQuality_(reco::TrackBase::qualityByName(iConfig.getParameter<std::string>("trackQuality"))),
@@ -829,6 +829,7 @@ std::pair<double, double> PFMuonAlgo::getMinMaxMET2(const reco::PFCandidate& pfc
   double METXNO = METX_ - pfc.px();
   double METYNO = METY_ - pfc.py();
   std::vector<double> met2;
+  met2.reserve(tracks.size());
   for (unsigned int i = 0; i < tracks.size(); ++i) {
     met2.push_back(pow(METXNO + tracks.at(i).first->px(), 2) + pow(METYNO + tracks.at(i).first->py(), 2));
   }

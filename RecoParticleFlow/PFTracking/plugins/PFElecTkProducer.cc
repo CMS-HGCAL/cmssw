@@ -59,7 +59,8 @@ namespace {
 
 }  // namespace
 
-class PFElecTkProducer final : public edm::stream::EDProducer<edm::GlobalCache<convbremhelpers::HeavyObjectCache> > {
+class PFElecTkProducer final
+    : public edm::stream::EDProducer<edm::GlobalCache<convbremhelpers::HeavyObjectCache>, edm::stream::WatchRuns> {
 public:
   ///Constructor
   explicit PFElecTkProducer(const edm::ParameterSet&, const convbremhelpers::HeavyObjectCache*);
@@ -69,6 +70,7 @@ public:
   }
 
   static void globalEndJob(convbremhelpers::HeavyObjectCache const*) {}
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
 private:
   void beginRun(const edm::Run&, const edm::EventSetup&) override;
@@ -170,6 +172,61 @@ private:
   // cache for multitrajectory states
   std::vector<double> gsfInnerMomentumCache_;
 };
+
+void PFElecTkProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+  edm::ParameterSetDescription desc;
+  desc.add<bool>("TrajInEvents", false);
+  desc.add<std::string>("Fitter", "GsfElectronFittingSmoother");
+  desc.add<bool>("ModeMomentum", true);
+  desc.add<bool>("applyEGSelection", false);
+  desc.add<bool>("applyGsfTrackCleaning", true);
+  desc.add<bool>("applyAlsoGsfAngularCleaning", true);
+  desc.add<double>("maxDEtaGsfAngularCleaning", 0.05);
+  desc.add<double>("maxDPhiBremTangGsfAngularCleaning", 0.05);
+  desc.add<bool>("useFifthStepForTrackerDrivenGsf", false);
+  desc.add<bool>("useFifthStepForEcalDrivenGsf", false);
+  desc.add<double>("MaxConvBremRecoPT", 49.0);
+  desc.add<double>("MinDEtaGsfSC", 0.06);
+  desc.add<double>("MinDPhiGsfSC", 0.15);
+  desc.add<double>("MinSCEnergy", 4.0);
+  desc.add<std::string>("TTRHBuilder", "WithTrackAngle");
+  desc.add<edm::InputTag>("GsfTrackModuleLabel", {"electronGsfTracks"});
+  desc.add<std::string>("Propagator", "fwdElectronPropagator");
+  desc.add<edm::InputTag>("PFRecTrackLabel", {"pfTrack"});
+  desc.add<edm::InputTag>("PFEcalClusters", {"particleFlowClusterECAL"});
+  desc.add<edm::InputTag>("PrimaryVertexLabel", {"offlinePrimaryVertices"});
+  desc.add<bool>("useConvBremFinder", true);
+  desc.add<edm::InputTag>("PFNuclear", {"pfDisplacedTrackerVertex"});
+  desc.add<edm::InputTag>("PFConversions", {"pfConversions"});
+  desc.add<edm::InputTag>("PFV0", {"pfV0"});
+  desc.add<bool>("useNuclear", false);
+  desc.add<bool>("useV0", false);
+  desc.add<bool>("useConversions", false);
+  desc.add<bool>("debugGsfCleaning", false);
+  desc.add<double>("AbsEtaBarrelEndcapsSeparation", 1.479);
+  desc.add<double>("PtLowHighSeparation", 20);
+  desc.add<double>("pf_convBremFinderID_mvaCutBarrelLowPt", 0.6);
+  desc.add<double>("pf_convBremFinderID_mvaCutBarrelHighPt", 0.97);
+  desc.add<double>("pf_convBremFinderID_mvaCutEndcapsLowPt", 0.9);
+  desc.add<double>("pf_convBremFinderID_mvaCutEndcapsHighPt", 0.995);
+  desc.add<edm::FileInPath>(
+      "pf_convBremFinderID_mvaWeightFileBarrelLowPt",
+      edm::FileInPath("RecoParticleFlow/PFTracking/data/"
+                      "TMVAClassification_ConvBremFinder_Testetlt20absetalt1_479_BDT.weights.xml"));
+  desc.add<edm::FileInPath>(
+      "pf_convBremFinderID_mvaWeightFileBarrelHighPt",
+      edm::FileInPath("RecoParticleFlow/PFTracking/data/"
+                      "TMVAClassification_ConvBremFinder_Testetgt20absetalt1_479_BDT.weights.xml"));
+  desc.add<edm::FileInPath>(
+      "pf_convBremFinderID_mvaWeightFileEndcapsLowPt",
+      edm::FileInPath("RecoParticleFlow/PFTracking/data/"
+                      "TMVAClassification_ConvBremFinder_Testetlt20absetagt1_479_BDT.weights.xml"));
+  desc.add<edm::FileInPath>(
+      "pf_convBremFinderID_mvaWeightFileEndcapsHighPt",
+      edm::FileInPath("RecoParticleFlow/PFTracking/data/"
+                      "TMVAClassification_ConvBremFinder_Testetgt20absetagt1_479_BDT.weights.xml"));
+  descriptions.addWithDefaultLabel(desc);
+}
 
 using namespace std;
 using namespace edm;
@@ -813,8 +870,8 @@ bool PFElecTkProducer::resolveGsfTracks(const vector<reco::GsfPFRecTrack>& GsfPF
 float PFElecTkProducer::minTangDist(const reco::GsfPFRecTrack& primGsf, const reco::GsfPFRecTrack& secGsf) {
   float minDphi = 1000.;
 
-  std::vector<reco::PFBrem> primPFBrem = primGsf.PFRecBrem();
-  std::vector<reco::PFBrem> secPFBrem = secGsf.PFRecBrem();
+  const std::vector<reco::PFBrem>& primPFBrem = primGsf.PFRecBrem();
+  const std::vector<reco::PFBrem>& secPFBrem = secGsf.PFRecBrem();
 
   unsigned int cbrem = 0;
   for (unsigned isbrem = 0; isbrem < secPFBrem.size(); isbrem++) {
@@ -938,7 +995,7 @@ bool PFElecTkProducer::isSharingEcalEnergyWithEgSC(const reco::GsfPFRecTrack& nG
         }
         // check if it touch the Brem-tangents
         else {
-          vector<PFBrem> primPFBrem = gsfPfTrack.PFRecBrem();
+          const vector<PFBrem>& primPFBrem = gsfPfTrack.PFRecBrem();
           for (unsigned ipbrem = 0; ipbrem < primPFBrem.size(); ipbrem++) {
             if (primPFBrem[ipbrem].indTrajPoint() == 99)
               continue;
@@ -956,7 +1013,7 @@ bool PFElecTkProducer::isSharingEcalEnergyWithEgSC(const reco::GsfPFRecTrack& nG
           }
         }
       }  // END if angle preselection
-    }    // PFClusters Loop
+    }  // PFClusters Loop
     if (!vecPFClusters.empty()) {
       for (unsigned int pf = 0; pf < vecPFClusters.size(); pf++) {
         bool isCommon = ClusterClusterMapping::overlap(vecPFClusters[pf], *scRef);
@@ -1025,7 +1082,7 @@ bool PFElecTkProducer::isSharingEcalEnergyWithEgSC(const reco::GsfPFRecTrack& nG
           iPFCluster.push_back(clust);
           iEnergy += clust.energy();
         } else {
-          vector<PFBrem> primPFBrem = iGsfPFRecTrack.PFRecBrem();
+          const vector<PFBrem>& primPFBrem = iGsfPFRecTrack.PFRecBrem();
           for (unsigned ipbrem = 0; ipbrem < primPFBrem.size(); ipbrem++) {
             if (primPFBrem[ipbrem].indTrajPoint() == 99)
               continue;

@@ -11,21 +11,27 @@ L1TStage2EMTF::L1TStage2EMTF(const edm::ParameterSet& ps)
       trackToken(consumes<l1t::EMTFTrackCollection>(ps.getParameter<edm::InputTag>("emtfSource"))),
       muonToken(consumes<l1t::RegionalMuonCandBxCollection>(ps.getParameter<edm::InputTag>("emtfSource"))),
       monitorDir(ps.getUntrackedParameter<std::string>("monitorDir", "")),
-      verbose(ps.getUntrackedParameter<bool>("verbose", false)) {}
+      verbose(ps.getUntrackedParameter<bool>("verbose", false)),
+      isRun3(ps.getUntrackedParameter<bool>("isRun3", false)) {}
 
 void L1TStage2EMTF::bookHistograms(DQMStore::IBooker& ibooker, const edm::Run&, const edm::EventSetup&) {
   // Monitor Dir
   ibooker.setCurrentFolder(monitorDir);
 
-  const std::array<std::string, 6> binNamesErrors{
-      {"Corruptions", "Synch. Err.", "Synch. Mod.", "BX Mismatch", "Time Misalign", "FMM != Ready"}};
-
-  // DAQ Output Monitor Elements
-  emtfErrors = ibooker.book1D("emtfErrors", "EMTF Errors", 6, 0, 6);
+  emtfErrors = ibooker.book1D("emtfErrors", "EMTF Errors", 5, 0, 5);
   emtfErrors->setAxisTitle("Error Type (Corruptions Not Implemented)", 1);
   emtfErrors->setAxisTitle("Number of Errors", 2);
-  for (unsigned int bin = 0; bin < binNamesErrors.size(); ++bin) {
-    emtfErrors->setBinLabel(bin + 1, binNamesErrors[bin], 1);
+  if (isRun3) {
+    const std::array<std::string, 4> binNamesErrors{{"FMM != Ready", "BSY", "OSY", "WOF"}};
+    for (unsigned int bin = 0; bin < binNamesErrors.size(); ++bin) {
+      emtfErrors->setBinLabel(bin + 1, binNamesErrors[bin], 1);
+    }
+  } else {
+    const std::array<std::string, 5> binNamesErrors{
+        {"Synch. Err.", "Synch. Mod.", "BX Mismatch", "Time Misalign", "FMM != Ready"}};
+    for (unsigned int bin = 0; bin < binNamesErrors.size(); ++bin) {
+      emtfErrors->setBinLabel(bin + 1, binNamesErrors[bin], 1);
+    }
   }
 
   // CSC LCT Monitor Elements
@@ -807,20 +813,30 @@ void L1TStage2EMTF::analyze(const edm::Event& e, const edm::EventSetup& c) {
 
   for (auto DaqOut = DaqOutCollection->begin(); DaqOut != DaqOutCollection->end(); ++DaqOut) {
     const l1t::emtf::MECollection* MECollection = DaqOut->PtrMECollection();
-    for (auto ME = MECollection->begin(); ME != MECollection->end(); ++ME) {
-      if (ME->SE())
-        emtfErrors->Fill(1);
-      if (ME->SM())
-        emtfErrors->Fill(2);
-      if (ME->BXE())
-        emtfErrors->Fill(3);
-      if (ME->AF())
-        emtfErrors->Fill(4);
-    }
-
     const l1t::emtf::EventHeader* EventHeader = DaqOut->PtrEventHeader();
-    if (!EventHeader->Rdy())
-      emtfErrors->Fill(5);
+    if (isRun3) {
+      if (!EventHeader->Rdy())
+        emtfErrors->Fill(0);
+      if (EventHeader->BSY())
+        emtfErrors->Fill(1);
+      if (EventHeader->OSY())
+        emtfErrors->Fill(2);
+      if (EventHeader->WOF())
+        emtfErrors->Fill(3);
+    } else {
+      for (auto ME = MECollection->begin(); ME != MECollection->end(); ++ME) {
+        if (ME->SE())
+          emtfErrors->Fill(0);
+        if (ME->SM())
+          emtfErrors->Fill(1);
+        if (ME->BXE())
+          emtfErrors->Fill(2);
+        if (ME->AF())
+          emtfErrors->Fill(3);
+        if (!EventHeader->Rdy())
+          emtfErrors->Fill(4);
+      }
+    };
 
     // Fill MPC input link errors
     int offset = (EventHeader->Sector() - 1) * 9;
@@ -999,14 +1015,15 @@ void L1TStage2EMTF::analyze(const edm::Event& e, const edm::EventSetup& c) {
       hist_index = (endcap > 0) ? 1 : 0;
       //Added def of layer
       int layer = Hit->Layer();
+      int GEM_MAX_NROLL = 8;
       int phi_part = Hit->Pad() / 64;  // 0-2
-      int vfat = phi_part * 8 + Hit->Partition();
+      int vfat = phi_part * 8 - Hit->Partition() + GEM_MAX_NROLL;
       if (Hit->Neighbor() == false) {
         gemChamberPad[hist_index]->Fill(chamber, Hit->Pad());
         gemChamberPartition[hist_index]->Fill(chamber, Hit->Partition());
         gemHitOccupancy->Fill(chamber_bin(1, 1, chamber), (endcap > 0) ? 1.5 : 0.5);  // follow CSC convention
         //Added plots 07-21-22 ***
-        gemVFATBXPerChamber[chamber - 1][hist_index][layer]->Fill(Hit->BX(), vfat);
+        gemVFATBXPerChamber[chamber - 1][hist_index][layer - 1]->Fill(Hit->BX(), vfat);
         //indexed plots by BX 07-21-22
         gemChamberVFATBX[hist_index][Hit->BX() + 3]->Fill(chamber_bin(1, 1, chamber), vfat);
       }
@@ -1018,7 +1035,7 @@ void L1TStage2EMTF::analyze(const edm::Event& e, const edm::EventSetup& c) {
         gemHitOccupancy->Fill((Hit->Sector() % 6 + 1) * 7 - 4, (endcap > 0) ? 1.5 : 0.5);  // follow CSC convention
       }
     }  // End of if (Hit->Is_GEM() == true)
-  }    // End of for (auto Hit = HitCollection->begin(); Hit != HitCollection->end(); ++Hit)
+  }  // End of for (auto Hit = HitCollection->begin(); Hit != HitCollection->end(); ++Hit)
 
   // Tracks
   edm::Handle<l1t::EMTFTrackCollection> TrackCollection;
@@ -1176,7 +1193,7 @@ void L1TStage2EMTF::analyze(const edm::Event& e, const edm::EventSetup& c) {
               rpcHitTimingTot->Fill((Hit->Sector_RPC() - 1) * 7 + get_subsector_rpc_cppf(Hit->Subsector_RPC()),
                                     hist_index + 0.5);
             }  // End loop: for (auto Hit = HitCollection->begin(); Hit != HitCollection->end(); ++Hit)
-          }    // End conditional: if (trackHitBX == 0 && ring == 2)
+          }  // End conditional: if (trackHitBX == 0 && ring == 2)
 
           // Fill GEM timing with matched CSC LCTs
           if (trackHitBX == 0 && station == 1 && ring == 1) {  // GEM only in station 1
@@ -1206,8 +1223,8 @@ void L1TStage2EMTF::analyze(const edm::Event& e, const edm::EventSetup& c) {
               }
 
             }  // End loop: for (auto Hit = HitCollection->begin(); Hit != HitCollection->end(); ++Hit)
-          }    // End conditional: if (trackHitBX == 0 && station == 1 && ring == 1)
-        }      // End conditional: if (TrkHit.Is_CSC() == true)
+          }  // End conditional: if (trackHitBX == 0 && station == 1 && ring == 1)
+        }  // End conditional: if (TrkHit.Is_CSC() == true)
 
         if (TrkHit.Is_RPC() == true && neighbor == false) {
           hist_index = histIndexRPC.at({station, ring});
@@ -1236,7 +1253,7 @@ void L1TStage2EMTF::analyze(const edm::Event& e, const edm::EventSetup& c) {
             gemHitTimingTot->Fill((sector % 6 + 1) * 7 - 4, (endcap > 0) ? 1.5 : 0.5);
           }
         }  // End condition: if (TrkHit.Is_GEM() == true)
-      }    // End loop: for (int iHit = 0; iHit < numHits; ++iHit)
+      }  // End loop: for (int iHit = 0; iHit < numHits; ++iHit)
     }
     //////////////////////////////////////////////////
     ///  End block for CSC LCT and RPC hit timing  ///

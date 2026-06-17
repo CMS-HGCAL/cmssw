@@ -17,7 +17,7 @@
 // user include files
 #include "FWCore/Framework/interface/EventSetupRecordProvider.h"
 
-#include "FWCore/Framework/interface/ParameterSetIDHolder.h"
+#include "FWCore/Framework/interface/ComponentDescription.h"
 #include "FWCore/Framework/interface/EventSetupImpl.h"
 #include "FWCore/Framework/interface/EventSetupProvider.h"
 #include "FWCore/Framework/interface/EventSetupRecordIntervalFinder.h"
@@ -81,7 +81,6 @@ namespace edm {
 
     void EventSetupRecordProvider::setDependentProviders(
         const std::vector<std::shared_ptr<EventSetupRecordProvider>>& iProviders) {
-      using std::placeholders::_1;
       std::shared_ptr<DependentRecordIntervalFinder> newFinder =
           make_shared_noexcept_false<DependentRecordIntervalFinder>(key());
 
@@ -98,7 +97,7 @@ namespace edm {
     }
     void EventSetupRecordProvider::usePreferred(const DataToPreferredProviderMap& iMap) {
       using std::placeholders::_1;
-      for_all(providers_, std::bind(&EventSetupRecordProvider::addProxiesToRecordHelper, this, _1, iMap));
+      for_all(providers_, std::bind(&EventSetupRecordProvider::addResolversToRecordHelper, this, _1, iMap));
       if (1 < multipleFinders_->size()) {
         std::shared_ptr<IntersectingIOVRecordIntervalFinder> intFinder =
             make_shared_noexcept_false<IntersectingIOVRecordIntervalFinder>(key_);
@@ -113,8 +112,9 @@ namespace edm {
       multipleFinders_.reset(nullptr);
     }
 
-    void EventSetupRecordProvider::addProxiesToRecord(std::shared_ptr<ESProductResolverProvider> iProvider,
-                                                      const EventSetupRecordProvider::DataToPreferredProviderMap& iMap) {
+    void EventSetupRecordProvider::addResolversToRecord(
+        std::shared_ptr<ESProductResolverProvider> iProvider,
+        const EventSetupRecordProvider::DataToPreferredProviderMap& iMap) {
       typedef ESProductResolverProvider::KeyedResolvers ResolverList;
       typedef EventSetupRecordProvider::DataToPreferredProviderMap PreferredMap;
 
@@ -152,7 +152,7 @@ namespace edm {
       }
     }
 
-    void EventSetupRecordProvider::endIOV(unsigned int iovIndex) { recordImpls_[iovIndex].invalidateProxies(); }
+    void EventSetupRecordProvider::endIOV(unsigned int iovIndex) { recordImpls_[iovIndex].invalidateResolvers(); }
 
     void EventSetupRecordProvider::initializeForNewSyncValue() {
       intervalStatus_ = IntervalStatus::NotInitializedForSyncValue;
@@ -212,11 +212,11 @@ namespace edm {
       return intervalStatus_ != IntervalStatus::Invalid;
     }
 
-    void EventSetupRecordProvider::resetProxies() {
+    void EventSetupRecordProvider::resetResolvers() {
       // Clear out all the ESProductResolver's
       for (auto& recordImplIter : recordImpls_) {
-        recordImplIter.invalidateProxies();
-        recordImplIter.resetIfTransientInProxies();
+        recordImplIter.invalidateResolvers();
+        recordImplIter.resetIfTransientInResolvers();
       }
       // Force a new IOV to start with a new cacheIdentifier
       // on the next eventSetupForInstance call.
@@ -231,24 +231,20 @@ namespace edm {
       firstRecordImpl().getESProducers(referencedESProducers[key_]);
     }
 
-    void EventSetupRecordProvider::fillReferencedDataKeys(
-        std::map<DataKey, ComponentDescription const*>& referencedDataKeys) const {
-      std::vector<DataKey> keys;
-      firstRecordImpl().fillRegisteredDataKeys(keys);
-      std::vector<ComponentDescription const*> components = firstRecordImpl().componentsForRegisteredDataKeys();
-      auto itComponents = components.begin();
-      for (auto const& k : keys) {
-        referencedDataKeys.emplace(k, *itComponents);
-        ++itComponents;
+    void EventSetupRecordProvider::fillAllESProductResolverProviders(
+        std::vector<ESProductResolverProvider const*>& allESProductResolverProviders,
+        std::unordered_set<unsigned int>& componentIDs) const {
+      for (auto const& provider : providers_) {
+        if (componentIDs.insert(provider->description().id_).second) {
+          allESProductResolverProviders.push_back(provider.get());
+        }
       }
     }
 
-    void EventSetupRecordProvider::resetRecordToResolverPointers(DataToPreferredProviderMap const& iMap) {
-      for (auto& recordImplIter : recordImpls_) {
-        recordImplIter.clearProxies();
+    void EventSetupRecordProvider::updateLookup(ESRecordsToProductResolverIndices const& iResolverToIndices) {
+      for (auto& productResolverProvider : providers_) {
+        productResolverProvider->updateLookup(iResolverToIndices);
       }
-      using std::placeholders::_1;
-      for_all(providers_, std::bind(&EventSetupRecordProvider::addProxiesToRecordHelper, this, _1, iMap));
     }
 
     std::set<EventSetupRecordKey> EventSetupRecordProvider::dependentRecords() const { return dependencies(key()); }
@@ -277,35 +273,16 @@ namespace edm {
       return get_underlying_safe(*itFound);
     }
 
-    std::shared_ptr<ESProductResolverProvider> EventSetupRecordProvider::resolverProvider(
-        ParameterSetIDHolder const& psetID) {
-      for (auto& productResolverProvider : providers_) {
-        if (productResolverProvider->description().pid_ == psetID.psetID()) {
-          return get_underlying_safe(productResolverProvider);
-        }
-      }
-      return std::shared_ptr<ESProductResolverProvider>();
-    }
-
-    void EventSetupRecordProvider::resetProductResolverProvider(
-        ParameterSetIDHolder const& psetID,
-        std::shared_ptr<ESProductResolverProvider> const& sharedESProductResolverProvider) {
-      for (auto& productResolverProvider : providers_) {
-        if (productResolverProvider->description().pid_ == psetID.psetID()) {
-          productResolverProvider = sharedESProductResolverProvider;
-          productResolverProvider->createKeyedResolvers(key_, nConcurrentIOVs_);
-        }
-      }
-    }
-
-    std::vector<DataKey> EventSetupRecordProvider::registeredDataKeys() const {
-      std::vector<DataKey> ret;
-      firstRecordImpl().fillRegisteredDataKeys(ret);
-      return ret;
+    std::vector<DataKey> const& EventSetupRecordProvider::registeredDataKeys() const {
+      return firstRecordImpl().registeredDataKeys();
     }
 
     std::vector<ComponentDescription const*> EventSetupRecordProvider::componentsForRegisteredDataKeys() const {
       return firstRecordImpl().componentsForRegisteredDataKeys();
+    }
+
+    std::vector<unsigned int> EventSetupRecordProvider::produceMethodIDsForRegisteredDataKeys() const {
+      return firstRecordImpl().produceMethodIDsForRegisteredDataKeys();
     }
 
   }  // namespace eventsetup

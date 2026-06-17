@@ -7,7 +7,6 @@
 
 #include "DataFormats/SoATemplate/interface/SoACommon.h"
 #include "DataFormats/SoATemplate/interface/SoALayout.h"
-#include "DataFormats/SoATemplate/interface/SoAView.h"
 
 namespace hgcaldigi {
 
@@ -20,16 +19,20 @@ namespace hgcaldigi {
   }  // namespace ECONDFlag
 
   // functions to parse ECONDFlag
-  inline bool truncatedFlag(uint8_t econdFlag) { return ((econdFlag >> hgcaldigi::ECONDFlag::BITT_POS) & 0b1); }
-  inline bool matchFlag(uint8_t econdFlag) { return ((econdFlag >> hgcaldigi::ECONDFlag::BITM_POS) & 0b1); }
-  inline uint8_t eboFlag(uint8_t econdFlag) {
+  inline constexpr bool truncatedFlag(uint8_t econdFlag) {
+    return ((econdFlag >> hgcaldigi::ECONDFlag::BITT_POS) & 0b1);
+  }
+  inline constexpr bool matchFlag(uint8_t econdFlag) { return ((econdFlag >> hgcaldigi::ECONDFlag::BITM_POS) & 0b1); }
+  inline constexpr uint8_t eboFlag(uint8_t econdFlag) {
     return ((econdFlag >> hgcaldigi::ECONDFlag::EBO_POS) & hgcaldigi::ECONDFlag::EBO_MASK);
   }
-  inline uint8_t htFlag(uint8_t econdFlag) {
+  inline constexpr uint8_t htFlag(uint8_t econdFlag) {
     return ((econdFlag >> hgcaldigi::ECONDFlag::HT_POS) & hgcaldigi::ECONDFlag::HT_MASK);
   }
-  inline bool expectedFlag(uint8_t econdFlag) { return ((econdFlag >> hgcaldigi::ECONDFlag::BITE_POS) & 0b1); }
-  inline bool StatFlag(uint8_t econdFlag) { return ((econdFlag >> hgcaldigi::ECONDFlag::BITS_POS) & 0b1); }
+  inline constexpr bool expectedFlag(uint8_t econdFlag) {
+    return ((econdFlag >> hgcaldigi::ECONDFlag::BITE_POS) & 0b1);
+  }
+  inline constexpr bool StatFlag(uint8_t econdFlag) { return ((econdFlag >> hgcaldigi::ECONDFlag::BITS_POS) & 0b1); }
 
   // generate structure of arrays (SoA) layout with Digi dataformat
   GENERATE_SOA_LAYOUT(HGCalECONDPacketInfoSoALayout,
@@ -41,7 +44,8 @@ namespace hgcaldigi {
                       // 0b100: No ECOND packet. The event builder state machine timed-out.
                       // 0b101: No ECOND packet due to BCID and/or OrbitID mismatch.
                       // 0b110: No ECOND packet. Packet was detected but was discarded due to Main Buffer overflow.
-                      SOA_COLUMN(uint8_t, cbFlag),  //cbflag
+                      // 0b111: ECOND CRC trailer error.
+                      SOA_COLUMN(uint16_t, cbFlag),  //cbflag
                       // ECON-D header information
                       // bit 0: Truncation flag
                       // bit 1: Match flag
@@ -69,6 +73,15 @@ namespace hgcaldigi {
                       // If exception found before ECON-D, this would be 0
                       // Otherwise the payload length of the ECON-D
                       SOA_COLUMN(uint16_t, payloadLength),
+                      // BX,L1A,Orbit number of the ECON-D
+                      SOA_COLUMN(uint16_t, BX),
+                      SOA_COLUMN(uint8_t, L1A),
+                      SOA_COLUMN(uint8_t, Orbit),
+                      // BX,L1A,Orbit number of the Capture Block
+                      SOA_COLUMN(uint16_t, CBBX),
+                      SOA_COLUMN(uint8_t, CBL1A),
+                      SOA_COLUMN(uint8_t, CBOrbit),
+                      // Common modes
                       SOA_EIGEN_COLUMN(Matrix, cm))
   using HGCalECONDPacketInfoSoA = HGCalECONDPacketInfoSoALayout<>;
 }  // namespace hgcaldigi

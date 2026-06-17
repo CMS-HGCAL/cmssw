@@ -1,15 +1,18 @@
 #! /usr/bin/env python3
 # -*-coding: utf-8 -*-
 
-from __future__ import print_function
 import os, sys
 
 
 class env:
     def checkSample(self):
         if ('DD_SAMPLE' not in os.environ) or (os.environ['DD_SAMPLE'] == ''):
-            if (len(sys.argv) > 2):  # no else part since if sample does not exist, we had quit previously
-                sampleName = str(sys.argv[2])
+            print('no existing sample name')
+            print('nb of element : ', len(sys.argv))
+            print('0 : ', sys.argv[0])
+            print('1 : ', sys.argv[1])
+            if (len(sys.argv) > 1):  # no else part since if sample does not exist, we had quit previously
+                sampleName = str(sys.argv[1])
                 os.environ['DD_SAMPLE'] = 'RelVal' + sampleName
                 print('Sample name:', sampleName, ' - ', os.environ['DD_SAMPLE'])
             else:
@@ -17,10 +20,12 @@ class env:
                 print('no sample name, quit')
                 print('====================')
                 quit()
+        else:
+            print('Existing Sample name:', sampleName, ' - ', os.environ['DD_SAMPLE'])
 
     def beginTag(self):
-        beginTag = 'Phase2'
-        #beginTag = 'Run3'
+        #beginTag = 'Phase2'
+        beginTag = 'Run3'
         return beginTag
 
     def dd_tier(self):
@@ -30,12 +35,11 @@ class env:
 
     def tag_startup(self):
         #tag_startup = '125X_mcRun3_2022_realistic_v3'
-        tag_startup = '125X_mcRun4_realistic_v2_2026D88noPU'
+        #tag_startup = '140X_mcRun4_realistic_v4_STD_2026D110_noPU'
+        tag_startup = '150X_mcRun3_2025_realistic_v2_STD_RecycledGS_2025_noPU'
+        tag_startup = 'PU_151X_mcRun3_2025_realistic_v3_STD_2025_PU'
+        #tag_startup = 'PU_142X_mcRun3_2025_realistic_v5_STD_2025_PU'
         # tag_startup = '113X_mcRun3_2021_realistic_v7'
-        # tag_startup = '93X_upgrade2023_realistic_v2_2023D17PU140'
-        # tag_startup = '93X_upgrade2023_realistic_v0_D17PU200'
-        # tag_startup = '92X_upgrade2023_realistic_v2_2023D17noPU'
-        # tag_startup = '93X_upgrade2023_realistic_v0_D17PU200'
         return tag_startup
 
     def data_version(self):
@@ -87,6 +91,8 @@ class env:
         os.environ['data'] = '/' + os.environ['DD_SAMPLE'] + '/' + os.environ['DD_RELEASE'] + '-' + os.environ[
             'DD_COND'] + '/' + os.environ['DD_TIER']
         os.environ['outputFile'] = 'electronHistos.' + os.environ['DD_SAMPLE_OUT'] + '_gedGsfE.root'
+        if (os.environ['DD_TIER'] == 'MINIAODSIM'):
+            os.environ['outputFile'] = 'electronHistos.' + os.environ['DD_SAMPLE_OUT'] + '_miniAOD.root'
         if ('inputPostFile' not in os.environ) or (os.environ['inputPostFile'] == ''):
             print('inputPostFile : %s' % os.environ['outputFile'])
             os.environ['inputPostFile'] = os.environ['outputFile']

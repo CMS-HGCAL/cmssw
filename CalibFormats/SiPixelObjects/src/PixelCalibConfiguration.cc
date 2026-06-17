@@ -543,7 +543,7 @@ void PixelCalibConfiguration::buildROCAndModuleLists(const PixelNameTranslation*
   for (std::vector<std::string>::iterator rocListInstructions_itr = rocListInstructions_.begin();
        rocListInstructions_itr != rocListInstructions_.end();
        ++rocListInstructions_itr) {
-    std::string instruction = *rocListInstructions_itr;
+    const std::string& instruction = *rocListInstructions_itr;
 
     if (instruction == "+") {
       addNext = true;
@@ -1148,7 +1148,7 @@ void PixelCalibConfiguration::nextFECState(std::map<unsigned int, PixelFECConfig
       }
 
     }  // end of instructions for the beginning of a scan
-  }    // end of loop over ROCs
+  }  // end of loop over ROCs
 
   if (_bufferData) {
     std::map<unsigned int, PixelFECConfigInterface*>::iterator iPixelFEC = pixelFECs.begin();

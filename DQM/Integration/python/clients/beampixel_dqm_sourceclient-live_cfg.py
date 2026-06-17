@@ -1,4 +1,3 @@
-from __future__ import print_function
 import FWCore.ParameterSet.Config as cms
 
 import sys
@@ -6,8 +5,8 @@ if 'runkey=hi_run' in sys.argv:
   from Configuration.Eras.Era_Run3_pp_on_PbPb_approxSiStripClusters_cff import Run3_pp_on_PbPb_approxSiStripClusters
   process = cms.Process("BeamPixel", Run3_pp_on_PbPb_approxSiStripClusters)
 else:
-  from Configuration.Eras.Era_Run3_cff import Run3
-  process = cms.Process("BeamPixel", Run3)
+  from Configuration.Eras.Era_Run3_2025_cff import Run3_2025
+  process = cms.Process("BeamPixel", Run3_2025)
 
 unitTest = False
 if 'unitTest=True' in sys.argv:
@@ -42,8 +41,8 @@ process.load("DQM.Integration.config.environment_cfi")
 process.dqmEnv.subSystemFolder = "BeamPixel"
 process.dqmSaver.tag = "BeamPixel"
 process.dqmSaver.runNumber = options.runNumber
-process.dqmSaverPB.tag = 'BeamPixel'
-process.dqmSaverPB.runNumber = options.runNumber
+# process.dqmSaverPB.tag = 'BeamPixel'
+# process.dqmSaverPB.runNumber = options.runNumber
 
 #----------------------------
 # Conditions
@@ -67,7 +66,7 @@ process.load("Configuration.StandardSequences.RawToDigi_Data_cff")
 #----------------------------
 # Define Sequences
 #----------------------------
-process.dqmModules  = cms.Sequence(process.dqmEnv + process.dqmSaver + process.dqmSaverPB)
+process.dqmModules  = cms.Sequence(process.dqmEnv + process.dqmSaver )#+ process.dqmSaverPB)
 process.physTrigger = cms.Sequence(process.hltTriggerTypeFilter)
 
 
@@ -93,7 +92,7 @@ process.load("TrackingTools.TransientTrack.TransientTrackBuilder_cfi")
 from RecoTracker.PixelLowPtUtilities.siPixelClusterShapeCache_cfi import *
 process.siPixelClusterShapeCachePreSplitting = siPixelClusterShapeCache.clone(src = 'siPixelClustersPreSplitting')
 process.load("RecoLocalTracker.SiPixelRecHits.PixelCPEGeneric_cfi")
-process.load("RecoTracker.Configuration.RecoPixelVertexing_cff")
+process.load("RecoVertex.Configuration.RecoPixelVertexing_cff")
 from RecoVertex.PrimaryVertexProducer.OfflinePixel3DPrimaryVertices_cfi import *
 process.pixelVertices = pixelVertices.clone(
     TkFilterParameters = dict(
@@ -121,7 +120,7 @@ if (process.runType.getRunType() == process.runType.pp_run or process.runType.ge
     process.castorDigis.InputLabel           = "rawDataCollector"
     process.csctfDigis.producer              = "rawDataCollector"
     process.dttfDigis.DTTF_FED_Source        = "rawDataCollector"
-    process.ecalDigisCPU.InputLabel          = "rawDataCollector"
+    process.ecalDigis.InputLabel             = "rawDataCollector"
     process.ecalPreshowerDigis.sourceTag     = "rawDataCollector"
     process.gctDigis.inputLabel              = "rawDataCollector"
     process.gtDigis.DaqGtInputTag            = "rawDataCollector"
@@ -130,7 +129,7 @@ if (process.runType.getRunType() == process.runType.pp_run or process.runType.ge
     process.muonDTDigis.inputLabel           = "rawDataCollector"
     process.muonRPCDigis.InputLabel          = "rawDataCollector"
     process.scalersRawToDigi.scalersInputTag = "rawDataCollector"
-    process.siPixelDigis.cpu.InputLabel      = "rawDataCollector"
+    process.siPixelDigis.InputLabel      = "rawDataCollector"
     process.siStripDigis.ProductLabel        = "rawDataCollector"
 
     
@@ -174,7 +173,7 @@ if (process.runType.getRunType() == process.runType.hi_run):
     process.castorDigis.InputLabel           = "rawDataRepacker"
     process.csctfDigis.producer              = "rawDataRepacker"
     process.dttfDigis.DTTF_FED_Source        = "rawDataRepacker"
-    process.ecalDigisCPU.InputLabel          = "rawDataRepacker"
+    process.ecalDigis.InputLabel             = "rawDataRepacker"
     process.ecalPreshowerDigis.sourceTag     = "rawDataRepacker"
     process.gctDigis.inputLabel              = "rawDataRepacker"
     process.gtDigis.DaqGtInputTag            = "rawDataRepacker"
@@ -183,7 +182,7 @@ if (process.runType.getRunType() == process.runType.hi_run):
     process.muonDTDigis.inputLabel           = "rawDataRepacker"
     process.muonRPCDigis.InputLabel          = "rawDataRepacker"
     process.scalersRawToDigi.scalersInputTag = "rawDataRepacker"
-    process.siPixelDigis.cpu.InputLabel      = "rawDataRepacker"
+    process.siPixelDigis.InputLabel      = "rawDataRepacker"
     process.siStripDigis.ProductLabel        = "rawDataRepacker"
 
 
@@ -231,8 +230,7 @@ process.reconstructionStep = cms.Sequence(process.siPixelDigis*
                                           process.siStripDigis*
                                           process.striptrackerlocalreco*
                                           process.offlineBeamSpot*
-                                          process.siPixelClustersPreSplitting*
-                                          process.siPixelRecHitsPreSplitting*
+                                          process.pixeltrackerlocalreco*
                                           process.siPixelClusterShapeCachePreSplitting*
                                           process.recopixelvertexing)
 

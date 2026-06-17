@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import print_function
 '''CMS Conditions DB Serialization generator.
 
 Generates the non-intrusive serialization code required for the classes
@@ -402,7 +401,7 @@ def get_default_gcc_search_paths(gcc = 'g++', language = 'c++'):
             if '/lib/gcc/' in path:
                 continue
 
-            paths.append('-I%s' % path)
+            paths.append('-isystem%s' % path)
 
         else:
             if line == '#include <...> search starts here:':

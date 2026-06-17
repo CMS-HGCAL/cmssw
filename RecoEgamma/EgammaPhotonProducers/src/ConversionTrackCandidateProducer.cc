@@ -47,7 +47,7 @@
 #include "CondFormats/DataRecord/interface/EcalPFRecHitThresholdsRcd.h"
 #include <vector>
 
-class ConversionTrackCandidateProducer : public edm::stream::EDProducer<> {
+class ConversionTrackCandidateProducer : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   ConversionTrackCandidateProducer(const edm::ParameterSet& ps);
 
@@ -406,7 +406,7 @@ void ConversionTrackCandidateProducer::buildCollections(bool isBarrel,
       ecalIso.doSeverityChecks(&ecalRecHits, severitiesexclEE_);
     }
 
-    double ecalIsolation = ecalIso.getEtSum(sc, *thresholds);
+    double ecalIsolation = ecalIso.getEtSum(sc, thresholds);
     if (ecalIsolation > ecalIsoCut_offset_ + ecalIsoCut_slope_ * scEt)
       continue;
 

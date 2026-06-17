@@ -27,7 +27,7 @@ Modified from the ECAL version "InterestingDetIdCollectionProducer" to be HCAL
 #include "Geometry/Records/interface/CaloGeometryRecord.h"
 #include "RecoEgamma/EgammaIsolationAlgos/interface/EGHcalRecHitSelector.h"
 
-class EgammaIsoHcalDetIdCollectionProducer : public edm::stream::EDProducer<> {
+class EgammaIsoHcalDetIdCollectionProducer : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   explicit EgammaIsoHcalDetIdCollectionProducer(const edm::ParameterSet&);
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
@@ -125,7 +125,8 @@ void EgammaIsoHcalDetIdCollectionProducer::produce(edm::Event& iEvent, const edm
 
   //unify the vector
   std::sort(indexToStore.begin(), indexToStore.end());
-  std::unique(indexToStore.begin(), indexToStore.end());
+  auto last = std::unique(indexToStore.begin(), indexToStore.end());
+  indexToStore.erase(last, indexToStore.end());
 
   auto detIdCollection = std::make_unique<DetIdCollection>(indexToStore);
 

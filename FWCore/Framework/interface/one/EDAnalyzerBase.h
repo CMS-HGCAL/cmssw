@@ -34,7 +34,7 @@ namespace edm {
   class ModuleCallingContext;
   class PreallocationConfiguration;
   class ActivityRegistry;
-  class ThinnedAssociationsHelper;
+  class SignallingProductRegistryFiller;
 
   namespace maker {
     template <typename T>
@@ -71,7 +71,7 @@ namespace edm {
 
       virtual SerialTaskQueue* globalRunsQueue();
       virtual SerialTaskQueue* globalLuminosityBlocksQueue();
-      void callWhenNewProductsRegistered(std::function<void(BranchDescription const&)> const& func);
+      void callWhenNewProductsRegistered(std::function<void(ProductDescription const&)> const& func);
 
     private:
       bool doEvent(EventTransitionInfo const&, ActivityRegistry*, ModuleCallingContext const*);
@@ -94,13 +94,9 @@ namespace edm {
       void doBeginLuminosityBlock(LumiTransitionInfo const&, ModuleCallingContext const*);
       void doEndLuminosityBlock(LumiTransitionInfo const&, ModuleCallingContext const*);
 
-      void doRespondToOpenInputFile(FileBlock const&) {}
-      void doRespondToCloseInputFile(FileBlock const&) {}
       void doRespondToCloseOutputFile() { clearInputProcessBlockCaches(); }
-      void doRegisterThinnedAssociations(ProductRegistry const&, ThinnedAssociationsHelper&) {}
 
-      void registerProductsAndCallbacks(EDAnalyzerBase const* module, ProductRegistry* reg);
-      std::string workerType() const { return "WorkerT<EDAnalyzer>"; }
+      void registerProductsAndCallbacks(EDAnalyzerBase const* module, SignallingProductRegistryFiller* reg);
 
       SharedResourcesAcquirer& sharedResourcesAcquirer() { return resourcesAcquirer_; }
 
@@ -125,7 +121,7 @@ namespace edm {
 
       void setModuleDescription(ModuleDescription const& md) { moduleDescription_ = md; }
       ModuleDescription moduleDescription_;
-      std::function<void(BranchDescription const&)> callWhenNewProductsRegistered_;
+      std::function<void(ProductDescription const&)> callWhenNewProductsRegistered_;
 
       SharedResourcesAcquirer resourcesAcquirer_;
     };

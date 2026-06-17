@@ -1,5 +1,6 @@
 # import the definition of the steps and input files:
 from  Configuration.PyReleaseValidation.relval_steps import *
+from .MatrixUtil import Matrix
 
 # here only define the workflows as a combination of the steps defined above:
 workflows = Matrix()
@@ -86,6 +87,3 @@ workflows[13992502]=['',['TTbar_13_HS','DIGIUP15_PU25HS','RECOUP15_PU25HS','HARV
 workflows[134.99601] = ['',['RunJetHT2015HLHS','HLTDR2_25ns','RECODR2_25nsreHLT_HIPM','HARVESTDR2']]
 workflows[134.99602] = ['',['RunZeroBias2015HLHS','HLTDR2_25ns','RECODR2_25nsreHLT_HIPM','HARVESTDR2']]
 workflows[134.99603] = ['',['RunSingleMu2015HLHS','HLTDR2_25ns','RECODR2_25nsreHLT_HIPM','HARVESTDR2']]
-
-
-

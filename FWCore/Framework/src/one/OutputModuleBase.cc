@@ -17,12 +17,11 @@
 #include "FWCore/Framework/interface/one/OutputModuleBase.h"
 
 #include "DataFormats/Common/interface/Handle.h"
-#include "DataFormats/Common/interface/ThinnedAssociation.h"
 #include "DataFormats/Common/interface/EndPathStatus.h"
-#include "DataFormats/Provenance/interface/BranchDescription.h"
+#include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "DataFormats/Provenance/interface/BranchKey.h"
 #include "DataFormats/Provenance/interface/ProductRegistry.h"
-#include "DataFormats/Provenance/interface/ThinnedAssociationsHelper.h"
+
 #include "FWCore/Framework/interface/EventForOutput.h"
 #include "FWCore/Framework/interface/EventPrincipal.h"
 #include "FWCore/Framework/src/insertSelectedProcesses.h"
@@ -37,7 +36,6 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "FWCore/Utilities/interface/DebugMacros.h"
 #include "FWCore/Reflection/interface/DictionaryTools.h"
 
 namespace edm {
@@ -46,10 +44,7 @@ namespace edm {
     // -------------------------------------------------------
     OutputModuleBase::OutputModuleBase(ParameterSet const& pset) : core::OutputModuleCore(pset) {}
 
-    void OutputModuleBase::configure(OutputModuleDescription const& desc) {
-      core::OutputModuleCore::configure(desc);
-      subProcessParentageHelper_ = desc.subProcessParentageHelper_;
-    }
+    void OutputModuleBase::configure(OutputModuleDescription const& desc) { core::OutputModuleCore::configure(desc); }
 
     SharedResourcesAcquirer OutputModuleBase::createAcquirer() {
       return SharedResourcesAcquirer{
@@ -68,7 +63,9 @@ namespace edm {
     bool OutputModuleBase::doEvent(EventTransitionInfo const& info,
                                    ActivityRegistry* act,
                                    ModuleCallingContext const* mcc) {
-      { core::OutputModuleCore::doEvent_(info, act, mcc); }
+      {
+        core::OutputModuleCore::doEvent_(info, act, mcc);
+      }
       if (remainingEvents_ > 0) {
         --remainingEvents_;
       }

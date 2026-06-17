@@ -12,6 +12,7 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/prefixScan.h"
+#include "HeterogeneousCore/AlpakaInterface/interface/warpsize.h"
 
 using namespace cms::alpakatools;
 using namespace ALPAKA_ACCELERATOR_NAMESPACE;
@@ -32,9 +33,9 @@ public:
 
 template <typename T>
 struct testPrefixScan {
-  template <typename TAcc>
-  ALPAKA_FN_ACC void operator()(const TAcc& acc, unsigned int size) const {
-    auto& ws = alpaka::declareSharedVar<T[32], __COUNTER__>(acc);
+  ALPAKA_FN_ACC void operator()(Acc1D const& acc, unsigned int size) const {
+    // alpaka::warp::getSize(acc) is runtime, but we need a compile-time or constexpr value, so we use cms::alpakatools::warpSize
+    auto& ws = alpaka::declareSharedVar<T[cms::alpakatools::warpSize], __COUNTER__>(acc);
     auto& c = alpaka::declareSharedVar<T[1024], __COUNTER__>(acc);
     auto& co = alpaka::declareSharedVar<T[1024], __COUNTER__>(acc);
 
@@ -75,10 +76,9 @@ struct testPrefixScan {
  */
 template <typename T>
 struct testWarpPrefixScan {
-  template <typename TAcc>
-  ALPAKA_FN_ACC void operator()(const TAcc& acc, uint32_t size) const {
-    if constexpr (!requires_single_thread_per_block_v<TAcc>) {
-      ALPAKA_ASSERT_ACC(size <= 32);
+  ALPAKA_FN_ACC void operator()(Acc1D const& acc, uint32_t size) const {
+    if constexpr (not requires_single_thread_per_block_v<Acc1D>) {
+      ALPAKA_ASSERT_ACC(size <= static_cast<uint32_t>(alpaka::warp::getSize(acc)));
       auto& c = alpaka::declareSharedVar<T[1024], __COUNTER__>(acc);
       auto& co = alpaka::declareSharedVar<T[1024], __COUNTER__>(acc);
 
@@ -87,7 +87,8 @@ struct testWarpPrefixScan {
       auto i = blockThreadIdx;
       c[i] = 1;
       alpaka::syncBlockThreads(acc);
-      auto laneId = blockThreadIdx & 0x1f;
+      // a compile-time constant would be faster, but this is more portable
+      auto laneId = blockThreadIdx % alpaka::warp::getSize(acc);
 
       warpPrefixScan(acc, laneId, c, co, i);
       warpPrefixScan(acc, laneId, c, i);
@@ -104,15 +105,14 @@ struct testWarpPrefixScan {
         ALPAKA_ASSERT_ACC(c[i] == co[i]);
       }
     } else {
-      // We should never be called outsie of the GPU.
+      // This should never be called outsie for the serial CPU backend.
       ALPAKA_ASSERT_ACC(false);
     }
   }
 };
 
 struct init {
-  template <typename TAcc>
-  ALPAKA_FN_ACC void operator()(const TAcc& acc, uint32_t* v, uint32_t val, uint32_t n) const {
+  ALPAKA_FN_ACC void operator()(Acc1D const& acc, uint32_t* v, uint32_t val, uint32_t n) const {
     for (auto index : uniform_elements(acc, n)) {
       v[index] = val;
 
@@ -123,8 +123,7 @@ struct init {
 };
 
 struct verify {
-  template <typename TAcc>
-  ALPAKA_FN_ACC void operator()(const TAcc& acc, uint32_t const* v, uint32_t n) const {
+  ALPAKA_FN_ACC void operator()(Acc1D const& acc, uint32_t const* v, uint32_t n) const {
     for (auto index : uniform_elements(acc, n)) {
       ALPAKA_ASSERT_ACC(v[index] == index + 1);
 
@@ -152,13 +151,18 @@ int main() {
     if constexpr (!requires_single_thread_per_block_v<Acc1D>) {
       std::cout << "warp level" << std::endl;
 
-      const auto threadsPerBlockOrElementsPerThread = 32;
+      const auto threadsPerBlockOrElementsPerThread = warpSize;
       const auto blocksPerGrid = 1;
       const auto workDivWarp = make_workdiv<Acc1D>(blocksPerGrid, threadsPerBlockOrElementsPerThread);
 
-      alpaka::enqueue(queue, alpaka::createTaskKernel<Acc1D>(workDivWarp, testWarpPrefixScan<int>(), 32));
-      alpaka::enqueue(queue, alpaka::createTaskKernel<Acc1D>(workDivWarp, testWarpPrefixScan<int>(), 16));
-      alpaka::enqueue(queue, alpaka::createTaskKernel<Acc1D>(workDivWarp, testWarpPrefixScan<int>(), 5));
+      if (warpSize >= 64)
+        alpaka::enqueue(queue, alpaka::createTaskKernel<Acc1D>(workDivWarp, testWarpPrefixScan<int>(), 64));
+      if (warpSize >= 32)
+        alpaka::enqueue(queue, alpaka::createTaskKernel<Acc1D>(workDivWarp, testWarpPrefixScan<int>(), 32));
+      if (warpSize >= 16)
+        alpaka::enqueue(queue, alpaka::createTaskKernel<Acc1D>(workDivWarp, testWarpPrefixScan<int>(), 12));
+      if (warpSize >= 8)
+        alpaka::enqueue(queue, alpaka::createTaskKernel<Acc1D>(workDivWarp, testWarpPrefixScan<int>(), 5));
     }
 
     // PORTABLE BLOCK PREFIXSCAN
@@ -166,7 +170,7 @@ int main() {
 
     // Running kernel with 1 block, and bs threads per block or elements per thread.
     // NB: obviously for tests only, for perf would need to use bs = 1024 in GPU version.
-    for (int bs = 32; bs <= 1024; bs += 32) {
+    for (int bs = warpSize; bs <= 1024; bs += warpSize) {
       const auto blocksPerGrid2 = 1;
       const auto workDivSingleBlock = make_workdiv<Acc1D>(blocksPerGrid2, bs);
 
@@ -182,7 +186,10 @@ int main() {
 
     // PORTABLE MULTI-BLOCK PREFIXSCAN
     uint32_t num_items = 200;
-    for (int ksize = 1; ksize < 4; ++ksize) {
+    // with ksize=4 num_items = 2e6 so above warpSize² (elements per block) * warpSize² (blocks)
+    // for CUDA (32²*32²) allowing to fully test also the "unlimited" multiBlockPrefixScan
+    // with 256 threads and 7813 blocks
+    for (int ksize = 1; ksize < 5; ++ksize) {
       std::cout << "multiblock" << std::endl;
       num_items *= 10;
 
@@ -215,7 +222,7 @@ int main() {
       alpaka::enqueue(queue, alpaka::createTaskKernel<Acc1D>(workDivMultiBlock, verify(), output1_d.data(), num_items));
 
       alpaka::wait(queue);  // input_d and output1_d end of scope
-    }                       // ksize
+    }  // ksize
   }
 
   return 0;

@@ -22,9 +22,9 @@ Implementation:
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "IORawData/SiPixelInputSources/interface/PixelSLinkDataInputSource.h"
-#include "Utilities/StorageFactory/interface/IOTypes.h"
-#include "Utilities/StorageFactory/interface/StorageAccount.h"
-#include "Utilities/StorageFactory/interface/StorageFactory.h"
+#include "FWStorage/StorageFactory/interface/IOTypes.h"
+#include "FWStorage/StorageFactory/interface/StorageAccount.h"
+#include "FWStorage/StorageFactory/interface/StorageFactory.h"
 #include <iostream>
 #include <memory>
 
@@ -192,20 +192,21 @@ int PixelSLinkDataInputSource::getEventNumberFromFillWords(const std::vector<uin
 // constructor
 PixelSLinkDataInputSource::PixelSLinkDataInputSource(const edm::ParameterSet &pset,
                                                      const edm::InputSourceDescription &desc)
-    : ProducerSourceFromFiles(pset, desc, true),
+    : ProducerSourceBase(pset, desc, true),
       m_fedid(pset.getUntrackedParameter<int>("fedid")),
       m_fileindex(0),
       m_runnumber(pset.getUntrackedParameter<int>("runNumber", -1)),
       m_currenteventnumber(0),
       m_currenttriggernumber(0),
-      m_eventnumber_shift(0) {
+      m_eventnumber_shift(0),
+      m_fromFiles(pset) {
   produces<FEDRawDataCollection>();
 
-  if (m_fileindex >= fileNames(0).size()) {
+  if (m_fileindex >= m_fromFiles.fileNames(0).size()) {
     edm::LogInfo("") << "no more file to read " << std::endl;
     return;  // ???
   }
-  std::string currentfilename = fileNames(0)[m_fileindex];
+  std::string currentfilename = m_fromFiles.fileNames(0)[m_fileindex];
   edm::LogInfo("") << "now examining file " << currentfilename;
   m_fileindex++;
   // reading both castor and other ('normal'/dcap) files.
@@ -259,8 +260,7 @@ bool PixelSLinkDataInputSource::setRunAndEventInfo(edm::EventID &id,
   // create product (raw data)
   buffers = std::make_unique<FEDRawDataCollection>();
 
-  //  uint32_t currenteventnumber = (m_data >> 32)&0x00ffffff;
-  uint32_t eventnumber = (m_data >> 32) & 0x00ffffff;
+  uint32_t eventnumber;
 
   do {
     std::vector<uint64_t> buffer;

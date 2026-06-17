@@ -38,6 +38,8 @@ bool clangcms::support::isCmsLocalFile(const char *file) {
     if (LocalDir != nullptr)
       DirLen = strlen(LocalDir);
   }
+  if (strncmp(file, "src/", 4) == 0)
+    return true;
   if ((DirLen == 0) || (strncmp(file, LocalDir, DirLen) != 0) || (strncmp(&file[DirLen], "/src/", 5) != 0))
     return false;
   return true;
@@ -52,7 +54,11 @@ std::string clangcms::support::getQualifiedName(const clang::NamedDecl &d) {
   LangOpts.CPlusPlus = true;
   PrintingPolicy Policy(LangOpts);
   Policy.FullyQualifiedName = true;
+#if LLVM_VERSION_MAJOR >= 21
+  Policy.PrintAsCanonical = true;
+#else
   Policy.PrintCanonicalTypes = true;
+#endif
   const DeclContext *ctx = d.getDeclContext();
   if (ctx->isFunctionOrMethod() && isa<NamedDecl>(ctx)) {
     // This is a local variable.
@@ -175,14 +181,21 @@ bool clangcms::support::isDataClass(const std::string &name) {
     const std::string tname("/src/Utilities/StaticAnalyzers/scripts/bloom.bin");
     const std::string fname1 = lname + tname;
     const std::string fname2 = rname + tname;
-    if (!(FM.getFile(fname1) || FM.getFile(fname2))) {
+#if LLVM_VERSION_MAJOR >= 21
+    auto FE1 = FM.getFileRef(fname1);
+    auto FE2 = FM.getFileRef(fname2);
+#else
+    auto FE1 = FM.getFile(fname1);
+    auto FE2 = FM.getFile(fname2);
+#endif
+    if (FE1) {
+      iname = fname1;
+    } else if (FE2) {
+      iname = fname2;
+    } else {
       llvm::errs() << "\n\nChecker cannot find bloom filter file" << fname1 << " or " << fname2 << "\n\n\n";
       exit(1);
     }
-    if (FM.getFile(fname1))
-      iname = fname1;
-    else
-      iname = fname2;
   }
 
   CMS_SA_ALLOW static scaling_bloom_t *blmflt = new_scaling_bloom_from_file(CAPACITY, ERROR_RATE, iname.c_str());
@@ -243,4 +256,43 @@ void clangcms::support::fixAnonNS(std::string &name, const char *fname) {
       name = name.substr(0, anon_ns.size() - 1) + " in " + filename + ")" + name.substr(anon_ns.size());
   }
   return;
+}
+
+bool clangcms::support::isStdAtomic(const clang::FieldDecl *fieldDecl) {
+  if (!fieldDecl)
+    return false;
+
+  // Get the type of the field
+  clang::QualType fieldType = fieldDecl->getType();
+
+  // Resolve any typedefs or aliases to get the canonical type
+  fieldType = fieldType.getCanonicalType();
+
+  // Check if the type is a record type (class/struct)
+  if (const clang::RecordType *recordType = fieldType->getAs<clang::RecordType>()) {
+    const clang::CXXRecordDecl *recordDecl = clang::dyn_cast<clang::CXXRecordDecl>(recordType->getDecl());
+    if (!recordDecl)
+      return false;
+
+    // Check if the record is a class template specialization
+    if (const clang::ClassTemplateSpecializationDecl *specDecl =
+            clang::dyn_cast<clang::ClassTemplateSpecializationDecl>(recordDecl)) {
+      const clang::TemplateDecl *templateDecl = specDecl->getSpecializedTemplate();
+      if (!templateDecl)
+        return false;
+
+      // Check if the template name matches "atomic"
+      const std::string templateName = templateDecl->getNameAsString();
+      if (templateName == "atomic") {
+        // Further check if it's in the "std" namespace
+        const clang::NamespaceDecl *namespaceDecl =
+            clang::dyn_cast<clang::NamespaceDecl>(templateDecl->getDeclContext());
+        if (namespaceDecl && namespaceDecl->getNameAsString() == "std") {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
 }

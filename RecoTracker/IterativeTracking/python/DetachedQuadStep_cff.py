@@ -51,8 +51,8 @@ from RecoTracker.TkTrackingRegions.globalTrackingRegionWithVertices_cff import g
                 )
                                                                       )
 )
-from Configuration.Eras.Modifier_highBetaStar_2018_cff import highBetaStar_2018
-highBetaStar_2018.toModify(detachedQuadStepTrackingRegions,RegionPSet = dict(ptMin = 0.05))
+from Configuration.Eras.Modifier_highBetaStar_cff import highBetaStar
+highBetaStar.toModify(detachedQuadStepTrackingRegions,RegionPSet = dict(ptMin = 0.05))
 
 
 # seeding
@@ -80,7 +80,7 @@ detachedQuadStepHitQuadruplets = _caHitQuadrupletEDProducer.clone(
     CAThetaCut           = 0.0011,
     CAPhiCut             = 0,
 )
-highBetaStar_2018.toModify(detachedQuadStepHitQuadruplets,CAThetaCut = 0.0022,CAPhiCut = 0.1)
+highBetaStar.toModify(detachedQuadStepHitQuadruplets,CAThetaCut = 0.0022,CAPhiCut = 0.1)
 
 from RecoTracker.TkSeedGenerator.seedCreatorFromRegionConsecutiveHitsTripletOnlyEDProducer_cff import seedCreatorFromRegionConsecutiveHitsTripletOnlyEDProducer as _seedCreatorFromRegionConsecutiveHitsTripletOnlyEDProducer
 detachedQuadStepSeeds = _seedCreatorFromRegionConsecutiveHitsTripletOnlyEDProducer.clone(
@@ -256,7 +256,7 @@ trackdnn.toReplaceWith(detachedQuadStep, trackTfClassifier.clone(
 ))
 
 
-highBetaStar_2018.toModify(detachedQuadStep,qualityCuts = [-0.7,0.0,0.5])
+highBetaStar.toModify(detachedQuadStep,qualityCuts = [-0.7,0.0,0.5])
 
 (pp_on_AA & trackdnn).toModify(detachedQuadStep, qualityCuts =  [-0.63, 0.5, 0.94] )
 
@@ -346,6 +346,7 @@ detachedQuadStepSelector = RecoTracker.FinalTrackSelectors.multiTrackSelector_cf
     ] #end of vpset
 ) #end of clone
 
+fastSim.toModify(detachedQuadStepSelector,vertices = "firstStepPrimaryVerticesBeforeMixing")
 
 from RecoTracker.FinalTrackSelectors.trackAlgoPriorityOrder_cfi import trackAlgoPriorityOrder
 import RecoTracker.FinalTrackSelectors.trackListMerger_cfi
@@ -384,11 +385,14 @@ trackingPhase2PU140.toReplaceWith(DetachedQuadStepTask, _DetachedQuadStepTask_Ph
 #fastsim
 from FastSimulation.Tracking.FastTrackerRecHitMaskProducer_cfi import maskProducerFromClusterRemover
 detachedQuadStepMasks = maskProducerFromClusterRemover(detachedQuadStepClusters)
-fastSim.toReplaceWith(DetachedQuadStepTask,
-                      cms.Task(detachedQuadStepMasks
-                               ,detachedQuadStepTrackingRegions
-                               ,detachedQuadStepSeeds
-                               ,detachedQuadStepTrackCandidates
-                               ,detachedQuadStepTracks
-                               ,detachedQuadStep
-                               ) )
+_DetachedQuadStepTask_fastSim = cms.Task(detachedQuadStepMasks
+                                        ,detachedQuadStepTrackingRegions
+                                        ,detachedQuadStepSeeds
+                                        ,detachedQuadStepTrackCandidates
+                                        ,detachedQuadStepTracks
+                                        ,detachedQuadStep
+)
+_DetachedQuadStepTask_fastSim_phase2 = _DetachedQuadStepTask_fastSim.copy()
+_DetachedQuadStepTask_fastSim_phase2.replace(detachedQuadStep, cms.Task(detachedQuadStepSelector,detachedQuadStep))
+fastSim.toReplaceWith(DetachedQuadStepTask, _DetachedQuadStepTask_fastSim)
+(fastSim & trackingPhase2PU140).toReplaceWith(DetachedQuadStepTask, _DetachedQuadStepTask_fastSim_phase2)

@@ -1,14 +1,13 @@
-from __future__ import absolute_import
 from .Mixins import PrintOptions, _SimpleParameterTypeBase, _ParameterTypeBase, _Parameterizable, _ConfigureComponent, _Labelable, _TypedParameterizable, _Unlabelable, _modifyParametersFromDict
 from .Mixins import _ValidatingParameterListBase, specialImportRegistry
 from .Mixins import saveOrigin
 from .ExceptionHandling import format_typename, format_outerframe
-from past.builtins import long
 import codecs
 import copy
 import math
 import builtins
 
+long = int
 _builtin_bool = bool
 
 class _Untracked(object):
@@ -78,6 +77,13 @@ class _ProxyParameter(_ParameterTypeBase):
                  raise AttributeError("%r object has no attribute %r" % (self.__class__.__name__, name))
             return object.__setattr__(self, name, value)
     #support container like behavior
+    def __len__(self):
+        v =self.__dict__.get('_ProxyParameter__value', None)
+        if v is not None:
+            return v.__len__()
+        else:
+            raise TypeError("'_ProxyParameter' object has no len()")
+
     def __iter__(self):
         v =self.__dict__.get('_ProxyParameter__value', None)
         if v is not None:
@@ -191,6 +197,8 @@ class _PSetTemplate(object):
     def __call__(self, value):
         self.__dict__
         return self._pset.clone(**value)
+    def _isEmpty(self) -> bool:
+        return self._pset.hasNoParameters()
     def _isValid(self, value) -> bool:
         return isinstance(value,dict) or isinstance(value, PSet)
     def dumpPython(self, options:PrintOptions=PrintOptions()) -> str:
@@ -201,6 +209,37 @@ class _PSetTemplate(object):
         return valueWithType
 
 PSetTemplate = _PSetTemplate
+
+class _VPSetTemplate(object):
+    def __init__(self, template:_PSetTemplate=None):
+        self._template = template
+    def __call__(self, *value):
+        self.__dict__
+        if self._template:
+            return VPSet(template = self._template, *value)
+        return VPSet(*value)
+    def _isValid(self, value) -> bool:
+        if isinstance(value,list) or isinstance(value, VPSet):
+            return True
+        try:
+            iter(value)
+        except TypeError:
+            return False
+        return True
+    def dumpPython(self, options:PrintOptions=PrintOptions()) -> str:
+        if self._template:
+            options.indent()
+            ret = "VPSetTemplate(\n"+options.indentation()+self._template.dumpPython(options)+'\n'
+            options.unindent()
+            ret += options.indentation()+")"
+            return ret
+        return "VPSetTemplate()"
+    def _setValueWithType(self, valueWithType):
+        if not isinstance(valueWithType, VPSet):
+            raise TypeError("type {bad} is not a VPSet".format(bas=str(type(valueWithType))))
+        return valueWithType
+
+VPSetTemplate = _VPSetTemplate
 
 class _ProxyParameterFactory(object):
     """Class type for ProxyParameter types to allow nice syntax"""
@@ -233,6 +272,16 @@ class _ProxyParameterFactory(object):
                         return untracked(self.type(_PSetTemplate(*args,**kargs)))
                     return self.type(_PSetTemplate(*args,**kargs))
             return _PSetTemplateWrapper(self.__isUntracked, self.__type)
+        if name == 'VPSetTemplate':
+            class _VPSetTemplateWrapper(object):
+                def __init__(self, untracked, type):
+                    self.untracked = untracked
+                    self.type = type
+                def __call__(self,*args,**kargs):
+                    if self.untracked:
+                        return untracked(self.type(_VPSetTemplate(*args,**kargs)))
+                    return self.type(_VPSetTemplate(*args,**kargs))
+            return _VPSetTemplateWrapper(self.__isUntracked, self.__type)
 
         type = globals()[name]
         if not issubclass(type, _ParameterTypeBase):
@@ -418,9 +467,10 @@ class EventID(_ParameterTypeBase):
     def __init__(self, run, *args):
         super(EventID,self).__init__()
         if isinstance(run, str):
-            self.__run = self._valueFromString(run).__run
-            self.__luminosityBlock = self._valueFromString(run).__luminosityBlock
-            self.__event = self._valueFromString(run).__event
+            v = self._valueFromString(run)
+            self.__run = v.__run
+            self.__luminosityBlock = v.__luminosityBlock
+            self.__event = v.__event
         else:
             self.__run = run
             if len(args) == 1:
@@ -433,9 +483,10 @@ class EventID(_ParameterTypeBase):
                 raise RuntimeError('EventID ctor must have 2 or 3 arguments')
     def setValue(self, value):
         if isinstance(value, str):
-            self.__run = self._valueFromString(value).__run
-            self.__luminosityBlock = self._valueFromString(value).__luminosityBlock
-            self.__event = self._valueFromString(value).__event
+            v = self._valueFromString(value)
+            self.__run = v.__run
+            self.__luminosityBlock = v.__luminosityBlock
+            self.__event = v.__event
         else:
             try:
                 iter(value)
@@ -477,21 +528,24 @@ class EventID(_ParameterTypeBase):
         return parameterSet.newEventID(self.run(), self.luminosityBlock(), self.event())
     def insertInto(self, parameterSet, myname:str):
         parameterSet.addEventID(self.isTracked(), myname, self.cppID(parameterSet))
-
+    def value(self) -> str:
+        return str(self.__run)+':'+str(self.__luminosityBlock)+":"+str(self.__event)
 
 class LuminosityBlockID(_ParameterTypeBase):
     def __init__(self, run, block=None):
         super(LuminosityBlockID,self).__init__()
         if isinstance(run, str):
-            self.__run = self._valueFromString(run).__run
-            self.__block = self._valueFromString(run).__block
+            v = self._valueFromString(run)
+            self.__run = v.__run
+            self.__block = v.__block
         else:
             self.__run = run
             self.__block = block
     def setValue(self, value):
         if isinstance(value, str):
-            self.__run = self._valueFromString(value).__run
-            self.__block = self._valueFromString(value).__block
+            v = self._valueFromString(value)
+            self.__run = v.__run
+            self.__block = v.__block
         else:
             self.__run = value[0]
             self.__block = value[1]
@@ -513,6 +567,8 @@ class LuminosityBlockID(_ParameterTypeBase):
         return parameterSet.newLuminosityBlockID(self.run(), self.luminosityBlock())
     def insertInto(self, parameterSet, myname:str):
         parameterSet.addLuminosityBlockID(self.isTracked(), myname, self.cppID(parameterSet))
+    def value(self) -> str:
+        return str(self.__run)+":"+str(self.__block)
 
 
 class LuminosityBlockRange(_ParameterTypeBase):
@@ -613,6 +669,8 @@ class LuminosityBlockRange(_ParameterTypeBase):
         return parameterSet.newLuminosityBlockRange(self.start(), self.startSub(),self.end(), self.endSub())
     def insertInto(self, parameterSet, myname:str):
         parameterSet.addLuminosityBlockRange(self.isTracked(), myname, self.cppID(parameterSet))
+    def value(self) -> str:
+        return str(self.__start)+":"+str(self.__startSub)+"-"+str(self.__end)+":"+str(self.__endSub)
 
 class EventRange(_ParameterTypeBase):
     def __init__(self, start, *args):
@@ -750,6 +808,9 @@ class EventRange(_ParameterTypeBase):
         return parameterSet.newEventRange(self.start(), self.startLumi(), self.startSub(), self.end(), self.endLumi(), self.endSub())
     def insertInto(self, parameterSet, myname:str):
         parameterSet.addEventRange(self.isTracked(), myname, self.cppID(parameterSet))
+    def value(self) -> str:
+        return str(self.__start) + ":" + str(self.__startLumi) + ":" + str(self.__startSub) + "-" + \
+               str(self.__end) + ":" + str(self.__endLumi) + ":" + str(self.__endSub)
 
 class InputTag(_ParameterTypeBase):
     def __init__(self,moduleLabel:str,productInstanceLabel:str='',processName:str=''):
@@ -1360,18 +1421,50 @@ class VEventRange(_ValidatingParameterListBase):
 
 
 class VPSet(_ValidatingParameterListBase,_ConfigureComponent,_Labelable):
-    def __init__(self,*arg,**args):
-        super(VPSet,self).__init__(*arg,**args)
+    def __init__(self,*arg, **args):
+        """Takes a group of PSets plus an optional named argument `template` of type PSetTemplate.
+     `template` is used to convert a `dict` passed to the VPSet to a `PSet` via the PSetTemplate."""
+        _template = None
+        if "template" in args:
+            _template = args["template"]
+            del args["template"]
+            if not isinstance(_template, _PSetTemplate):
+                raise TypeError("type of template is not PSetTemplate")
+        self._template = _template
         self._nPerLine = 1
+        if _template:
+            #if the positional argument is a container, we need to process it
+            if len(arg) == 1 and not isinstance(arg[0], dict):
+                try:
+                    arg = iter(arg[0])
+                except TypeError:
+                    pass
+            super(VPSet,self).__init__((self._itemFromArgument(x) for x in arg), **args)
+        else:
+            super(VPSet,self).__init__(*arg, **args)
     @classmethod
     def _itemIsValid(cls,item) -> builtins.bool:
-        return isinstance(item, PSet) and PSet._isValid(item)
+        return (isinstance(item, PSet) and PSet._isValid(item)) or (isinstance(item,dict))
+    def _itemFromArgument(self, x):
+        #for some reason, unpickling a VPSet can lead to calling _itemFromArgument without
+        # running the VPSet.__init__ routine so self._template is not yet available
+        if not isinstance(x, PSet) and hasattr(self, "_template") and self._template is not None:
+            return self._template(x)
+        else:
+            return super()._itemFromArgument(x)
     def configValueForItem(self,item, options:PrintOptions) -> str:
         return PSet.configValue(item, options)
     def pythonValueForItem(self,item, options:PrintOptions) -> str:
         return PSet.dumpPython(item,options)
+    def template(self):
+        return self._template
     def copy(self):
         return copy.copy(self)
+    def _additionalInitArguments(self, options):
+        if self._template and not self._template._isEmpty():
+            #NOTE: PSetTemplate.dumpPython does not include the 'cms.' part
+            return 'template = cms.'+self._template.dumpPython(options)
+        return None
     def _place(self,name:str,proc):
         proc._placeVPSet(name,self)
     def insertInto(self, parameterSet, myname:str):
@@ -2081,6 +2174,26 @@ if __name__ == "__main__":
             self.assertEqual(p1.foo.a.value(), 5)
             p1 = PSet(anInt = required.int32)
             self.assertRaises(TypeError, setattr, p1,'anInt', uint32(2))
+            p1 = PSet(aVPSet = required.VPSetTemplate())
+            self.assertEqual(p1.dumpPython(),'cms.PSet(\n    aVPSet = cms.required.VPSetTemplate()\n)')
+            p1.aVPSet =[PSet()]
+            self.assertEqual(len(p1.aVPSet), 1)
+            p1 = PSet(aVPSet = required.VPSetTemplate(PSetTemplate(a=required.int32)))
+            self.assertEqual(p1.dumpPython(),'cms.PSet(\n    aVPSet = cms.required.VPSetTemplate(\n        PSetTemplate(\n            a = cms.required.int32\n        )\n    )\n)')
+            p1.aVPSet = [dict(a=3)]
+            self.assertEqual(len(p1.aVPSet), 1)
+            self.assertEqual(p1.aVPSet[0].a.value(),3)
+            p1 = PSet(aVPSet = required.VPSetTemplate())
+            p1.aVPSet = VPSet()
+            self.assertEqual(len(p1.aVPSet),0)
+            p1.aVPSet.append(PSet())
+            self.assertEqual(len(p1.aVPSet),1)
+            p1 = PSet(aVPSet = required.VPSetTemplate())
+            p1.aVPSet = (PSet(),)
+            self.assertEqual(len(p1.aVPSet), 1)
+            p1 = PSet(aVPSet = required.VPSetTemplate(PSetTemplate(a=required.int32)))
+            p1.aVPSet = (dict(a=i) for i in range(0,5))
+            self.assertEqual(len(p1.aVPSet), 5)
 
         def testOptional(self):
             p1 = PSet(anInt = optional.int32)
@@ -2135,7 +2248,15 @@ if __name__ == "__main__":
             #check wrong type failure
             p1 = PSet(anInt = optional.int32)
             self.assertRaises(TypeError, lambda : setattr(p1,'anInt', uint32(2)))
-
+            p1 = PSet(aVPSet = optional.VPSetTemplate())
+            self.assertEqual(p1.dumpPython(),'cms.PSet(\n    aVPSet = cms.optional.VPSetTemplate()\n)')
+            p1.aVPSet =[PSet()]
+            self.assertEqual(len(p1.aVPSet), 1)
+            p1 = PSet(aVPSet = optional.VPSetTemplate(PSetTemplate(a=required.int32)))
+            self.assertEqual(p1.dumpPython(),'cms.PSet(\n    aVPSet = cms.optional.VPSetTemplate(\n        PSetTemplate(\n            a = cms.required.int32\n        )\n    )\n)')
+            p1.aVPSet = [dict(a=3)]
+            self.assertEqual(len(p1.aVPSet), 1)
+            self.assertEqual(p1.aVPSet[0].a.value(),3)
 
         def testAllowed(self):
             p1 = PSet(aValue = required.allowed(int32, string))
@@ -2257,6 +2378,68 @@ if __name__ == "__main__":
             self.assertRaises(TypeError, lambda : VPSet(3))
             self.assertRaises(TypeError, lambda : VPSet(int32(3)))
             self.assertRaises(SyntaxError, lambda : VPSet(foo=PSet()))
+            p2 = VPSet([PSet(anInt = int32(1)), PSet(anInt=int32(2))])
+            self.assertEqual(len(p2),2)
+            self.assertEqual(p2[0].anInt.value(), 1)
+            self.assertEqual(p2[1].anInt.value(), 2)
+
+        def testVPSetWithTemplate(self):
+            p1 = VPSet(template=PSetTemplate(a=required.int32))
+            self.assertEqual(len(p1),0)
+            p1.append(dict(a=1))
+            self.assertEqual(len(p1),1)
+            self.assertEqual(p1[0].a.value(), 1)
+            p1.append(PSet(foo= untracked.bool(True)))
+            self.assertEqual(len(p1), 2)
+            self.assertTrue(p1[1].foo.value())
+            self.assertEqual(p1.dumpPython(), '''cms.VPSet(
+    cms.PSet(
+        a = cms.int32(1)
+    ),
+    cms.PSet(
+        foo = cms.untracked.bool(True)
+    ), 
+    template = cms.PSetTemplate(
+        a = cms.required.int32
+    )
+)''')
+            self.assertRaises(TypeError, lambda : p1.append(dict(b=3)) )
+            p2 = VPSet(dict(a=3), dict(a=1), template = PSetTemplate(a=required.int32))
+            self.assertEqual(len(p2), 2)
+            self.assertEqual(p2[0].a.value(), 3)
+            self.assertEqual(p2[1].a.value(), 1)
+            p3 = VPSet([dict(a=3), dict(a=1)], template = PSetTemplate(a=required.int32))
+            self.assertEqual(len(p3), 2)
+            self.assertEqual(p3[0].a.value(), 3)
+            self.assertEqual(p3[1].a.value(), 1)
+            p4 = VPSet(dict(a=3), template = PSetTemplate(a=required.int32))
+            self.assertEqual(len(p4), 1)
+            self.assertEqual(p4[0].a.value(), 3)
+            p5 = VPSet(PSet(a=int32(3)), template = PSetTemplate(a=required.int32))
+            self.assertEqual(len(p5), 1)
+            self.assertEqual(p5[0].a.value(), 3)
+            self.assertRaises(TypeError, lambda : VPSet(dict(b=3), template = PSetTemplate(a=required.int32)) )
+            ptest = VPSet(PSet(b=int32(3)), template = PSetTemplate(a=required.int32))
+            self.assertEqual(len(ptest), 1)
+            self.assertEqual(ptest[0].b.value(), 3)
+            self.assertEqual(ptest.dumpPython(),"cms.VPSet(cms.PSet(\n    b = cms.int32(3)\n), \ntemplate = cms.PSetTemplate(\n    a = cms.required.int32\n))"
+                             )
+            ptest = VPSet(template=PSetTemplate())
+            self.assertEqual(ptest.dumpPython(),"cms.VPSet()")
+            #will inject `a=required.int32` into the PSet when starting from a dict()
+            ptest = VPSet(dict(), template = PSetTemplate(a=required.int32))
+            self.assertEqual(len(ptest), 1)
+            self.assertTrue(hasattr(ptest[0], "a"))
+            ptest[0].a = 4
+            self.assertEqual(ptest[0].a.value(), 4)
+            #Specifying an explicit PSet overrides the template for that item
+            ptest = VPSet(PSet(), template = PSetTemplate(a=required.int32))
+            self.assertEqual(len(ptest), 1)
+            self.assertTrue(not hasattr(ptest[0], "a"))
+            #can only use a dict if specify `template`
+            self.assertRaises(TypeError, lambda: VPSet(dict(a=3)))
+
+
         def testEDAlias(self):
             aliasfoo2 = EDAlias(foo2 = VPSet(PSet(type = string("Foo2"))))
             self.assertTrue(hasattr(aliasfoo2,"foo2"))
@@ -2328,6 +2511,10 @@ if __name__ == "__main__":
             self.assertEqual( repr(eid), "cms.EventID(4, 0, 1)" )
             eid.setValue( (5,1,2))
             self.assertEqual( repr(eid), "cms.EventID(5, 1, 2)" )
+            self.assertEqual(eid.value(), "5:1:2")
+            other = EventID(1,1,1)
+            other.setValue(eid.value())
+            self.assertEqual(other.value(), "5:1:2")
         def testVEventID(self):
             veid = VEventID(EventID(2, 0, 3))
             veid2 = VEventID("1:2", "3:4")
@@ -2347,6 +2534,10 @@ if __name__ == "__main__":
             lid3 = LuminosityBlockID(1)
             lid3.setValue((2,3))
             self.assertEqual(repr(lid3), "cms.LuminosityBlockID(2, 3)")
+            self.assertEqual(lid3.value(), "2:3")
+            other = LuminosityBlockID(1,1)
+            other.setValue(lid3.value())
+            self.assertEqual(other.value(), "2:3")
 
         def testVLuminosityBlockID(self):
             vlid = VLuminosityBlockID(LuminosityBlockID(2, 3))
@@ -2374,13 +2565,18 @@ if __name__ == "__main__":
             range1 = EventRange(1, 0, 2, 3, 0, 4)
             range2 = EventRange._valueFromString("1:2 - 3:4")
             range3 = EventRange._valueFromString("1:MIN - 3:MAX")
-            self.assertEqual(repr(range1), repr(range1))
+            self.assertEqual(repr(range1), repr(range2))
+            self.assertEqual(range1.value(), "1:0:2-3:0:4")
             self.assertEqual(repr(range3), "cms.EventRange(1, 0, 1, 3, 0, 0)")
             pset = PSetTester()
             range1.insertInto(pset,'foo')
             range2.insertInto(pset,'bar')
             range4 = EventRange((1,2,3), (4,5,6))
             self.assertEqual(repr(range4), "cms.EventRange(1, 2, 3, 4, 5, 6)")
+            other = EventRange(1,1,1,2,2,2)
+            other.setValue(range1.value())
+            self.assertEqual(range1.value(), other.value())
+
         def testVEventRange(self):
             v1 = VEventRange(EventRange(1, 0, 2, 3, 0, 4))
             v2 = VEventRange("1:2-3:4", "5:MIN-7:MAX")
@@ -2398,7 +2594,8 @@ if __name__ == "__main__":
             range1 = LuminosityBlockRange(1, 2, 3, 4)
             range2 = LuminosityBlockRange._valueFromString("1:2 - 3:4")
             range3 = LuminosityBlockRange._valueFromString("1:MIN - 3:MAX")
-            self.assertEqual(repr(range1), repr(range1))
+            self.assertEqual(repr(range1), repr(range2))
+            self.assertEqual(range1.value(), "1:2-3:4")
             self.assertEqual(repr(range3), "cms.LuminosityBlockRange(1, 1, 3, 0)")
             pset = PSetTester()
             range1.insertInto(pset,'foo')
@@ -2408,6 +2605,9 @@ if __name__ == "__main__":
             self.assertEqual(repr(range4), "cms.LuminosityBlockRange(2, 3, 4, 5)")
             range5 = LuminosityBlockRange((1,2), (3,4))
             self.assertEqual(repr(range5), "cms.LuminosityBlockRange(1, 2, 3, 4)")
+            other = LuminosityBlockRange(1,1,2,2)
+            other.setValue(range1.value())
+            self.assertEqual(range1.value(), other.value())
         def testVLuminosityBlockRange(self):
             v1 = VLuminosityBlockRange(LuminosityBlockRange(1, 2, 3, 4))
             v2 = VLuminosityBlockRange("1:2-3:4", "5:MIN-7:MAX")

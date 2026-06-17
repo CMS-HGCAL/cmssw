@@ -3,12 +3,11 @@
 
 #include "SimDataFormats/CaloAnalysis/interface/CaloParticle.h"
 #include "SimDataFormats/CaloAnalysis/interface/MtdSimClusterFwd.h"
+#include "SimDataFormats/EncodedEventId/interface/EncodedEventId.h"
 #include "SimDataFormats/TrackingHit/interface/PSimHit.h"
+#include "SimDataFormats/Track/interface/SimTrackFwd.h"
 
 #include <vector>
-
-class SimTrack;
-class EncodedEventId;
 
 class MtdCaloParticle : public CaloParticle {
   friend std::ostream &operator<<(std::ostream &s, MtdCaloParticle const &tp);
@@ -33,11 +32,6 @@ public:
   const MtdSimClusterRefVector &simClusters() const { return mtdsimClusters_; }
   void clearSimClusters() { mtdsimClusters_.clear(); }
 
-  /** @brief returns the time of the caloparticle */
-  float simTime() const { return simhit_time_; }
-
-  void addSimTime(const float time) { simhit_time_ = time; }
-
   /** @brief add simhit's energy to cluster */
   void addSimHit(PSimHit &hit) {
     simhit_energy_ += hit.energyLoss();
@@ -45,7 +39,6 @@ public:
   }
 
 private:
-  float simhit_time_{-99.f};
   MtdSimClusterRefVector mtdsimClusters_;
 };
 

@@ -12,7 +12,7 @@
 #include "Geometry/Records/interface/MTDDigiGeometryRecord.h"
 #include "Geometry/Records/interface/MTDTopologyRcd.h"
 #include "Geometry/MTDGeometryBuilder/interface/MTDGeometry.h"
-#include "Geometry/MTDNumberingBuilder/interface/MTDTopology.h"
+#include "Geometry/MTDGeometryBuilder/interface/MTDTopology.h"
 
 #include <tuple>
 
@@ -40,12 +40,10 @@ private:
   const MTDTopology* topo_;
 
   const float bxTime_;
-  const float LightYield_;
-  const float LightCollEff_;
-
-  const float LightCollSlope_;
-  const float PDE_;
-  const float LCEpositionSlope_;
+  const float lightOutput_;
+  const float lightCollSlope_;
+  const float sigmaLightCollSlope_;
+  const float lcepositionSlope_;
 };
 
 #endif

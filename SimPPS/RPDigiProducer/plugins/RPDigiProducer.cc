@@ -22,8 +22,8 @@
 #include "DataFormats/Common/interface/DetSet.h"
 
 //Random Number
+#include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
 
 #include "CondFormats/PPSObjects/interface/TotemAnalysisMask.h"
 #include "CondFormats/DataRecord/interface/TotemReadoutRcd.h"
@@ -52,7 +52,7 @@ namespace CLHEP {
   class HepRandomEngine;
 }
 
-class RPDigiProducer : public edm::stream::EDProducer<> {
+class RPDigiProducer : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   explicit RPDigiProducer(const edm::ParameterSet&);
   ~RPDigiProducer() override = default;

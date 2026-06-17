@@ -87,7 +87,7 @@ MultiTrackSelector::MultiTrackSelector(const edm::ParameterSet& cfg)
     qualityToSet_.push_back(TrackBase::undefQuality);
     // parameters for vertex selection
     vtxNumber_.push_back(useVertices_ ? trkSelectors[i].getParameter<int32_t>("vtxNumber") : 0);
-    vertexCut_.push_back(useVertices_ ? trkSelectors[i].getParameter<std::string>("vertexCut") : nullptr);
+    vertexCut_.push_back(useVertices_ ? trkSelectors[i].getParameter<std::string>("vertexCut") : "");
     //  parameters for adapted optimal cuts on chi2 and primary vertex compatibility
     res_par_.push_back(trkSelectors[i].getParameter<std::vector<double>>("res_par"));
     chi2n_par_.push_back(trkSelectors[i].getParameter<double>("chi2n_par"));
@@ -346,7 +346,7 @@ bool MultiTrackSelector::select(unsigned int tsNum,
 
   //cuts on number of valid hits
   auto nhits = tk.numberOfValidHits();
-  if (nhits >= min_hits_bypass_[tsNum])
+  if ((nhits >= min_hits_bypass_[tsNum]) || (nhits == 0))
     return true;
   if (nhits < min_nhits_[tsNum])
     return false;
@@ -422,6 +422,8 @@ bool MultiTrackSelector::select(unsigned int tsNum,
   int minLost = std::min(lostIn, lostOut);
   if (minLost > max_minMissHitOutOrIn_[tsNum])
     return false;
+  //numberOfValidHits is not 0 here
+  [[clang::suppress]]
   float lostMidFrac = tk.numberOfLostHits() / (tk.numberOfValidHits() + tk.numberOfLostHits());
   if (lostMidFrac > max_lostHitFraction_[tsNum])
     return false;

@@ -1,31 +1,33 @@
 #include "DataFormats/TrackCandidate/interface/TrackCandidate.h"
-#include "DataFormats/TrackingRecHit/interface/TrackingRecHitFwd.h"
-#include "DataFormats/TrackingRecHit/interface/InvalidTrackingRecHit.h"
-#include "RecoTracker/TransientTrackingRecHit/interface/TkTransientTrackingRecHitBuilder.h"
 #include "DataFormats/TrackReco/interface/Track.h"
+#include "DataFormats/TrackerRecHit2D/interface/OmniClusterRef.h"
+#include "DataFormats/TrackerRecHit2D/interface/SiTrackerMultiRecHit.h"
+#include "DataFormats/TrackerRecHit2D/interface/TkCloner.h"
+#include "DataFormats/TrackingRecHit/interface/InvalidTrackingRecHit.h"
+#include "DataFormats/TrackingRecHit/interface/TrackingRecHitFwd.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "Geometry/CommonDetUnit/interface/TrackingGeometry.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
-#include "RecoTracker/TrackProducer/interface/DAFTrackProducerAlgorithm.h"
-#include "RecoTracker/SiTrackerMRHTools/interface/SiTrackerMultiRecHitUpdator.h"
 #include "RecoTracker/SiTrackerMRHTools/interface/MultiRecHitCollector.h"
+#include "RecoTracker/SiTrackerMRHTools/interface/SiTrackerMultiRecHitUpdator.h"
+#include "RecoTracker/TrackProducer/interface/DAFTrackProducerAlgorithm.h"
+#include "RecoTracker/TransientTrackingRecHit/interface/TkClonerImpl.h"
+#include "RecoTracker/TransientTrackingRecHit/interface/TkTransientTrackingRecHitBuilder.h"
+#include "TrackingTools/PatternTools/interface/TSCBLBuilderNoMaterial.h"
+#include "TrackingTools/PatternTools/interface/TrajAnnealing.h"
+#include "TrackingTools/PatternTools/interface/TransverseImpactPointExtrapolator.h"
 #include "TrackingTools/TrackFitters/interface/TrajectoryFitter.h"
+#include "TrackingTools/TrackFitters/interface/TrajectoryStateCombiner.h"
+#include "TrackingTools/TrackFitters/interface/TrajectoryStateWithArbitraryError.h"
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateTransform.h"
-#include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHitBuilder.h"
-#include "RecoTracker/TransientTrackingRecHit/interface/TkClonerImpl.h"
-#include "TrackingTools/PatternTools/interface/TSCBLBuilderNoMaterial.h"
-#include "TrackingTools/PatternTools/interface/TransverseImpactPointExtrapolator.h"
-#include "TrackingTools/TrackFitters/interface/TrajectoryStateWithArbitraryError.h"
 #include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHit.h"
-#include "DataFormats/TrackerRecHit2D/interface/SiTrackerMultiRecHit.h"
-#include "DataFormats/TrackerRecHit2D/interface/OmniClusterRef.h"
-#include "DataFormats/TrackerRecHit2D/interface/TkCloner.h"
-#include "TrackingTools/PatternTools/interface/TrajAnnealing.h"
-#include "TrackingTools/TrackFitters/interface/TrajectoryStateCombiner.h"
+#include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHitBuilder.h"
 
 DAFTrackProducerAlgorithm::DAFTrackProducerAlgorithm(const edm::ParameterSet& conf)
     : conf_(conf), minHits_(conf.getParameter<int>("MinHits")) {}
+
+void DAFTrackProducerAlgorithm::fillPSetDescription(edm::ParameterSetDescription& desc) { desc.add<int>("MinHits", 3); }
 
 void DAFTrackProducerAlgorithm::runWithCandidate(const TrackingGeometry* theG,
                                                  const MagneticField* theMF,
@@ -394,7 +396,7 @@ float DAFTrackProducerAlgorithm::calculateNdof(const Trajectory vtraj) const {
 //------------------------------------------------------------------------------------------------
 int DAFTrackProducerAlgorithm::checkHits(Trajectory iInitTraj, const Trajectory iFinalTraj) const {
   std::vector<TrajectoryMeasurement> initmeasurements = iInitTraj.measurements();
-  std::vector<TrajectoryMeasurement> finalmeasurements = iFinalTraj.measurements();
+  const std::vector<TrajectoryMeasurement>& finalmeasurements = iFinalTraj.measurements();
   std::vector<TrajectoryMeasurement>::iterator jmeas;
   int nSame = 0;
   int ihit = 0;
@@ -417,7 +419,7 @@ int DAFTrackProducerAlgorithm::checkHits(Trajectory iInitTraj, const Trajectory 
       continue;
 
     if (initHit->isValid()) {
-      TrajectoryMeasurement imeas = finalmeasurements.at(ihit);
+      const TrajectoryMeasurement& imeas = finalmeasurements.at(ihit);
       const TrackingRecHit* finalHit = imeas.recHit()->hit();
       const TrackingRecHit* MaxWeightHit = nullptr;
       float maxweight = 0;
@@ -456,7 +458,7 @@ int DAFTrackProducerAlgorithm::checkHits(Trajectory iInitTraj, const Trajectory 
         }
       }
     } else {
-      TrajectoryMeasurement imeas = finalmeasurements.at(ihit);
+      const TrajectoryMeasurement& imeas = finalmeasurements.at(ihit);
       const TrackingRecHit* finalHit = imeas.recHit()->hit();
       if (!finalHit->isValid()) {
         nSame++;

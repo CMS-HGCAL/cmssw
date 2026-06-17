@@ -84,7 +84,12 @@ std::string TritonOutputData::xput() const {
 }
 
 template <typename IO>
-tc::InferenceServerGrpcClient* TritonData<IO>::client() {
+TritonClient* TritonData<IO>::client() {
+  return client_;
+}
+
+template <typename IO>
+tc::InferenceServerGrpcClient* TritonData<IO>::grpcClient() {
   return client_->client();
 }
 
@@ -264,7 +269,7 @@ TritonOutput<DT> TritonOutputData::fromServer() const {
 
     for (unsigned i0 = 0; i0 < outerDim; ++i0) {
       auto offset = i0 * entry.sizeShape_;
-      dataOut.emplace_back(r1 + offset, r1 + offset + entry.sizeShape_);
+      dataOut.emplace_back(r1 + offset, entry.sizeShape_);
     }
   }
 

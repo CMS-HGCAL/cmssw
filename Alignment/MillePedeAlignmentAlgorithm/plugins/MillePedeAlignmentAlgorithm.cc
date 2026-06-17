@@ -21,9 +21,9 @@
 #include "Alignment/MillePedeAlignmentAlgorithm/interface/MillePedeMonitor.h"
 #include "Alignment/MillePedeAlignmentAlgorithm/interface/MillePedeVariables.h"
 #include "Alignment/MillePedeAlignmentAlgorithm/interface/MillePedeVariablesIORoot.h"
-#include "Alignment/MillePedeAlignmentAlgorithm/src/Mille.h"        // 'unpublished' interface located in src
-#include "Alignment/MillePedeAlignmentAlgorithm/src/PedeSteerer.h"  // ditto
-#include "Alignment/MillePedeAlignmentAlgorithm/src/PedeReader.h"   // ditto
+#include "Mille/MilleFactory.h"  // external Mille library
+#include "Alignment/MillePedeAlignmentAlgorithm/src/PedeSteerer.h"
+#include "Alignment/MillePedeAlignmentAlgorithm/src/PedeReader.h"
 #include "Alignment/MillePedeAlignmentAlgorithm/interface/PedeLabelerBase.h"
 #include "Alignment/MillePedeAlignmentAlgorithm/interface/PedeLabelerPluginFactory.h"
 
@@ -63,6 +63,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <numeric>
 #include <sys/stat.h>
 
 #include <TMath.h>
@@ -88,6 +89,7 @@ MillePedeAlignmentAlgorithm::MillePedeAlignmentAlgorithm(const edm::ParameterSet
     : AlignmentAlgorithmBase(cfg, iC),
       topoToken_(iC.esConsumes<TrackerTopology, TrackerTopologyRcd, edm::Transition::BeginRun>()),
       aliThrToken_(iC.esConsumes<AlignPCLThresholdsHG, AlignPCLThresholdsHGRcd, edm::Transition::BeginRun>()),
+      siPixelQualityToken_(iC.esConsumes<SiPixelQuality, SiPixelQualityFromDbRcd, edm::Transition::BeginRun>()),
       geomToken_(iC.esConsumes<TrackerGeometry, TrackerDigiGeometryRecord, edm::Transition::BeginRun>()),
       theConfig(cfg),
       theMode(this->decodeMode(theConfig.getUntrackedParameter<std::string>("mode"))),
@@ -113,17 +115,14 @@ MillePedeAlignmentAlgorithm::MillePedeAlignmentAlgorithm(const edm::ParameterSet
                                                   cond::timeTypeSpecs[cond::runnumber].beginValue)),
       enforceSingleIOVInput_(!(enableAlignableUpdates_ && areIOVsSpecified())),
       lastProcessedRun_(cond::timeTypeSpecs[cond::runnumber].beginValue) {
+  pixelQuality = nullptr;
   if (!theDir.empty() && theDir.find_last_of('/') != theDir.size() - 1)
     theDir += '/';  // may need '/'
   edm::LogInfo("Alignment") << "@SUB=MillePedeAlignmentAlgorithm"
                             << "Start in mode '" << theConfig.getUntrackedParameter<std::string>("mode")
                             << "' with output directory '" << theDir << "'.";
   if (this->isMode(myMilleBit)) {
-    theMille = std::make_unique<Mille>(
-        (theDir + theConfig.getParameter<std::string>("binaryFile")).c_str());  // add ', false);' for text output);
-    // use same file for GBL
-    theBinary = std::make_unique<MilleBinary>((theDir + theConfig.getParameter<std::string>("binaryFile")).c_str(),
-                                              theGblDoubleBinary);
+    theMille = Mille::spawnMilleRecord(theDir + theConfig.getParameter<std::string>("binaryFile"), theGblDoubleBinary);
   }
 }
 
@@ -186,6 +185,11 @@ void MillePedeAlignmentAlgorithm::initialize(const edm::EventSetup &setup,
     const auto &th = &setup.getData(aliThrToken_);
     theThresholds = std::make_shared<AlignPCLThresholdsHG>();
     storeThresholds(th->getNrecords(), th->getThreshold_Map(), th->getFloatMap());
+
+    // Retrieve the SiPixelQuality object from setup
+    const SiPixelQuality &qual = setup.getData(siPixelQualityToken_);
+    // Create a new SiPixelQuality object on the heap using the copy constructor
+    pixelQuality = std::make_shared<SiPixelQuality>(qual);
 
     //Retrieve tracker geometry
     const TrackerGeometry *tGeom = &setup.getData(geomToken_);
@@ -330,7 +334,8 @@ bool MillePedeAlignmentAlgorithm::storeAlignments() {
       MillePedeFileReader mpReader(theConfig.getParameter<edm::ParameterSet>("MillePedeFileReader"),
                                    thePedeLabels,
                                    theThresholds,
-                                   pixelTopologyMap);
+                                   pixelTopologyMap,
+                                   pixelQuality);
       mpReader.read();
       return mpReader.storeAlignments();
     } else {
@@ -376,7 +381,6 @@ bool MillePedeAlignmentAlgorithm::setParametersForRunRange(const RunRange &runra
 void MillePedeAlignmentAlgorithm::terminate(const edm::EventSetup &iSetup) { terminate(); }
 void MillePedeAlignmentAlgorithm::terminate() {
   theMille.reset();  // delete to close binary before running pede below (flush would be enough...)
-  theBinary.reset();
 
   std::vector<std::string> files;
   if (this->isMode(myMilleBit) || !theConfig.getParameter<std::string>("binaryFile").empty()) {
@@ -388,7 +392,7 @@ void MillePedeAlignmentAlgorithm::terminate() {
     std::string filesForLogOutput;
     for (const auto &file : files)
       filesForLogOutput += " " + file + ",";
-    if (filesForLogOutput.length() != 0)
+    if (!filesForLogOutput.empty())
       filesForLogOutput.pop_back();
     edm::LogInfo("Alignment") << "Based on the config parameter mergeBinaryFiles, using the following "
                               << "files as input (assigned weights are indicated by ' -- <weight>'):"
@@ -544,7 +548,7 @@ std::pair<unsigned int, unsigned int> MillePedeAlignmentAlgorithm::addReferenceT
         std::cout << " GblFit: " << Chi2 << ", " << Ndf << ", " << lostWeight << std::endl; */
         // write to MP binary file
         if (aGblTrajectory.isValid() && aGblTrajectory.getNumPoints() >= theMinNumHits)
-          aGblTrajectory.milleOut(*theBinary);
+          aGblTrajectory.milleOut(theMille.get());
       }
       if (refTrajPtr->gblInput().size() == 2) {
         // from TwoBodyDecay
@@ -554,7 +558,7 @@ std::pair<unsigned int, unsigned int> MillePedeAlignmentAlgorithm::addReferenceT
                                      refTrajPtr->gblExtPrecisions());
         // write to MP binary file
         if (aGblTrajectory.isValid() && aGblTrajectory.getNumPoints() >= theMinNumHits)
-          aGblTrajectory.milleOut(*theBinary);
+          aGblTrajectory.milleOut(theMille.get());
       }
     } else {
       // to add hits if all fine:
@@ -582,10 +586,10 @@ std::pair<unsigned int, unsigned int> MillePedeAlignmentAlgorithm::addReferenceT
 
       // kill or end 'track' for mille, depends on #hits criterion
       if (hitResultXy.first == 0 || hitResultXy.first < theMinNumHits) {
-        theMille->kill();
+        theMille->abort();
         hitResultXy.first = hitResultXy.second = 0;  //reset
       } else {
-        theMille->end();
+        theMille->writeRecord();
         // add x/y hit count to MillePedeVariables of parVec,
         // returning number of y-hits of the reference trajectory
         hitResultXy.second = this->addHitCount(parVec, validHitVecY);
@@ -724,9 +728,6 @@ void MillePedeAlignmentAlgorithm::beginLuminosityBlock(const edm::EventSetup &) 
     return;
   if (this->isMode(myMilleBit)) {
     theMille->resetOutputFile();
-    theBinary.reset();  // GBL output has to be considered since same binary file is used
-    theBinary = std::make_unique<MilleBinary>((theDir + theConfig.getParameter<std::string>("binaryFile")).c_str(),
-                                              theGblDoubleBinary);
   }
 }
 
@@ -1369,11 +1370,14 @@ int MillePedeAlignmentAlgorithm ::callMille1D(const ReferenceTrajectoryBase::Ref
 
   // local derivatives
   const AlgebraicMatrix &locDerivMatrix = refTrajPtr->derivatives();
-  const int nLocal = locDerivMatrix.num_col();
+  const size_t nLocal = locDerivMatrix.num_col();
   std::vector<float> localDerivatives(nLocal);
   for (unsigned int i = 0; i < localDerivatives.size(); ++i) {
     localDerivatives[i] = locDerivMatrix[xIndex][i];
   }
+
+  // build the list of local labels, numbered consecutively starting at 1
+  prepareLocalLabels(nLocal);
 
   // residuum and error
   float residX = refTrajPtr->measurements()[xIndex] - refTrajPtr->trajectoryPositions()[xIndex];
@@ -1384,8 +1388,7 @@ int MillePedeAlignmentAlgorithm ::callMille1D(const ReferenceTrajectoryBase::Ref
 
   // &(localDerivatives[0]) etc. are valid - as long as vector is not empty
   // cf. http://www.parashift.com/c++-faq-lite/containers.html#faq-34.3
-  theMille->mille(
-      nLocal, &(localDerivatives[0]), nGlobal, &(globalDerivativesX[0]), &(globalLabels[0]), residX, hitErrX);
+  theMille->addData(residX, hitErrX, theLocalLabelBuffer_, localDerivatives, globalLabels, globalDerivativesX);
 
   if (theMonitor) {
     theMonitor->fillDerivatives(
@@ -1458,8 +1461,8 @@ int MillePedeAlignmentAlgorithm ::callMille2D(const ReferenceTrajectoryBase::Ref
   float *newGlobDerivsX = &(newGlobDerivs[0]);
   float *newGlobDerivsY = &(newGlobDerivs[aGlobalDerivativesM.cols()]);
 
-  const int nLocal = aLocalDerivativesM.cols();
-  const int nGlobal = aGlobalDerivativesM.cols();
+  const size_t nLocal = aLocalDerivativesM.cols();
+  const size_t nGlobal = aGlobalDerivativesM.cols();
 
   if (diag && (newHitErrX > newHitErrY)) {  // also for 2D hits?
     // measurement with smaller error is x-measurement (for !is2D do not fill y-measurement):
@@ -1469,9 +1472,14 @@ int MillePedeAlignmentAlgorithm ::callMille2D(const ReferenceTrajectoryBase::Ref
     std::swap(newGlobDerivsX, newGlobDerivsY);
   }
 
-  // &(globalLabels[0]) is valid - as long as vector is not empty
-  // cf. http://www.parashift.com/c++-faq-lite/containers.html#faq-34.3
-  theMille->mille(nLocal, newLocalDerivsX, nGlobal, newGlobDerivsX, &(globalLabels[0]), newResidX, newHitErrX);
+  prepareLocalLabels(nLocal);
+
+  theMille->addData(newResidX,
+                    newHitErrX,
+                    theLocalLabelBuffer_,
+                    Mille::MilleArrayView<float>(newLocalDerivsX, nLocal),
+                    globalLabels,
+                    Mille::MilleArrayView<float>(newGlobDerivsX, nGlobal));
 
   if (theMonitor) {
     theMonitor->fillDerivatives(aRecHit, newLocalDerivsX, nLocal, newGlobDerivsX, nGlobal, &(globalLabels[0]));
@@ -1480,7 +1488,12 @@ int MillePedeAlignmentAlgorithm ::callMille2D(const ReferenceTrajectoryBase::Ref
   }
   const bool isReal2DHit = this->is2D(aRecHit);  // strip is 1D (except matched hits)
   if (isReal2DHit) {
-    theMille->mille(nLocal, newLocalDerivsY, nGlobal, newGlobDerivsY, &(globalLabels[0]), newResidY, newHitErrY);
+    theMille->addData(newResidY,
+                      newHitErrY,
+                      theLocalLabelBuffer_,
+                      Mille::MilleArrayView<float>(newLocalDerivsY, nLocal),
+                      globalLabels,
+                      Mille::MilleArrayView<float>(newGlobDerivsY, nGlobal));
     if (theMonitor) {
       theMonitor->fillDerivatives(aRecHit, newLocalDerivsY, nLocal, newGlobDerivsY, nGlobal, &(globalLabels[0]));
       theMonitor->fillResiduals(
@@ -1489,6 +1502,14 @@ int MillePedeAlignmentAlgorithm ::callMille2D(const ReferenceTrajectoryBase::Ref
   }
 
   return (isReal2DHit ? 2 : 1);
+}
+void MillePedeAlignmentAlgorithm ::prepareLocalLabels(size_t nLocal) {
+  // content always the same - so only need to do something upon size change
+  if (nLocal != theLocalLabelBuffer_.size()) {
+    // build the list of local labels, numbered consecutively starting at 1
+    theLocalLabelBuffer_.resize(nLocal);
+    std::iota(theLocalLabelBuffer_.begin(), theLocalLabelBuffer_.end(), 1);
+  }
 }
 
 //__________________________________________________________________________________________________
@@ -1513,10 +1534,11 @@ void MillePedeAlignmentAlgorithm ::addVirtualMeas(const ReferenceTrajectoryBase:
   Eigen::Map<Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> >(
       newGlobDerivsX.data(), aGlobalDerivativesM.rows(), aGlobalDerivativesM.cols()) = aGlobalDerivativesM;
 
-  const int nLocal = aLocalDerivativesM.cols();
-  const int nGlobal = 0;
+  const size_t nLocal = aLocalDerivativesM.cols();
+  prepareLocalLabels(nLocal);
 
-  theMille->mille(nLocal, newLocalDerivsX.data(), nGlobal, newGlobDerivsX.data(), &nGlobal, newResidX, newHitErrX);
+  theMille->addData(
+      newResidX, newHitErrX, theLocalLabelBuffer_, newLocalDerivsX, std::vector<int>{}, std::vector<float>{});
 }
 
 //____________________________________________________
@@ -1573,17 +1595,11 @@ void MillePedeAlignmentAlgorithm::addLasBeam(const EventInfo &eventInfo,
     const float residual = hit.localPosition().x() - tsoses[iHit].localPosition().x();
     // error from file or assume 0.003
     const float error = 0.003;  // hit.localPositionError().xx(); sqrt???
-
-    theMille->mille(lasLocalDerivsX.size(),
-                    &(lasLocalDerivsX[0]),
-                    theFloatBufferX.size(),
-                    &(theFloatBufferX[0]),
-                    &(theIntBuffer[0]),
-                    residual,
-                    error);
+    prepareLocalLabels(lasLocalDerivsX.size());
+    theMille->addData(residual, error, theLocalLabelBuffer_, lasLocalDerivsX, theIntBuffer, theFloatBufferX);
   }  // end of loop over hits
 
-  theMille->end();
+  theMille->writeRecord();
 }
 
 void MillePedeAlignmentAlgorithm::addPxbSurvey(const edm::ParameterSet &pxbSurveyCfg) {
@@ -1664,15 +1680,17 @@ void MillePedeAlignmentAlgorithm::addPxbSurvey(const edm::ParameterSet &pxbSurve
 
     // pass the results from the local fit to mille
     for (SurveyPxbImageLocalFit::count_t j = 0; j != SurveyPxbImageLocalFit::nMsrmts; j++) {
-      theMille->mille((int)measurements[i].getLocalDerivsSize(),
-                      measurements[i].getLocalDerivsPtr(j),
-                      (int)measurements[i].getGlobalDerivsSize(),
-                      measurements[i].getGlobalDerivsPtr(j),
-                      measurements[i].getGlobalDerivsLabelPtr(j),
-                      measurements[i].getResiduum(j),
-                      measurements[i].getSigma(j));
+      const size_t nLocal = measurements[i].getLocalDerivsSize();
+      const size_t nGlobal = measurements[i].getGlobalDerivsSize();
+      prepareLocalLabels(nLocal);
+      theMille->addData(measurements[i].getResiduum(j),
+                        measurements[i].getSigma(j),
+                        theLocalLabelBuffer_,
+                        Mille::MilleArrayView<float>(measurements[i].getLocalDerivsPtr(j), nLocal),
+                        Mille::MilleArrayView<int>(measurements[i].getGlobalDerivsLabelPtr(j), nGlobal),
+                        Mille::MilleArrayView<float>(measurements[i].getGlobalDerivsPtr(j), nGlobal));
     }
-    theMille->end();
+    theMille->writeRecord();
   }
   outfile.close();
 }

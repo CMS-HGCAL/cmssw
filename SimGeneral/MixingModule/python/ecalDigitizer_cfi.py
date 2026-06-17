@@ -25,8 +25,7 @@ ecalDigitizer = cms.PSet(
 )
 
 from Configuration.Eras.Modifier_fastSim_cff import fastSim
-fastSim.toModify(ecalDigitizer, hitsProducer = "fastSimProducer")
-    
+
 ecalDigitizer.doEB = cms.bool(True)
 ecalDigitizer.doEE = cms.bool(True)
 ecalDigitizer.doES = cms.bool(True)
@@ -43,3 +42,11 @@ phase2_common.toModify( ecalDigitizer, doES = cms.bool(False) )
 from Configuration.Eras.Modifier_phase2_ecal_devel_cff import phase2_ecal_devel
 from SimGeneral.MixingModule.ecalDigitizer_Ph2_cfi import ecalDigitizer_Ph2 as _ecalDigitizer_Ph2
 phase2_ecal_devel.toReplaceWith(ecalDigitizer,_ecalDigitizer_Ph2)
+
+##
+## Disable all noise for the tau embedding methods simulation step
+##
+from Configuration.ProcessModifiers.tau_embedding_sim_cff import tau_embedding_sim
+tau_embedding_sim.toModify(ecalDigitizer, doENoise = False, doESNoise = False)
+
+fastSim.toModify(ecalDigitizer, hitsProducer = "fastSimProducer")

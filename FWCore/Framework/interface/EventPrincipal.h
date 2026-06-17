@@ -23,6 +23,7 @@ is the DataBlock.
 #include "FWCore/Utilities/interface/Signal.h"
 #include "FWCore/Utilities/interface/get_underlying_safe.h"
 #include "FWCore/Framework/interface/Principal.h"
+#include "FWCore/Framework/interface/ProductResolversFactory.h"
 
 #include <map>
 #include <memory>
@@ -41,8 +42,6 @@ namespace edm {
   class ModuleCallingContext;
   class ProductID;
   class StreamContext;
-  class ThinnedAssociation;
-  class ThinnedAssociationsHelper;
   class RunPrincipal;
 
   class EventPrincipal : public Principal {
@@ -51,16 +50,24 @@ namespace edm {
     typedef Principal Base;
 
     typedef Base::ConstProductResolverPtr ConstProductResolverPtr;
-    static int const invalidBunchXing = EventAuxiliary::invalidBunchXing;
-    static int const invalidStoreNumber = EventAuxiliary::invalidStoreNumber;
+    static constexpr int invalidBunchXing = EventAuxiliary::invalidBunchXing;
+    static constexpr int invalidStoreNumber = EventAuxiliary::invalidStoreNumber;
+    template <ProductResolversFactory FACTORY>
     EventPrincipal(std::shared_ptr<ProductRegistry const> reg,
+                   FACTORY&& iFactory,
                    std::shared_ptr<BranchIDListHelper const> branchIDListHelper,
-                   std::shared_ptr<ThinnedAssociationsHelper const> thinnedAssociationsHelper,
                    ProcessConfiguration const& pc,
                    HistoryAppender* historyAppender,
                    unsigned int streamIndex = 0,
-                   bool isForPrimaryProcess = true,
-                   ProcessBlockHelperBase const* processBlockHelper = nullptr);
+                   ProcessBlockHelperBase const* processBlockHelper = nullptr)
+        : EventPrincipal(reg,
+                         iFactory(InEvent, pc.processName(), *reg),
+                         branchIDListHelper,
+                         pc,
+                         historyAppender,
+                         streamIndex,
+                         processBlockHelper) {}
+
     ~EventPrincipal() override {}
 
     void fillEventPrincipal(EventAuxiliary const& aux,
@@ -129,26 +136,17 @@ namespace edm {
 
     BasicHandle getByProductID(ProductID const& oid) const;
 
-    void put(BranchDescription const& bd,
+    void put(ProductDescription const& bd,
              std::unique_ptr<WrapperBase> edp,
              ProductProvenance const& productProvenance) const;
 
     void put(ProductResolverIndex index, std::unique_ptr<WrapperBase> edp, ParentageID productProvenance) const;
 
-    void putOnRead(BranchDescription const& bd,
+    void putOnRead(ProductDescription const& bd,
                    std::unique_ptr<WrapperBase> edp,
                    std::optional<ProductProvenance> productProvenance) const;
 
     WrapperBase const* getIt(ProductID const& pid) const override;
-    std::optional<std::tuple<WrapperBase const*, unsigned int>> getThinnedProduct(ProductID const& pid,
-                                                                                  unsigned int key) const override;
-    void getThinnedProducts(ProductID const& pid,
-                            std::vector<WrapperBase const*>& foundContainers,
-                            std::vector<unsigned int>& keys) const override;
-    OptionalThinnedKey getThinnedKeyFrom(ProductID const& parent,
-                                         unsigned int key,
-                                         ProductID const& thinned) const override;
-
     ProductID branchIDToProductID(BranchID const& bid) const;
 
     void mergeProvenanceRetrievers(EventPrincipal& other) {
@@ -161,9 +159,15 @@ namespace edm {
     unsigned int processBlockIndex(std::string const& processName) const override;
 
   private:
-    BranchID pidToBid(ProductID const& pid) const;
+    EventPrincipal(std::shared_ptr<ProductRegistry const> reg,
+                   std::vector<std::shared_ptr<ProductResolverBase>>&& resolvers,
+                   std::shared_ptr<BranchIDListHelper const> branchIDListHelper,
+                   ProcessConfiguration const& pc,
+                   HistoryAppender* historyAppender,
+                   unsigned int streamIndex,
+                   ProcessBlockHelperBase const* processBlockHelper);
 
-    edm::ThinnedAssociation const* getThinnedAssociation(edm::BranchID const& branchID) const;
+    BranchID pidToBid(ProductID const& pid) const;
 
     unsigned int transitionIndex_() const override;
     void changedIndexes_() final;
@@ -191,7 +195,6 @@ namespace edm {
 
     std::shared_ptr<BranchIDListHelper const> branchIDListHelper_;
     ProcessBlockHelperBase const* processBlockHelper_;
-    std::shared_ptr<ThinnedAssociationsHelper const> thinnedAssociationsHelper_;
 
     BranchListIndexes branchListIndexes_;
 

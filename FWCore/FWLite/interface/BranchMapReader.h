@@ -23,7 +23,7 @@
 #include "TUUID.h"
 
 // user include files
-#include "DataFormats/Provenance/interface/BranchDescription.h"
+#include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "DataFormats/Provenance/interface/BranchListIndex.h"
 #include "FWCore/Utilities/interface/propagate_const.h"
 
@@ -31,10 +31,6 @@
 class TFile;
 class TTree;
 class TBranch;
-
-namespace edm {
-  class ThinnedAssociationsHelper;
-}
 
 namespace fwlite {
   namespace internal {
@@ -49,11 +45,10 @@ namespace fwlite {
       virtual bool updateRun(Long_t runEntry) = 0;
       virtual bool updateMap() = 0;
       virtual edm::BranchID productToBranchID(const edm::ProductID& pid) = 0;
-      virtual const edm::BranchDescription& productToBranch(const edm::ProductID& pid) = 0;
-      virtual const edm::BranchDescription& branchIDToBranch(const edm::BranchID& bid) const = 0;
-      virtual const std::vector<edm::BranchDescription>& getBranchDescriptions() = 0;
+      virtual const edm::ProductDescription& productToBranch(const edm::ProductID& pid) = 0;
+      virtual const edm::ProductDescription& branchIDToBranch(const edm::BranchID& bid) const = 0;
+      virtual const std::vector<edm::ProductDescription>& getProductDescriptions() = 0;
       virtual const edm::BranchListIndexes& branchListIndexes() const = 0;
-      virtual const edm::ThinnedAssociationsHelper& thinnedAssociationsHelper() const = 0;
 
       edm::propagate_const<TFile*> currentFile_;
       edm::propagate_const<TTree*> eventTree_;
@@ -82,8 +77,8 @@ namespace fwlite {
     bool updateLuminosityBlock(Long_t luminosityBlockEntry);
     bool updateRun(Long_t runEntry);
     edm::BranchID productToBranchID(const edm::ProductID& pid) { return strategy_->productToBranchID(pid); }
-    const edm::BranchDescription& productToBranch(const edm::ProductID& pid);
-    const edm::BranchDescription& branchIDToBranch(const edm::BranchID& bid) const {
+    const edm::ProductDescription& productToBranch(const edm::ProductID& pid);
+    const edm::ProductDescription& branchIDToBranch(const edm::BranchID& bid) const {
       return strategy_->branchIDToBranch(bid);
     }
     int getFileVersion(TFile* file);
@@ -101,13 +96,10 @@ namespace fwlite {
     Long_t getEventEntry() const { return strategy_->eventEntry_; }
     Long_t getLuminosityBlockEntry() const { return strategy_->luminosityBlockEntry_; }
     Long_t getRunEntry() const { return strategy_->runEntry_; }
-    const std::vector<edm::BranchDescription>& getBranchDescriptions();
+    const std::vector<edm::ProductDescription>& getProductDescriptions();
     const edm::BranchListIndexes& branchListIndexes() const {
       strategy_->updateMap();
       return strategy_->branchListIndexes();
-    }
-    const edm::ThinnedAssociationsHelper& thinnedAssociationsHelper() const {
-      return strategy_->thinnedAssociationsHelper();
     }
 
     // ---------- member data --------------------------------

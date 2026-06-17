@@ -2,6 +2,5 @@
 
 #include "SimDataFormats/Associations/interface/LayerClusterToSimClusterAssociator.h"
 
-hgcal::LayerClusterToSimClusterAssociator::LayerClusterToSimClusterAssociator(
-    std::unique_ptr<hgcal::LayerClusterToSimClusterAssociatorBaseImpl> ptr)
-    : m_impl(std::move(ptr)) {}
+template class ticl::LayerClusterToSimClusterAssociatorT<reco::CaloClusterCollection>;
+template class ticl::LayerClusterToSimClusterAssociatorT<reco::PFClusterCollection>;

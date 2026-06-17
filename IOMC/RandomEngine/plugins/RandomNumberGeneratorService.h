@@ -11,8 +11,11 @@
   (originally in FWCore/Services)
 */
 
-#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
+#include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
+#include "FWCore/ServiceRegistry/interface/ServiceRegistryfwd.h"
+#include "FWCore/Framework/interface/EDConsumerBase.h"
 #include "FWCore/Utilities/interface/InputTag.h"
+#include "FWCore/Utilities/interface/EDGetToken.h"
 #include "FWCore/Utilities/interface/get_underlying_safe.h"
 
 #include <atomic>
@@ -44,15 +47,16 @@ namespace edm {
   class ParameterSet;
   class StreamContext;
   class StreamID;
+  class RandomEngineStates;
 
   namespace service {
 
     class SystemBounds;
 
-    class RandomNumberGeneratorService : public RandomNumberGenerator {
+    class RandomNumberGeneratorService : public RandomNumberGenerator, public EDConsumerBase {
     public:
       RandomNumberGeneratorService(ParameterSet const& pset, ActivityRegistry& activityRegistry);
-      ~RandomNumberGeneratorService() override;
+      ~RandomNumberGeneratorService() noexcept(true) override;
 
       RandomNumberGeneratorService(RandomNumberGeneratorService const&) = delete;
       RandomNumberGeneratorService const& operator=(RandomNumberGeneratorService const&) = delete;
@@ -92,6 +96,11 @@ namespace edm {
       void setLumiCache(LuminosityBlockIndex, std::vector<RandomEngineState> const& iStates) override;
       void setEventCache(StreamID, std::vector<RandomEngineState> const& iStates) override;
 
+      void preBeginJob(ProcessContext const&);
+      void postBeginJob();
+      void preEndJob();
+      void postEndJob();
+
       /// These next 12 functions are only used to check that random numbers are not
       /// being generated in these methods when enable checking is configured on.
       void preModuleBeginStream(StreamContext const& sc, ModuleCallingContext const& mcc);
@@ -116,7 +125,7 @@ namespace edm {
       std::vector<RandomEngineState> const& getLumiCache(LuminosityBlockIndex const&) const override;
       std::vector<RandomEngineState> const& getEventCache(StreamID const&) const override;
 
-      void consumes(ConsumesCollector&& iC) const override;
+      EDConsumerBase* consumer() override;
 
       /// For debugging
       void print(std::ostream& os) const override;
@@ -226,6 +235,9 @@ namespace edm {
       edm::InputTag restoreStateTag_;
       edm::InputTag restoreStateBeginLumiTag_;
 
+      edm::EDGetTokenT<RandomEngineStates> restoreStateToken_;
+      edm::EDGetTokenT<RandomEngineStates> restoreStateBeginLumiToken_;
+
       std::vector<std::vector<RandomEngineState>> eventCache_;  // streamID, sorted by module label
       std::vector<std::vector<RandomEngineState>> lumiCache_;   // luminosityBlockIndex, sorted by module label
 
@@ -270,6 +282,7 @@ namespace edm {
       bool enableChecking_;
 
       std::uint32_t eventSeedOffset_;
+      bool beginJobEndJobActive_ = false;
 
       bool verbose_;
 

@@ -14,6 +14,9 @@ lowPtQuadStepClusters = _cfg.clusterRemoverForIter('LowPtQuadStep')
 for _eraName, _postfix, _era in _cfg.nonDefaultEras():
     _era.toReplaceWith(lowPtQuadStepClusters, _cfg.clusterRemoverForIter('LowPtQuadStep', _eraName, _postfix))
 
+from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
+# with LST, this is the first iteration with proper cluster masking
+trackingLST.toModify(lowPtQuadStepClusters, oldClusterRemovalInfo = "")
 
 # SEEDING LAYERS
 import RecoTracker.TkSeedingLayers.PixelLayerQuadruplets_cfi
@@ -42,8 +45,8 @@ from RecoTracker.TkTrackingRegions.globalTrackingRegionWithVertices_cff import g
                     originRadius = 0.02 )
                 )
 )
-from Configuration.Eras.Modifier_highBetaStar_2018_cff import highBetaStar_2018
-highBetaStar_2018.toModify(lowPtQuadStepTrackingRegions,RegionPSet = dict(
+from Configuration.Eras.Modifier_highBetaStar_cff import highBetaStar
+highBetaStar.toModify(lowPtQuadStepTrackingRegions,RegionPSet = dict(
      ptMin        = 0.05,
      originRadius = 0.2, )
 )
@@ -76,7 +79,7 @@ lowPtQuadStepHitQuadruplets = _caHitQuadrupletEDProducer.clone(
     CAPhiCut             = 0.3,
 )
 trackingPhase2PU140.toModify(lowPtQuadStepHitQuadruplets,CAThetaCut = 0.0015,CAPhiCut = 0.25)
-highBetaStar_2018.toModify(lowPtQuadStepHitQuadruplets,CAThetaCut = 0.0034,CAPhiCut = 0.6)
+highBetaStar.toModify(lowPtQuadStepHitQuadruplets,CAThetaCut = 0.0034,CAPhiCut = 0.6)
 
 from RecoTracker.TkSeedGenerator.seedCreatorFromRegionConsecutiveHitsEDProducer_cff import seedCreatorFromRegionConsecutiveHitsEDProducer as _seedCreatorFromRegionConsecutiveHitsEDProducer
 lowPtQuadStepSeeds = _seedCreatorFromRegionConsecutiveHitsEDProducer.clone(
@@ -244,7 +247,7 @@ trackdnn.toReplaceWith(lowPtQuadStep, trackTfClassifier.clone(
     src = 'lowPtQuadStepTracks',
     qualityCuts = qualityCutDictionary.LowPtQuadStep.value()
 ))
-highBetaStar_2018.toModify(lowPtQuadStep,qualityCuts = [-0.9,-0.35,-0.15])
+highBetaStar.toModify(lowPtQuadStep,qualityCuts = [-0.9,-0.35,-0.15])
 fastSim.toModify(lowPtQuadStep,vertices = 'firstStepPrimaryVerticesBeforeMixing')
 
 ((~trackingMkFitLowPtQuadStep) & trackdnn).toModify(lowPtQuadStep, mva = dict(tfDnnLabel  = 'trackSelectionTf_CKF'),
@@ -300,6 +303,7 @@ lowPtQuadStepSelector = RecoTracker.FinalTrackSelectors.multiTrackSelector_cfi.m
     ] #end of vpset
 ) #end of clone
 
+fastSim.toModify(lowPtQuadStepSelector,vertices = "firstStepPrimaryVerticesBeforeMixing")
 
 # Final sequence
 LowPtQuadStepTask = cms.Task(lowPtQuadStepClusters,
@@ -324,11 +328,14 @@ trackingPhase2PU140.toReplaceWith(LowPtQuadStepTask, _LowPtQuadStepTask_Phase2PU
 # fast tracking mask producer
 from FastSimulation.Tracking.FastTrackerRecHitMaskProducer_cfi import maskProducerFromClusterRemover
 lowPtQuadStepMasks = maskProducerFromClusterRemover(lowPtQuadStepClusters)
-fastSim.toReplaceWith(LowPtQuadStepTask,
-                      cms.Task(lowPtQuadStepMasks
-                               ,lowPtQuadStepTrackingRegions
-                               ,lowPtQuadStepSeeds
-                               ,lowPtQuadStepTrackCandidates
-                               ,lowPtQuadStepTracks
-                               ,lowPtQuadStep
-                               ) )
+_LowPtQuadStepTask_fastSim = cms.Task(lowPtQuadStepMasks
+                                     ,lowPtQuadStepTrackingRegions
+                                     ,lowPtQuadStepSeeds
+                                     ,lowPtQuadStepTrackCandidates
+                                     ,lowPtQuadStepTracks
+                                     ,lowPtQuadStep
+)
+_LowPtQuadStepTask_fastSim_phase2 = _LowPtQuadStepTask_fastSim.copy()
+_LowPtQuadStepTask_fastSim_phase2.replace(lowPtQuadStep, lowPtQuadStepSelector)
+fastSim.toReplaceWith(LowPtQuadStepTask, _LowPtQuadStepTask_fastSim)
+(fastSim & trackingPhase2PU140).toReplaceWith(LowPtQuadStepTask, _LowPtQuadStepTask_fastSim_phase2)

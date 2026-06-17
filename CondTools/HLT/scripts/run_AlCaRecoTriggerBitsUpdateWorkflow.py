@@ -3,7 +3,6 @@
 """
 Example script to test reading from local sqlite db.
 """
-from __future__ import print_function
 import os
 import sys
 import ast
@@ -117,6 +116,7 @@ def main():
                       help = 'tag to be written')
     parser.add_option('-p', '--processes',
                       dest = 'nproc',
+                      type = "int",
                       default = defaultProc,
                       help = 'multiprocesses to run')
     parser.add_option("-C", '--clean',

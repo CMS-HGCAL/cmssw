@@ -9,10 +9,10 @@
 #     Configuration/HLT/python/autoCondHLT.py , and
 #     HLTrigger/Configuration/python/Tools/options.py
 declare -A TABLES=(
-  ["Fake"]="/dev/CMSSW_14_0_0/Fake"
-  ["Fake1"]="/dev/CMSSW_14_0_0/Fake1"
-  ["Fake2"]="/dev/CMSSW_14_0_0/Fake2"
-  ["2024v12"]="/frozen/2024/2e34/v1.2/HLT"
+  ["Fake"]="/dev/CMSSW_16_0_0/Fake"
+  ["Fake1"]="/dev/CMSSW_16_0_0/Fake1"
+  ["Fake2"]="/dev/CMSSW_16_0_0/Fake2"
+  ["2026v11"]="/frozen/2026/2e34/v1.1/HLT"
 )
 
 # command-line arguments

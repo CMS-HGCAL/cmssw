@@ -183,18 +183,19 @@ namespace edm {
       // set up for tracking whether current module is debug-enabled
       // (and info-enabled and warning-enabled)
       if (debugModules.empty()) {
-        anyDebugEnabled_ = false;                       // change log 11
-        MessageDrop::instance()->debugEnabled = false;  // change log 1
+        anyDebugEnabled_ = true;
+        everyDebugEnabled_ = true;
+        MessageDrop::instance()->debugEnabled = true;
       } else {
         anyDebugEnabled_ = true;  // change log 11
         MessageDrop::instance()->debugEnabled = false;
         // this will be over-ridden when specific modules are entered
       }
 
-      // if ( debugModules.empty()) anyDebugEnabled_ = true; // wrong; change log 11
       for (vString::const_iterator it = debugModules.begin(); it != debugModules.end(); ++it) {
         if (*it == "*") {
           everyDebugEnabled_ = true;
+          MessageDrop::instance()->debugEnabled = true;
         } else {
           debugEnabledModules_.insert(*it);
         }
@@ -802,8 +803,8 @@ namespace edm {
       auto v = fill_buffer(buffer, "Run: ", id.run(), " Event: ", id.event());
       edm::MessageDrop::instance()->runEvent = v;
       edm::MessageDrop::instance()->setSinglet("PreEventProcessing");  // changelog 17
-          // Note - module name had not been set here  Similarly in other places where
-          // RunEvent carries the new information; we add setSinglet for module name.
+      // Note - module name had not been set here  Similarly in other places where
+      // RunEvent carries the new information; we add setSinglet for module name.
     }
 
     void MessageLogger::postEvent(StreamContext const& iContext) {

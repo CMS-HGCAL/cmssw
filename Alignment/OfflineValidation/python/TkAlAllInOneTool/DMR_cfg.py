@@ -92,8 +92,8 @@ import Alignment.CommonAlignment.tools.trackselectionRefitting as trackselRefit
 process.seqTrackselRefit = trackselRefit.getSequence(process,
                                                      config["validation"].get("trackcollection", "generalTracks"),
                                                      isPVValidation = False, 
-                                                     TTRHBuilder = config["validation"].get("tthrbuilder", "WithAngleAndTemplate"),
-                                                     usePixelQualityFlag=config["validation"].get("usePixelQualityFlag", True),
+                                                     TTRHBuilder = config["validation"].get("tthrbuilder", "WithTrackAngle"),
+                                                     usePixelQualityFlag=config["validation"].get("usePixelQualityFlag", False),
                                                      openMassWindow = False,
                                                      cosmicsDecoMode = True,
                                                      cosmicsZeroTesla=config["validation"].get("cosmicsZeroTesla", False),
@@ -156,6 +156,7 @@ process.TrackerOfflineValidation = _trackerOfflineValidation.clone(
     useFit                    = False,
     useOverflowForRMS         = False,
     maxTracks                 = config["validation"].get("maxtracks", 1),
+    maxEntriesPerModuleForDmr = config["validation"].get("maxEntriesPerModuleForDmr", 0),
     chargeCut                 = config["validation"].get("chargecut", 0),
 
     # Normalized X Residuals, normal local coordinates (Strip)

@@ -1,10 +1,8 @@
-#ifndef RecoTracker_PixelTrackFitting_FitResult_h
-#define RecoTracker_PixelTrackFitting_FitResult_h
+#ifndef RecoTracker_PixelTrackFitting_interface_FitResult_h
+#define RecoTracker_PixelTrackFitting_interface_FitResult_h
 
 #include <cmath>
 #include <cstdint>
-
-#include <cuda_runtime.h>
 
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
@@ -60,7 +58,8 @@ namespace riemannFit {
     float chi2_line;
     //    Vector4d fast_fit;
     int32_t qCharge;  //!< particle charge
-  };                  // __attribute__((aligned(16)));
+  };  // __attribute__((aligned(16)));
 
 }  // namespace riemannFit
-#endif
+
+#endif  // RecoTracker_PixelTrackFitting_interface_FitResult_h

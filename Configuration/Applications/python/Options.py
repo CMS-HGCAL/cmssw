@@ -52,16 +52,22 @@ parser.add_argument("--fileout",
                     type=str,
                     dest="fileout")
 
+parser.add_argument("--rntuple_out",
+                    help="If possible, use RNTuple format for output.",
+                    action="store_true",
+                    default=defaultOptions.rntuple_out,
+                    dest="rntuple_out")
+
 parser.add_argument("--filetype",
                     help="The type of the infile",
                     default=defaultOptions.filetype,
                     type=str,
                     dest="filetype",
-                    choices=['EDM','DAT','LHE','MDCB','DQM','DQMDAQ']
+                    choices=['EDM','DAT','LHE','MDCB','DQM','DQMDAQ', 'EDM_RNTUPLE']
                   )
 
 parser.add_argument("-n", "--number",
-                    help="The number of events.",
+                    help="The number of events that will be processed.",
                     default=1,
                     type=int,
                     dest="number")
@@ -210,7 +216,7 @@ expertSettings.add_argument("--suffix",
                             dest="suffix")
 
 expertSettings.add_argument("--relval",
-                            help="Set total number of events and events per job.", #this does not get used but get parsed in the command by DataOps
+                            help="Set total number of events and events per job (comma-separated). Only considered if one of the steps is 'DATAMIX'. Ignored in private production; use `--number` to set the number of events to be processed.",
                             default="",
                             dest="relval")
 
@@ -433,6 +439,12 @@ expertSettings.add_argument("--maxmem_profile",
                             default=False,
                             action="store_true",
                             dest="maxmem_profile")
+
+expertSettings.add_argument("--alloc_monitor",
+                            help="Add necessary LD_PRELOAD for PerfTools/AllocMonitor",
+                            default=False,
+                            action="store_true",
+                            dest="alloc_monitor")
 
 expertSettings.add_argument("--io",
                             help="Create a json file with io informations",

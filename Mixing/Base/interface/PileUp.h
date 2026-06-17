@@ -7,12 +7,15 @@
 #include <optional>
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
+#include "FWCore/Sources/interface/SciTagCategoryForEmbeddedSources.h"
 #include "FWCore/Sources/interface/VectorInputSource.h"
 #include "FWCore/Utilities/interface/ESGetToken.h"
 #include "DataFormats/Provenance/interface/EventID.h"
 #include "FWCore/Framework/interface/EventPrincipal.h"
+#include "FWCore/Framework/interface/SignallingProductRegistryFiller.h"
 #include "FWCore/ServiceRegistry/interface/ServiceToken.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "FWCore/Utilities/interface/ExceptionCollector.h"
 
 #include "TH1F.h"
 
@@ -45,7 +48,8 @@ namespace edm {
     explicit PileUp(ParameterSet const& pset,
                     const std::shared_ptr<PileUpConfig>& config,
                     edm::ConsumesCollector iC,
-                    const bool mixingConfigFromDB);
+                    const bool mixingConfigFromDB,
+                    SciTagCategoryForEmbeddedSources cat = SciTagCategoryForEmbeddedSources::Embedded);
     ~PileUp();
 
     template <typename T>
@@ -82,6 +86,7 @@ namespace edm {
     void beginJob(eventsetup::ESRecordsToProductResolverIndices const&);
     void beginStream(edm::StreamID);
     void endStream();
+    void endStream(ExceptionCollector&);
 
     void beginRun(const edm::Run& run, const edm::EventSetup& setup);
     void beginLuminosityBlock(const edm::LuminosityBlock& lumi, const edm::EventSetup& setup);
@@ -139,7 +144,7 @@ namespace edm {
 
     edm::ESGetToken<MixingModuleConfig, MixingRcd> configToken_;
     size_t fileNameHash_;
-    std::shared_ptr<ProductRegistry> productRegistry_;
+    std::shared_ptr<const ProductRegistry> productRegistry_;
     std::unique_ptr<VectorInputSource> const input_;
     std::shared_ptr<ProcessConfiguration> processConfiguration_;
     std::shared_ptr<ProcessContext> processContext_;

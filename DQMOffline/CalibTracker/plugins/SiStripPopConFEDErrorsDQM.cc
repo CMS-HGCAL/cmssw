@@ -209,7 +209,7 @@ void SiStripPopConFEDErrorsHandlerFromDQM::readHistogram(MonitorElement* aMe,
                                                          const float aNorm,
                                                          const unsigned int aFedId) {
   unsigned short lFlag = 0;
-  std::string lMeName = aMe->getName();
+  const std::string& lMeName = aMe->getName();
   if (lMeName.find("DataMissing") != lMeName.npos) {
     lFlag = 0;
   } else if (lMeName.find("AnyFEDErrors") != lMeName.npos) {
@@ -313,9 +313,9 @@ void SiStripPopConFEDErrorsHandlerFromDQM::readHistogram(MonitorElement* aMe,
             addBadAPV(lConnection, 0, lFlag, aCounter);
           }
         }  //if not FE hist
-      }    //if not FED hist
-    }      //if entries in histo
-  }        //loop on bins
+      }  //if not FED hist
+    }  //if entries in histo
+  }  //loop on bins
 }  //method readHistogram
 
 void SiStripPopConFEDErrorsHandlerFromDQM::addBadAPV(const FedChannelConnection& aConnection,

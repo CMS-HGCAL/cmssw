@@ -14,26 +14,24 @@
 class TrackingAction;
 class CMSSteppingVerbose;
 class G4VProcess;
+class CMSG4TrackInterface;
 
 class StackingAction : public G4UserStackingAction {
 public:
-  explicit StackingAction(const TrackingAction*, const edm::ParameterSet& ps, const CMSSteppingVerbose*);
+  explicit StackingAction(const edm::ParameterSet& ps, const CMSSteppingVerbose*);
 
   ~StackingAction() override = default;
 
   G4ClassificationOfNewTrack ClassifyNewTrack(const G4Track* aTrack) final;
 
-  void NewStage() override;
-  void PrepareNewEvent() override;
-
 private:
   void initPointer();
 
-  int isItPrimaryDecayProductOrConversion(const int subtype, const G4Track&) const;
+  int isItPrimaryDecayProductOrConversion(const int subtype, const G4Track* mother) const;
 
-  int isItFromPrimary(const G4Track&, int) const;
+  int isItFromPrimary(const G4Track* mother, int) const;
 
-  bool rrApplicable(const G4Track*, const G4Track&) const;
+  bool rrApplicable(const G4Track* current, const G4Track* mother) const;
 
   bool isItOutOfTimeWindow(const G4Region*, const double&) const;
 
@@ -69,7 +67,7 @@ private:
   std::vector<const G4Region*> deadRegions;
 
   G4VSolid* worldSolid;
-  const TrackingAction* trackAction;
+  CMSG4TrackInterface* m_trackInterface;
   const CMSSteppingVerbose* steppingVerbose;
   const G4VProcess* m_Compton{nullptr};
 

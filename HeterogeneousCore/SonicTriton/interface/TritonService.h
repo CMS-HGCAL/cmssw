@@ -18,7 +18,6 @@
 namespace edm {
   class ActivityRegistry;
   class ConfigurationDescriptions;
-  class PathsAndConsumesOfModulesBase;
   class ProcessContext;
   class ModuleDescription;
   namespace service {
@@ -36,14 +35,14 @@ public:
         : enable(pset.getUntrackedParameter<bool>("enable")),
           debug(pset.getUntrackedParameter<bool>("debug")),
           verbose(pset.getUntrackedParameter<bool>("verbose")),
-          useDocker(pset.getUntrackedParameter<bool>("useDocker")),
-          useGPU(pset.getUntrackedParameter<bool>("useGPU")),
+          container(pset.getUntrackedParameter<std::string>("container")),
+          device(pset.getUntrackedParameter<std::string>("device")),
           retries(pset.getUntrackedParameter<int>("retries")),
           wait(pset.getUntrackedParameter<int>("wait")),
           instanceName(pset.getUntrackedParameter<std::string>("instanceName")),
           tempDir(pset.getUntrackedParameter<std::string>("tempDir")),
           imageName(pset.getUntrackedParameter<std::string>("imageName")),
-          sandboxName(pset.getUntrackedParameter<std::string>("sandboxName")) {
+          sandboxDir(pset.getUntrackedParameter<std::string>("sandboxDir")) {
       //randomize instance name
       if (instanceName.empty()) {
         instanceName =
@@ -54,14 +53,14 @@ public:
     bool enable;
     bool debug;
     bool verbose;
-    bool useDocker;
-    bool useGPU;
+    std::string container;
+    std::string device;
     int retries;
     int wait;
     std::string instanceName;
     std::string tempDir;
     std::string imageName;
-    std::string sandboxName;
+    std::string sandboxDir;
     std::string command;
   };
   struct Server {
@@ -89,6 +88,7 @@ public:
     std::unordered_set<std::string> models;
     static const std::string fallbackName;
     static const std::string fallbackAddress;
+    static const std::string siteconfName;
   };
   struct Model {
     Model(const std::string& path_ = "") : path(path_) {}
@@ -122,7 +122,7 @@ private:
   void preModuleConstruction(edm::ModuleDescription const&);
   void postModuleConstruction(edm::ModuleDescription const&);
   void preModuleDestruction(edm::ModuleDescription const&);
-  void preBeginJob(edm::PathsAndConsumesOfModulesBase const&, edm::ProcessContext const&);
+  void preBeginJob(edm::ProcessContext const&);
   void postEndJob();
 
   //helper

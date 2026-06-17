@@ -21,4 +21,6 @@
 <use name="FWCore/ParameterSet"/>
 <use name="FWCore/Utilities"/>
 <use name="HLTrigger/HLTcore"/>
-<flags EDM_PLUGIN="1"/>
+<library file="*.cc" name="HLTriggerHLTfiltersPlugins">
+  <flags EDM_PLUGIN="1"/>
+</library>

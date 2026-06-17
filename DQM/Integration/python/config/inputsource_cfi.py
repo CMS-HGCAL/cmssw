@@ -1,5 +1,3 @@
-from __future__ import print_function
-from __future__ import absolute_import
 import FWCore.ParameterSet.Config as cms
 import FWCore.ParameterSet.VarParsing as VarParsing
 
@@ -79,7 +77,11 @@ options.register('outputBaseDir',
                  VarParsing.VarParsing.varType.string,
                  "Directory where the visualization output files will appear.")
 
-
+options.register('clientTag',
+                 '',
+                 VarParsing.VarParsing.multiplicity.singleton,
+                 VarParsing.VarParsing.varType.string,
+                 "Name of the tag to be used in the DQMFileSaverOnline")
 
 options.parseArguments()
 

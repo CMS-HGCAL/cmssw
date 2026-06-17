@@ -1770,9 +1770,9 @@ void TestClusters::endJob() {
               hbadMap1->Fill(float(mod), float(lad));
             }
           }  //if
-        }    // loop over rocs
-      }      // mod
-    }        // lad
+        }  // loop over rocs
+      }  // mod
+    }  // lad
 
     for (int ilad = 0; ilad < 32; ++ilad) {
       int lad = ladders2[ilad];
@@ -1813,9 +1813,9 @@ void TestClusters::endJob() {
               hbadMap2->Fill(float(mod), float(lad));
             }
           }  //if
-        }    // loop over rocs
-      }      // mod
-    }        // lad
+        }  // loop over rocs
+      }  // mod
+    }  // lad
 
     for (int ilad = 0; ilad < 44; ++ilad) {
       int lad = ladders3[ilad];
@@ -1852,9 +1852,9 @@ void TestClusters::endJob() {
               hbadMap3->Fill(float(mod), float(lad));
             }
           }  //if
-        }    // loop over rocs
-      }      // mod
-    }        // lad
+        }  // loop over rocs
+      }  // mod
+    }  // lad
 
     edm::LogPrint("TestClusters") << " Bad Rocs " << deadRocs1 << " " << deadRocs2 << " " << deadRocs3
                                   << ", Inefficient Rocs " << ineffRocs1 << " " << ineffRocs2 << " " << ineffRocs3;
@@ -1974,8 +1974,8 @@ void TestClusters::analyze(const edm::Event &e, const edm::EventSetup &es) {
           edm::LogPrint("TestClusters") << ", sumpt " << iVertex->p4().pt();
           edm::LogPrint("TestClusters");
         }  // print
-      }    // for loop
-    }      // if vertex
+      }  // for loop
+    }  // if vertex
 
     hpvs->Fill(float(numPVsGood));
     hpvls->Fill(float(lumiBlock), float(numPVsGood));
@@ -2032,11 +2032,11 @@ void TestClusters::analyze(const edm::Event &e, const edm::EventSetup &es) {
     edm::LogPrint("TestClusters") << "run " << run << " event " << event << " bx " << bx << " lumi " << lumiBlock
                                   << " orbit " << orbit << " " << numOf << " lumi " << instlumi;
 
-    // For L1
-    //bool bit0=false; // , bit126=false, bit121=false,bit122=false;
-    //bool bptx_m=false, bptx_p=false, bptxAnd=false,
-    //bptx3=false, bptx4=false, bptx5=false, bptx6=false,bptx7=false;
-    //bool  bcsOR=false, bit32_33=false, bit40=false, bit41=false, halo=false, splash1=false, splash2=false;
+  // For L1
+  //bool bit0=false; // , bit126=false, bit121=false,bit122=false;
+  //bool bptx_m=false, bptx_p=false, bptxAnd=false,
+  //bptx3=false, bptx4=false, bptx5=false, bptx6=false,bptx7=false;
+  //bool  bcsOR=false, bit32_33=false, bit40=false, bit41=false, halo=false, splash1=false, splash2=false;
 
 #ifdef L1
   // Get L1
@@ -2148,8 +2148,8 @@ void TestClusters::analyze(const edm::Event &e, const edm::EventSetup &es) {
 
       }  // if hlt
 
-    }   // loop
-  }     // if valid
+    }  // loop
+  }  // if valid
 #endif  // HLT
 
 #ifdef USE_RESYNCS
@@ -2325,9 +2325,9 @@ void TestClusters::analyze(const edm::Event &e, const edm::EventSetup &es) {
                                     << subid;
 
 #ifdef HISTOS
-      //hdetunit->Fill(float(detid));
-      //hpixid->Fill(float(detType));
-      //hpixsubid->Fill(float(subid));
+    //hdetunit->Fill(float(detid));
+    //hpixid->Fill(float(detType));
+    //hpixsubid->Fill(float(subid));
 #endif  // HISTOS
 
     if (detType != 1)
@@ -2623,7 +2623,7 @@ void TestClusters::analyze(const edm::Event &e, const edm::EventSetup &es) {
               hrocHits1ls->Fill(float(lumiBlock), 3);
             else if (ladder == 8 && module == 2 && roc == 1)
               hrocHits1ls->Fill(float(lumiBlock), 4);
-              //else if(ladder== 2 && module== 1 && roc== 0)  hrocHits1ls->Fill(float(lumiBlock),5);
+            //else if(ladder== 2 && module== 1 && roc== 0)  hrocHits1ls->Fill(float(lumiBlock),5);
 #endif
 
           } else if (layer == 2) {
@@ -2711,7 +2711,7 @@ void TestClusters::analyze(const edm::Event &e, const edm::EventSetup &es) {
               hrocHits2ls->Fill(float(lumiBlock), 1);
             else if (ladder == 15 && module == 3 && roc == 7)
               hrocHits2ls->Fill(float(lumiBlock), 2);
-              //else if(ladder== 2 && module==1  && roc== 0)  hrocHits2ls->Fill(float(lumiBlock),3);
+            //else if(ladder== 2 && module==1  && roc== 0)  hrocHits2ls->Fill(float(lumiBlock),3);
 #endif
 
             hpixcharge2->Fill(adc);
@@ -2845,8 +2845,8 @@ void TestClusters::analyze(const edm::Event &e, const edm::EventSetup &es) {
               hrocHits3ls->Fill(float(lumiBlock), 1);
             else if (ladder == -6 && module == -2 && roc == 10)
               hrocHits3ls->Fill(float(lumiBlock), 2);
-              //else if(ladder==16  && module==-3 && roc== 6)  hrocHits3ls->Fill(float(lumiBlock),3);
-              //else if(ladder== 2  && module== 1 && roc== 0)  hrocHits3ls->Fill(float(lumiBlock),4);
+            //else if(ladder==16  && module==-3 && roc== 6)  hrocHits3ls->Fill(float(lumiBlock),3);
+            //else if(ladder== 2  && module== 1 && roc== 0)  hrocHits3ls->Fill(float(lumiBlock),4);
 
 #endif
 
@@ -3646,7 +3646,7 @@ void TestClusters::analyze(const edm::Event &e, const edm::EventSetup &es) {
         if (t1flag > 0 && i < 64)
           hl1t1->Fill(float(i));
       }  // for loop
-    }    // if l1a
+    }  // if l1a
 
     // HLT bits
     for (unsigned int i = 0; i < 256; i++)

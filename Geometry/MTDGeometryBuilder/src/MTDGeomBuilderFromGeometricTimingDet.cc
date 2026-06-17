@@ -5,8 +5,8 @@
 #include "Geometry/MTDGeometryBuilder/interface/MTDGeomDetUnit.h"
 #include "Geometry/MTDGeometryBuilder/interface/MTDPixelTopologyBuilder.h"
 #include "DataFormats/DetId/interface/DetId.h"
+#include "DataFormats/ForwardDetId/interface/MTDDetId.h"
 #include "CondFormats/GeometryObjects/interface/PMTDParameters.h"
-#include "Geometry/MTDNumberingBuilder/interface/MTDTopology.h"
 #include "DataFormats/GeometrySurface/interface/MediumProperties.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/Exception.h"
@@ -33,23 +33,18 @@ namespace {
   }
 }  // namespace
 
-MTDGeometry* MTDGeomBuilderFromGeometricTimingDet::build(const GeometricTimingDet* gd,
-                                                         const PMTDParameters& ptp,
-                                                         const MTDTopology* tTopo) {
+MTDGeometry* MTDGeomBuilderFromGeometricTimingDet::build(const GeometricTimingDet* gd, const PMTDParameters& ptp) {
   theMTDDetTypeMap.clear();
 
   MTDGeometry* tracker = new MTDGeometry(gd);
   std::vector<const GeometricTimingDet*> comp;
   gd->deepComponents(comp);
 
-  if (tTopo)
-    theTopo = tTopo;
-
   //define a vector which associate to the detid subdetector index -1 (from 0 to 5) the GeometridDet enumerator to be able to know which type of subdetector it is
 
   std::vector<GeometricTimingDet::GTDEnumType> gdsubdetmap(
       2, GeometricTimingDet::unknown);  // hardcoded "2" should not be a surprise...
-  GeometricTimingDet::ConstGeometricTimingDetContainer subdetgd = gd->components();
+  const GeometricTimingDet::ConstGeometricTimingDetContainer& subdetgd = gd->components();
 
   LogDebug("SubDetectorGeometricTimingDetType") << "MTD GeometricTimingDet enumerator values of the subdetectors";
   for (unsigned int i = 0; i < subdetgd.size(); ++i) {

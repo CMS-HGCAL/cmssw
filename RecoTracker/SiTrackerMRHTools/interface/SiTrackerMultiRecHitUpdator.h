@@ -10,6 +10,7 @@
 #define SiTrackerMultiRecHitUpdator_h
 
 #include "DataFormats/GeometryVector/interface/LocalPoint.h"
+#include "DataFormats/TrackingRecHit/interface/TrackingRecHitFwd.h"
 #include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHit.h"
 #include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHitBuilder.h"
 #include "RecoTracker/TransientTrackingRecHit/interface/TkClonerImpl.h"
@@ -19,7 +20,6 @@
 
 class SiTrackerMultiRecHit;
 class TrajectoryStateOnSurface;
-class TrackingRecHit;
 class TransientTrackingRecHitBuilder;
 class LocalError;
 class TrackingRecHitPropagator;
@@ -33,7 +33,7 @@ public:
                               const float Chi2Cut2D,
                               const std::vector<double>& anAnnealingProgram,
                               bool debug);
-  virtual ~SiTrackerMultiRecHitUpdator(){};
+  virtual ~SiTrackerMultiRecHitUpdator() {}
 
   //calls the update method in order to build a SiTrackerMultiRecHit
   virtual TransientTrackingRecHit::RecHitPointer buildMultiRecHit(const std::vector<const TrackingRecHit*>& rhv,

@@ -26,10 +26,11 @@
 
 #include "DQMServices/Core/interface/DQMEDHarvester.h"
 
+#include "DataFormats/MuonDetId/interface/DTChamberIdFwd.h"
+
 #include <string>
 #include <map>
 
-class DTChamberId;
 class DTGeometry;
 class TH1F;
 class TH2F;
@@ -38,7 +39,7 @@ class TH1D;
 class DTLocalTriggerBaseTest : public DQMEDHarvester {
 public:
   /// Constructor
-  DTLocalTriggerBaseTest() : muonGeomToken_(esConsumes<edm::Transition::BeginRun>()){};
+  DTLocalTriggerBaseTest() : muonGeomToken_(esConsumes<edm::Transition::BeginRun>()) {}
 
   /// Destructor
   ~DTLocalTriggerBaseTest() override;

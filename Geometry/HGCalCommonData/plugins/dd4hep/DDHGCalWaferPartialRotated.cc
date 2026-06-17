@@ -88,7 +88,7 @@ static long algorithm(dd4hep::Detector& /* description */, cms::DDParsingContext
       // First the mother
       std::string mother = parentName + placementIndexTags[m] + waferTag + tags[k];
       std::vector<std::pair<double, double>> wxy =
-          HGCalWaferMask::waferXY(partialTypes[k], placementIndex[m], waferSize, 0.0, 0.0, 0.0, (waferMode > 0));
+          HGCalWaferMask::waferXY(partialTypes[k], placementIndex[m], waferSize, 0.0, 0.0, 0.0, (waferMode > 0), true);
       std::vector<double> xM, yM;
       for (unsigned int i = 0; i < (wxy.size() - 1); ++i) {
         xM.emplace_back(wxy[i].first);
@@ -203,12 +203,13 @@ static long algorithm(dd4hep::Detector& /* description */, cms::DDParsingContext
       }
       if (std::abs(thickTot - thick) >= tol) {
         if (thickTot > thick) {
-          edm::LogError("HGCalGeom") << "Thickness of the partition " << cms::convert2mm(thick) << " is smaller than "
-                                     << cms::convert2mm(thickTot)
+          edm::LogError("HGCalGeom") << "DDHGCalWaferPartialRotated::Thickness of the partition "
+                                     << cms::convert2mm(thick) << " is smaller than " << cms::convert2mm(thickTot)
                                      << ": thickness of all its components **** ERROR ****";
         } else {
-          edm::LogWarning("HGCalGeom") << "Thickness of the partition " << cms::convert2mm(thick)
-                                       << " does not match with " << cms::convert2mm(thickTot) << " of the components";
+          edm::LogWarning("HGCalGeom") << "DDHGCalWaferPartialRotated::Thickness of the partition "
+                                       << cms::convert2mm(thick) << " does not match with " << cms::convert2mm(thickTot)
+                                       << " of the components";
         }
       }
     }

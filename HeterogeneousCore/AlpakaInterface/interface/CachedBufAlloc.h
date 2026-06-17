@@ -11,23 +11,31 @@ namespace cms::alpakatools {
   namespace traits {
 
     //! The caching memory allocator trait.
-    template <typename TElem,
-              typename TDim,
-              typename TIdx,
-              typename TDev,
-              typename TQueue,
-              typename = void,
-              typename = std::enable_if_t<alpaka::isDevice<TDev> and alpaka::isQueue<TQueue>>>
+    template <typename TElem, typename TDim, typename TIdx, typename TDev, typename TQueue>
+      requires alpaka::isDevice<TDev> and alpaka::isQueue<TQueue>
     struct CachedBufAlloc {
       static_assert(alpaka::meta::DependentFalseType<TDev>::value, "This device does not support a caching allocator");
     };
 
-    //! The caching memory allocator implementation for the CPU device
-    template <typename TElem, typename TDim, typename TIdx, typename TQueue>
-    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, TQueue, void> {
+    //! The caching memory allocator implementation for the CPU device, with a blocking queue
+    template <typename TElem, typename TDim, typename TIdx>
+    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, alpaka::QueueCpuBlocking> {
       template <typename TExtent>
-      ALPAKA_FN_HOST static auto allocCachedBuf(alpaka::DevCpu const& dev, TQueue queue, TExtent const& extent)
-          -> alpaka::BufCpu<TElem, TDim, TIdx> {
+      ALPAKA_FN_HOST static auto allocCachedBuf(alpaka::DevCpu const& dev,
+                                                alpaka::QueueCpuBlocking queue,
+                                                TExtent const& extent) -> alpaka::BufCpu<TElem, TDim, TIdx> {
+        // non-cached, synchronous host-only memory
+        return alpaka::allocBuf<TElem, TIdx>(dev, extent);
+      }
+    };
+
+    //! The caching memory allocator implementation for the CPU device, with a non-blocking queue
+    template <typename TElem, typename TDim, typename TIdx>
+    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, alpaka::QueueCpuNonBlocking> {
+      template <typename TExtent>
+      ALPAKA_FN_HOST static auto allocCachedBuf(alpaka::DevCpu const& dev,
+                                                alpaka::QueueCpuNonBlocking queue,
+                                                TExtent const& extent) -> alpaka::BufCpu<TElem, TDim, TIdx> {
         // non-cached, queue-ordered asynchronous host-only memory
         return alpaka::allocAsyncBuf<TElem, TIdx>(queue, extent);
       }
@@ -37,7 +45,7 @@ namespace cms::alpakatools {
 
     //! The caching memory allocator implementation for the pinned host memory, with a blocking queue
     template <typename TElem, typename TDim, typename TIdx>
-    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, alpaka::QueueCudaRtBlocking, void> {
+    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, alpaka::QueueCudaRtBlocking> {
       template <typename TExtent>
       ALPAKA_FN_HOST static auto allocCachedBuf(alpaka::DevCpu const& dev,
                                                 alpaka::QueueCudaRtBlocking queue,
@@ -60,7 +68,7 @@ namespace cms::alpakatools {
 
     //! The caching memory allocator implementation for the pinned host memory, with a non-blocking queue
     template <typename TElem, typename TDim, typename TIdx>
-    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, alpaka::QueueCudaRtNonBlocking, void> {
+    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, alpaka::QueueCudaRtNonBlocking> {
       template <typename TExtent>
       ALPAKA_FN_HOST static auto allocCachedBuf(alpaka::DevCpu const& dev,
                                                 alpaka::QueueCudaRtNonBlocking queue,
@@ -83,7 +91,8 @@ namespace cms::alpakatools {
 
     //! The caching memory allocator implementation for the CUDA device
     template <typename TElem, typename TDim, typename TIdx, typename TQueue>
-    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCudaRt, TQueue, void> {
+      requires alpaka::isQueue<TQueue>
+    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCudaRt, TQueue> {
       template <typename TExtent>
       ALPAKA_FN_HOST static auto allocCachedBuf(alpaka::DevCudaRt const& dev, TQueue queue, TExtent const& extent)
           -> alpaka::BufCudaRt<TElem, TDim, TIdx> {
@@ -113,7 +122,7 @@ namespace cms::alpakatools {
 
     //! The caching memory allocator implementation for the pinned host memory, with a blocking queue
     template <typename TElem, typename TDim, typename TIdx>
-    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, alpaka::QueueHipRtBlocking, void> {
+    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, alpaka::QueueHipRtBlocking> {
       template <typename TExtent>
       ALPAKA_FN_HOST static auto allocCachedBuf(alpaka::DevCpu const& dev,
                                                 alpaka::QueueHipRtBlocking queue,
@@ -136,7 +145,7 @@ namespace cms::alpakatools {
 
     //! The caching memory allocator implementation for the pinned host memory, with a non-blocking queue
     template <typename TElem, typename TDim, typename TIdx>
-    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, alpaka::QueueHipRtNonBlocking, void> {
+    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevCpu, alpaka::QueueHipRtNonBlocking> {
       template <typename TExtent>
       ALPAKA_FN_HOST static auto allocCachedBuf(alpaka::DevCpu const& dev,
                                                 alpaka::QueueHipRtNonBlocking queue,
@@ -159,7 +168,8 @@ namespace cms::alpakatools {
 
     //! The caching memory allocator implementation for the ROCm/HIP device
     template <typename TElem, typename TDim, typename TIdx, typename TQueue>
-    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevHipRt, TQueue, void> {
+      requires alpaka::isQueue<TQueue>
+    struct CachedBufAlloc<TElem, TDim, TIdx, alpaka::DevHipRt, TQueue> {
       template <typename TExtent>
       ALPAKA_FN_HOST static auto allocCachedBuf(alpaka::DevHipRt const& dev, TQueue queue, TExtent const& extent)
           -> alpaka::BufHipRt<TElem, TDim, TIdx> {
@@ -187,12 +197,8 @@ namespace cms::alpakatools {
 
   }  // namespace traits
 
-  template <typename TElem,
-            typename TIdx,
-            typename TExtent,
-            typename TQueue,
-            typename TDev,
-            typename = std::enable_if_t<alpaka::isDevice<TDev> and alpaka::isQueue<TQueue>>>
+  template <typename TElem, typename TIdx, typename TExtent, typename TQueue, typename TDev>
+    requires alpaka::isDevice<TDev> and alpaka::isQueue<TQueue>
   ALPAKA_FN_HOST auto allocCachedBuf(TDev const& dev, TQueue queue, TExtent const& extent = TExtent()) {
     return traits::CachedBufAlloc<TElem, alpaka::Dim<TExtent>, TIdx, TDev, TQueue>::allocCachedBuf(dev, queue, extent);
   }

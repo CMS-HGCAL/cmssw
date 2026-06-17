@@ -9,7 +9,9 @@
  */
 #include "SimGeneral/HepPDTRecord/interface/PdtEntry.h"
 #include "SimGeneral/HepPDTRecord/interface/ParticleDataTable.h"
+#include "DataFormats/Candidate/interface/CandidateOnlyFwd.h"
 #include "FWCore/Utilities/interface/ESGetToken.h"
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include <set>
 
 namespace edm {
@@ -18,15 +20,14 @@ namespace edm {
   class Event;
   class ConsumesCollector;
 }  // namespace edm
-namespace reco {
-  class Candidate;
-}
 
 class GenJetParticleSelector {
 public:
   GenJetParticleSelector(const edm::ParameterSet&, edm::ConsumesCollector& iC);
   bool operator()(const reco::Candidate&);
   void init(const edm::EventSetup&);
+
+  static void fillPSetDescription(edm::ParameterSetDescription& desc);
 
 private:
   typedef std::vector<PdtEntry> vpdt;
@@ -45,6 +46,10 @@ namespace reco {
     struct GenJetParticleSelectorEventSetupInit {
       static void init(GenJetParticleSelector& selector, const edm::Event& evt, const edm::EventSetup& es) {
         selector.init(es);
+      }
+
+      static void fillPSetDescription(edm::ParameterSetDescription& desc) {
+        GenJetParticleSelector::fillPSetDescription(desc);
       }
     };
 

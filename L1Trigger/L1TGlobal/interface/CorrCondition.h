@@ -23,14 +23,13 @@
 //   base classes
 #include "L1Trigger/L1TGlobal/interface/ConditionEvaluation.h"
 #include "L1Trigger/L1TGlobal/interface/GlobalScales.h"
+#include "DataFormats/L1Trigger/interface/L1CandidateFwd.h"
 
 // forward declarations
 class GlobalCondition;
 class CorrelationTemplate;
 
 namespace l1t {
-
-  class L1Candidate;
 
   class GlobalBoard;
 
@@ -42,9 +41,11 @@ namespace l1t {
     CorrCondition();
 
     ///     from base template condition (from event setup usually)
-    CorrCondition(const GlobalCondition*, const GlobalCondition*, const GlobalCondition*, const GlobalBoard*
-
-    );
+    CorrCondition(const GlobalCondition*,
+                  const GlobalCondition*,
+                  const GlobalCondition*,
+                  const GlobalBoard*,
+                  const GlobalScales*);
 
     // copy constructor
     CorrCondition(const CorrCondition&);
@@ -63,16 +64,13 @@ namespace l1t {
     void print(std::ostream& myCout) const override;
 
   public:
-    ///   get / set the pointer to a Condition
     inline const CorrelationTemplate* gtCorrelationTemplate() const { return m_gtCorrelationTemplate; }
-
     void setGtCorrelationTemplate(const CorrelationTemplate*);
 
-    ///   get / set the pointer to uGt GlobalBoard
     inline const GlobalBoard* getuGtB() const { return m_uGtB; }
-
     void setuGtB(const GlobalBoard*);
 
+    inline const GlobalScales* getScales() const { return m_gtScales; }
     void setScales(const GlobalScales*);
 
     /*   //BLW Comment out for now

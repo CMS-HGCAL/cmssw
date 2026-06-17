@@ -11,8 +11,9 @@
 #include <filesystem>
 #include <cppunit/extensions/HelperMacros.h>
 #include <stdexcept>
-#include "catch.hpp"
+#include "catch2/catch_all.hpp"
 
+#include "FWCore/AbstractServices/interface/ResourceInformation.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSetReader/interface/ParameterSetReader.h"
@@ -22,7 +23,6 @@
 #include "FWCore/ServiceRegistry/interface/ServiceRegistry.h"
 #include "FWCore/ServiceRegistry/interface/ServiceToken.h"
 #include "FWCore/Utilities/interface/Exception.h"
-#include "FWCore/Utilities/interface/ResourceInformation.h"
 #include "HeterogeneousCore/CUDAServices/interface/CUDAInterface.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/requireDevices.h"
 

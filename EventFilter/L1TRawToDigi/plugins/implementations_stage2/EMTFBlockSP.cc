@@ -24,7 +24,7 @@ namespace l1t {
       // };
 
     }  // namespace emtf
-  }    // namespace stage2
+  }  // namespace stage2
 }  // namespace l1t
 
 namespace l1t {
@@ -32,7 +32,7 @@ namespace l1t {
     namespace emtf {
 
       int SPBlockUnpacker::checkFormat(const Block& block) {
-        auto payload = block.payload();
+        const auto& payload = block.payload();
         int errors = 0;
 
         // Check the number of 16-bit words
@@ -174,7 +174,7 @@ namespace l1t {
         // Get the payload for this block, made up of 16-bit words (0xffff)
         // Format defined in MTF7Payload::getBlock() in src/Block.cc
         // payload[0] = bits 0-15, payload[1] = 16-31, payload[3] = 32-47, etc.
-        auto payload = block.payload();
+        const auto& payload = block.payload();
 
         // FW version is computed as (Year - 2000)*2^9 + Month*2^5 + Day (see Block.cc and EMTFBlockTrailers.cc)
         bool useNNBits_ = getAlgoVersion() >= 11098;   // FW versions >= 26.10.2021
@@ -400,7 +400,7 @@ namespace l1t {
                   L1TMuonEndCap::calc_uGMT_chamber(conv_vals_SP.at(0), conv_vals_SP.at(2), conv_vals_SP.at(3), 1));
             }
             St_hits.at(0) += 1;  // Count the total number of matches for debugging purposes
-          }                      // End conditional: if ( Hit.Station() == 1
+          }  // End conditional: if ( Hit.Station() == 1
 
           // Match hit in station 2
           conv_vals_SP = convert_SP_location(SP_.ME2_CSC_ID(), (res->at(iOut)).PtrEventHeader()->Sector(), -99, 2);
@@ -621,7 +621,7 @@ namespace l1t {
       // } // End bool SPBlockPacker::pack
 
     }  // End namespace emtf
-  }    // End namespace stage2
+  }  // End namespace stage2
 }  // End namespace l1t
 
 DEFINE_L1T_UNPACKER(l1t::stage2::emtf::SPBlockUnpacker);

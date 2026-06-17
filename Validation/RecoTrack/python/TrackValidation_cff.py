@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import FWCore.ParameterSet.Config as cms
 
 from SimTracker.TrackAssociatorProducers.trackAssociatorByChi2_cfi import *
@@ -21,6 +20,10 @@ from CommonTools.RecoAlgos.recoChargedRefCandidateToTrackRefProducer_cfi import 
 import RecoTracker.IterativeTracking.iterativeTkConfig as _cfg
 import RecoTracker.IterativeTracking.iterativeTkUtils as _utils
 from Configuration.Eras.Modifier_fastSim_cff import fastSim
+from Configuration.ProcessModifiers.hltClusterSplitting_cff import hltClusterSplitting
+
+####Importing phase2 modifier
+from Configuration.Eras.Modifier_trackingPhase2PU140_cff import trackingPhase2PU140
 
 ### First define the stuff for the standard validation sequence
 ## Track selectors
@@ -48,8 +51,8 @@ _removeForFastSimSeedProducers =["initialStepSeedsPreSplitting",
                                  "displacedRegionalStepSeeds",
                                  "muonSeededSeedsInOut",
                                  "muonSeededSeedsOutIn"]
-
 _seedProducers_fastSim = [ x for x in _seedProducers if x not in _removeForFastSimSeedProducers]
+_seedProducers_hltSplit = [ x for x in _seedProducers if x not in ["initialStepSeedsPreSplitting"]]
 
 _removeForFastTrackProducers = ["initialStepTracksPreSplitting",
                                 "jetCoreRegionalStepTracks",
@@ -57,6 +60,13 @@ _removeForFastTrackProducers = ["initialStepTracksPreSplitting",
                                 "muonSeededTracksInOut",
                                 "muonSeededTracksOutIn"]
 _trackProducers_fastSim = [ x for x in _trackProducers if x not in _removeForFastTrackProducers]
+_trackProducers_hltSplit = [ x for x in _trackProducers if x not in ["initialStepTracksPreSplitting"]]
+
+
+#Adding separate seed and track producers for Phase 2 - fastsim
+_seedProducers_trackingPhase2PU140_fastSim = [ x for x in _seedProducers_trackingPhase2PU140 if x not in _removeForFastSimSeedProducers]
+_trackProducers_trackingPhase2PU140_fastSim = [ x for x in _trackProducers_trackingPhase2PU140 if x not in _removeForFastTrackProducers]
+
 
 def _algoToSelector(algo):
     sel = ""
@@ -134,7 +144,7 @@ def _addSeedToTrackProducers(seedProducers,modDict):
     names = []
     task = cms.Task()
     for seed in seedProducers:
-        modName = "seedTracks"+seed
+        modName = ("seedTracks"+seed).replace(":", "MI")
         if modName not in modDict:
             mod = _trajectorySeedTracks.clone(src=seed)
             modDict[modName] = mod
@@ -393,7 +403,7 @@ for _eraName, _postfix, _era in _relevantEras:
                    locals()["_generalTracksHp"+_postfix],
                    "generalTracksPt09",
                    "cutsRecoTracksBtvLike",
-                   "cutsRecoTracksJetCoreRegionalStepByOriginalAlgo",
+                   "cutsRecoTracksJetCoreRegionalStepByOriginalAlgo"
                ]
     )
     _setForEra(trackValidator.histoProducerAlgoBlock, _eraName, _era, seedingLayerSets=locals()["_seedingLayerSets"+_postfix])
@@ -534,12 +544,12 @@ _trackValidatorSeedingBuilding = trackValidator.clone( # common for built tracks
     dodEdxPlots = False,
     doPVAssociationPlots = False,
     doSimPlots = False,
-    doResolutionPlotsForLabels = ["disabled"],
+    doResolutionPlotsForLabels = ["disabled"]
 )
 trackValidatorBuilding = _trackValidatorSeedingBuilding.clone(
     dirName = "Tracking/TrackBuilding/",
     doMVAPlots = True,
-    doResolutionPlotsForLabels = ['jetCoreRegionalStepTracks'],
+    doResolutionPlotsForLabels = ['jetCoreRegionalStepTracks']
 )
 trackValidatorBuildingPreSplitting = trackValidatorBuilding.clone(
     associators = ["quickTrackAssociatorByHitsPreSplitting"],
@@ -548,7 +558,10 @@ trackValidatorBuildingPreSplitting = trackValidatorBuilding.clone(
 )
 for _eraName, _postfix, _era in _relevantErasAndFastSim:
     _setForEra(trackValidatorBuilding, _eraName, _era, label = locals()["_trackProducers"+_postfix])
+
 fastSim.toModify(trackValidatorBuilding, doMVAPlots=False)
+(trackingPhase2PU140 & fastSim).toModify(trackValidatorBuilding, label = cms.VInputTag(_trackProducers_trackingPhase2PU140_fastSim))
+
 for _eraName, _postfix, _era in _relevantEras:
     _setForEra(trackValidatorBuilding, _eraName, _era, mvaLabels = locals()["_mvaSelectors"+_postfix])
     _setForEra(trackValidatorBuildingPreSplitting, _eraName, _era, label = locals()["_trackProducersPreSplitting"+_postfix])
@@ -720,10 +733,11 @@ trackingParticleHIPixelTrackAssociation = trackingParticleRecoTrackAsssociation.
     associator = "quickTrackAssociatorByHits",
 )
 
-from Configuration.ProcessModifiers.pixelNtupletFit_cff import pixelNtupletFit
+# For the moment we have no Alpaka version of the hiConformalPixelTracks
+# from Configuration.ProcessModifiers.pixelNtupletFit_cff import pixelNtupletFit
 
-pixelNtupletFit.toModify(trackingParticleHIPixelTrackAssociation,
-        associator = "quickTrackAssociatorByHitsPreSplitting")
+# pixelNtupletFit.toModify(trackingParticleHIPixelTrackAssociation,
+#         associator = "quickTrackAssociatorByHitsPreSplitting")
 
 HIPixelVertexAssociatorByPositionAndTracks = VertexAssociatorByPositionAndTracks.clone(
     trackAssociation = "trackingParticleHIPixelTrackAssociation"
@@ -812,6 +826,10 @@ fastSim.toReplaceWith(tracksValidation, tracksValidation.copyAndExclude([
     trackValidatorBuildingPreSplitting,
     trackValidatorConversion,
     trackValidatorGsfTracks,
+]))
+
+hltClusterSplitting.toReplaceWith(tracksValidation, tracksValidation.copyAndExclude([
+    trackValidatorBuildingPreSplitting,
 ]))
 
 ### Then define stuff for standalone mode (i.e. MTV with RECO+DIGI input)
@@ -929,9 +947,14 @@ _taskForEachEra(_addSeedToTrackProducers, args=["_seedProducers"], names="_seedS
 _taskForEachEra(_addSeedToTrackProducers, args=["_seedProducersPreSplitting"], names="_seedSelectorsPreSplitting", task="_tracksValidationSeedSelectorsPreSplittingTrackingOnly", modDict=globals())
 tracksValidationSeedSelectorsTrackingOnly.add(tracksValidationSeedSelectorsPreSplittingTrackingOnly)
 
+trackingPhase2PU140_fastSim_trackprod, trackingPhase2PU140_fastSim_trackprod_task = _addSeedToTrackProducers(_seedProducers_trackingPhase2PU140_fastSim, modDict=globals())
+
+(trackingPhase2PU140 & fastSim).toReplaceWith(tracksValidationSeedSelectorsTrackingOnly, trackingPhase2PU140_fastSim_trackprod_task)
+
 # MTV instances
 trackValidatorTrackingOnly = trackValidatorStandalone.clone(
     label = [ x for x in trackValidatorStandalone.label if x != "cutsRecoTracksAK4PFJets"],
+    doResolutionPlotsForLabels = trackValidatorStandalone.doResolutionPlotsForLabels + locals()["_selectorsByOriginalAlgo"+_postfix],
     cores = "highPtJetsForTrk"
  )
 
@@ -969,6 +992,8 @@ for _eraName, _postfix, _era in _relevantErasAndFastSim:
 for _eraName, _postfix, _era in _relevantEras:
     _setForEra(trackValidatorSeedingPreSplittingTrackingOnly, _eraName, _era, label = locals()["_seedSelectorsPreSplitting"+_postfix])
 
+#Only if both phase2 and fastsim are called then replace seedselectors with correct producers
+(trackingPhase2PU140 & fastSim).toModify(trackValidatorSeedingTrackingOnly, label = trackingPhase2PU140_fastSim_trackprod)
 
 trackValidatorConversionTrackingOnly = trackValidatorConversion.clone(label = [x for x in trackValidatorConversion.label if x not in ["ckfInOutTracksFromConversions", "ckfOutInTracksFromConversions"]])
 
@@ -1016,6 +1041,12 @@ fastSim.toReplaceWith(trackValidatorsTrackingOnly, trackValidatorsTrackingOnly.c
     trackValidatorConversionTrackingOnly,
     trackValidatorBHadronTrackingOnly
 ]))
+
+hltClusterSplitting.toReplaceWith(trackValidatorsTrackingOnly, trackValidatorsTrackingOnly.copyAndExclude([
+    trackValidatorBuildingPreSplitting,
+    trackValidatorSeedingPreSplittingTrackingOnly,
+]))
+
 tracksValidationTrackingOnly = cms.Sequence(
     trackValidatorsTrackingOnly,
     tracksPreValidationTrackingOnly,
@@ -1067,7 +1098,7 @@ cutstring = "pt > 0.9"
 pixelTracksPt09 = trackRefSelector.clone( cut = cutstring )
 #pixelTracksPt09 = generalTracksPt09.clone(quality = ["undefQuality"], **_pixelTracksCustom)
 
-pixelTracksFromPV = generalTracksFromPV.clone(quality = "highPurity", ptMin = 0.0, ptMax = 99999., ptErrorCut = 99999., copyExtras = True, **_pixelTracksCustom)
+pixelTracksFromPV = generalTracksFromPV.clone(quality = "highPurity", ptMin = 0.0, ptMax = 99999., ptErrorCut = 99999., **_pixelTracksCustom)
 #pixelTracksFromPVPt09 = generalTracksPt09.clone(quality = ["loose","tight","highPurity"], vertexTag = "pixelVertices", src = "pixelTracksFromPV")
 pixelTracksFromPVPt09 = pixelTracksFromPV.clone(ptMin = 0.9)
 

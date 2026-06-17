@@ -4,6 +4,8 @@
 #include <vector>
 #include "DataFormats/HcalDetId/interface/HcalZDCDetId.h"
 #include "Geometry/CaloTopology/interface/CaloSubdetectorTopology.h"
+#include "Geometry/HcalCommonData/interface/HcalTopologyMode.h"
+#include "Geometry/HcalCommonData/interface/HcalDDDRecConstants.h"
 
 /** \class ZDCTopology
 
@@ -13,7 +15,9 @@
 
 class ZdcTopology : public CaloSubdetectorTopology {
 public:
-  ZdcTopology();
+  ZdcTopology(const HcalDDDRecConstants* hcons);
+
+  HcalTopologyMode::Mode mode() const { return mode_; }
   /** Exlucde a cell*/
   void exclude(const HcalZDCDetId& id);
   /** Exclude a side*/
@@ -49,15 +53,14 @@ public:
   int firstCell(HcalZDCDetId::Section section) const;
   int lastCell(HcalZDCDetId::Section section) const;
 
+  uint32_t kSizeForDenseIndexing() const;
+  bool validDenseIndex(uint32_t din) const { return (din < kSizeForDenseIndexing()); }
+
+  DetId denseId2detId(uint32_t di) const override;
+  uint32_t detId2DenseIndex(const DetId& id) const;
+
 private:
   bool validRaw(const HcalZDCDetId& id) const;
-
-  std::vector<HcalZDCDetId> exclusionList_;
-
-  bool excludeEM_, excludeHAD_, excludeLUM_, excludeRPD_, excludeZP_, excludeZN_;
-
-  int firstEMModule_, lastEMModule_, firstHADModule_, lastHADModule_, firstLUMModule_, lastLUMModule_, firstRPDModule_,
-      lastRPDModule_;
 
   bool isExcluded(const HcalZDCDetId& id) const;
 
@@ -65,10 +68,22 @@ private:
   int firstHADModule() const { return firstHADModule_; }
   int firstLUMModule() const { return firstLUMModule_; }
   int firstRPDModule() const { return firstRPDModule_; }
+  int firstFSCModule() const { return firstFSCModule_; }
   int lastEMModule() const { return lastEMModule_; }
   int lastHADModule() const { return lastHADModule_; }
   int lastLUMModule() const { return lastLUMModule_; }
   int lastRPDModule() const { return lastRPDModule_; }
+  int lastFSCModule() const { return lastFSCModule_; }
+
+  const HcalDDDRecConstants* hcons_;
+  HcalTopologyMode::Mode mode_;
+
+  std::vector<HcalZDCDetId> exclusionList_;
+
+  bool excludeEM_, excludeHAD_, excludeLUM_, excludeRPD_, excludeFSC_, excludeZP_, excludeZN_;
+
+  int firstEMModule_, lastEMModule_, firstHADModule_, lastHADModule_, firstLUMModule_, lastLUMModule_, firstRPDModule_,
+      lastRPDModule_, firstFSCModule_, lastFSCModule_;
 };
 
 #endif

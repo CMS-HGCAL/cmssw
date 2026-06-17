@@ -17,6 +17,8 @@ duplicateTrackCandidates = DuplicateTrackMerger.clone(
     ttrhBuilderName   = "WithAngleAndTemplate",
     chi2EstimatorName = "duplicateTrackCandidatesChi2Est"
 )
+from Configuration.ProcessModifiers.trackingIters01_cff import trackingIters01
+trackingIters01.toModify(duplicateTrackCandidates, source = "earlyGeneralTracks")
 
 import RecoTracker.TrackProducer.TrackProducer_cfi
 mergedDuplicateTracks = RecoTracker.TrackProducer.TrackProducer_cfi.TrackProducer.clone(
@@ -44,6 +46,10 @@ generalTracks = DuplicateListMerger.clone(
     candidateSource     = "duplicateTrackCandidates:candidates",
     candidateComponents = "duplicateTrackCandidates:candidateMap"
 )
+trackingIters01.toModify(generalTracks,
+                         originalSource = "earlyGeneralTracks",
+                         originalMVAVals = "earlyGeneralTracks:MVAValues"
+)
 
 generalTracksTask = cms.Task(
     duplicateTrackCandidates,
@@ -60,10 +66,15 @@ fastSim.toReplaceWith(generalTracksTask,
                                duplicateTrackClassifier)
 )
 
+from Configuration.ProcessModifiers.premix_stage2_cff import premix_stage2
 def _fastSimGeneralTracks(process):
     from FastSimulation.Configuration.DigiAliases_cff import loadGeneralTracksAlias
     loadGeneralTracksAlias(process)
-modifyMergeTrackCollections_fastSimGeneralTracks = fastSim.makeProcessModifier( _fastSimGeneralTracks )
+modifyMergeTrackCollections_fastSimGeneralTracks = (fastSim & ~premix_stage2).makeProcessModifier( _fastSimGeneralTracks )
+def _fastSimGeneralTracksPremix(process):
+    from FastSimulation.Configuration.DigiAliases_cff import loadGeneralTracksAlias
+    loadGeneralTracksAlias(process, premix=True)
+modifyMergeTrackCollections_fastSimGeneralTracksPremix = (fastSim & premix_stage2).makeProcessModifier( _fastSimGeneralTracksPremix )
 
 import RecoTracker.FinalTrackSelectors.trackListMerger_cfi
 conversionStepTracks = RecoTracker.FinalTrackSelectors.trackListMerger_cfi.trackListMerger.clone(

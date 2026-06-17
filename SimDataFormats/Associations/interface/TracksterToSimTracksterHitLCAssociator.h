@@ -6,15 +6,16 @@
 #include <memory>
 
 // user include files
-
 #include "SimDataFormats/Associations/interface/TracksterToSimTracksterHitLCAssociatorBaseImpl.h"
+#include "DataFormats/Common/interface/Uninitialized.h"
 
-namespace hgcal {
+namespace ticl {
 
   class TracksterToSimTracksterHitLCAssociator {
   public:
-    TracksterToSimTracksterHitLCAssociator(std::unique_ptr<hgcal::TracksterToSimTracksterHitLCAssociatorBaseImpl>);
-    TracksterToSimTracksterHitLCAssociator() = default;
+    TracksterToSimTracksterHitLCAssociator(std::unique_ptr<ticl::TracksterToSimTracksterHitLCAssociatorBaseImpl>);
+    TracksterToSimTracksterHitLCAssociator() = delete;
+    explicit TracksterToSimTracksterHitLCAssociator(edm::Uninitialized) noexcept {};
     TracksterToSimTracksterHitLCAssociator(TracksterToSimTracksterHitLCAssociator &&) = default;
     TracksterToSimTracksterHitLCAssociator &operator=(TracksterToSimTracksterHitLCAssociator &&) = default;
     TracksterToSimTracksterHitLCAssociator(const TracksterToSimTracksterHitLCAssociator &) = delete;
@@ -22,36 +23,34 @@ namespace hgcal {
 
     ~TracksterToSimTracksterHitLCAssociator() = default;
 
-    hgcal::association_t makeConnections(const edm::Handle<ticl::TracksterCollection> &tCH,
-                                         const edm::Handle<reco::CaloClusterCollection> &lCCH,
-                                         const edm::Handle<SimClusterCollection> &sCCH,
-                                         const edm::Handle<CaloParticleCollection> &cPCH,
-                                         const edm::Handle<ticl::TracksterCollection> &sTCH) const {
+    ticl::association_t makeConnections(const edm::Handle<ticl::TracksterCollection> &tCH,
+                                        const edm::Handle<reco::CaloClusterCollection> &lCCH,
+                                        const edm::Handle<SimClusterCollection> &sCCH,
+                                        const edm::Handle<CaloParticleCollection> &cPCH,
+                                        const edm::Handle<ticl::TracksterCollection> &sTCH) const {
       return m_impl->makeConnections(tCH, lCCH, sCCH, cPCH, sTCH);
     }
     /// Associate a Trackster to SimClusters
-    hgcal::RecoToSimCollectionSimTracksters associateRecoToSim(
-        const edm::Handle<ticl::TracksterCollection> &tCH,
-        const edm::Handle<reco::CaloClusterCollection> &lCCH,
-        const edm::Handle<SimClusterCollection> &sCCH,
-        const edm::Handle<CaloParticleCollection> &cPCH,
-        const edm::Handle<ticl::TracksterCollection> &sTCH) const {
+    ticl::RecoToSimCollectionSimTracksters associateRecoToSim(const edm::Handle<ticl::TracksterCollection> &tCH,
+                                                              const edm::Handle<reco::CaloClusterCollection> &lCCH,
+                                                              const edm::Handle<SimClusterCollection> &sCCH,
+                                                              const edm::Handle<CaloParticleCollection> &cPCH,
+                                                              const edm::Handle<ticl::TracksterCollection> &sTCH) const {
       return m_impl->associateRecoToSim(tCH, lCCH, sCCH, cPCH, sTCH);
     };
 
     /// Associate a SimCluster to Tracksters
-    hgcal::SimToRecoCollectionSimTracksters associateSimToReco(
-        const edm::Handle<ticl::TracksterCollection> &tCH,
-        const edm::Handle<reco::CaloClusterCollection> &lCCH,
-        const edm::Handle<SimClusterCollection> &sCCH,
-        const edm::Handle<CaloParticleCollection> &cPCH,
-        const edm::Handle<ticl::TracksterCollection> &sTCH) const {
+    ticl::SimToRecoCollectionSimTracksters associateSimToReco(const edm::Handle<ticl::TracksterCollection> &tCH,
+                                                              const edm::Handle<reco::CaloClusterCollection> &lCCH,
+                                                              const edm::Handle<SimClusterCollection> &sCCH,
+                                                              const edm::Handle<CaloParticleCollection> &cPCH,
+                                                              const edm::Handle<ticl::TracksterCollection> &sTCH) const {
       return m_impl->associateSimToReco(tCH, lCCH, sCCH, cPCH, sTCH);
     }
 
   private:
     std::unique_ptr<TracksterToSimTracksterHitLCAssociatorBaseImpl> m_impl;
   };
-}  // namespace hgcal
+}  // namespace ticl
 
 #endif

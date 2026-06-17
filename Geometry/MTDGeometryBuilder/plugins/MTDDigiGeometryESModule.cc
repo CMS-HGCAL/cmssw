@@ -8,8 +8,6 @@
 #include "Geometry/Records/interface/IdealGeometryRecord.h"
 #include "Geometry/Records/interface/PMTDParametersRcd.h"
 #include "CondFormats/GeometryObjects/interface/PMTDParameters.h"
-#include "Geometry/MTDNumberingBuilder/interface/MTDTopology.h"
-#include "Geometry/Records/interface/MTDTopologyRcd.h"
 
 // Alignments
 #include "CondFormats/Alignment/interface/Alignments.h"
@@ -20,7 +18,7 @@
 #include "CondFormats/AlignmentRecord/interface/MTDAlignmentRcd.h"
 #include "CondFormats/AlignmentRecord/interface/MTDAlignmentErrorExtendedRcd.h"
 #include "CondFormats/AlignmentRecord/interface/MTDSurfaceDeformationRcd.h"
-#include "Geometry/CommonTopologies/interface/GeometryAligner.h"
+#include "Geometry/GeometryAligner/interface/GeometryAligner.h"
 
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/ESHandle.h"
@@ -28,6 +26,7 @@
 #include "FWCore/Framework/interface/ESProducer.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/ParameterSet/interface/DescriptionCloner.h"
 
 #include <memory>
 #include <string>
@@ -45,7 +44,6 @@ private:
   const std::string myLabel_;
 
   edm::ESGetToken<GeometricTimingDet, IdealGeometryRecord> geomTimingDetToken_;
-  edm::ESGetToken<MTDTopology, MTDTopologyRcd> mtdTopoToken_;
   edm::ESGetToken<PMTDParameters, PMTDParametersRcd> pmtdParamsToken_;
 
   //alignment
@@ -69,7 +67,6 @@ MTDDigiGeometryESModule::MTDDigiGeometryESModule(const edm::ParameterSet& p)
   auto cc = setWhatProduced(this);
   const edm::ESInputTag kEmpty;
   geomTimingDetToken_ = cc.consumesFrom<GeometricTimingDet, IdealGeometryRecord>(kEmpty);
-  mtdTopoToken_ = cc.consumesFrom<MTDTopology, MTDTopologyRcd>(kEmpty);
   pmtdParamsToken_ = cc.consumesFrom<PMTDParameters, PMTDParametersRcd>(kEmpty);
 
   {
@@ -94,11 +91,8 @@ void MTDDigiGeometryESModule::fillDescriptions(edm::ConfigurationDescriptions& d
   descDB.add<std::string>("alignmentsLabel", "");
   descriptions.add("mtdGeometryDB", descDB);
 
-  edm::ParameterSetDescription desc;
-  desc.add<std::string>("appendToDataLabel", "");
-  desc.add<bool>("fromDDD", true);
-  desc.add<bool>("applyAlignment", true);
-  desc.add<std::string>("alignmentsLabel", "");
+  edm::DescriptionCloner desc;
+  desc.set<bool>("fromDDD", true);
   descriptions.add("mtdGeometry", desc);
 }
 
@@ -109,12 +103,10 @@ std::unique_ptr<MTDGeometry> MTDDigiGeometryESModule::produce(const MTDDigiGeome
   //
   GeometricTimingDet const& gD = iRecord.get(geomTimingDetToken_);
 
-  MTDTopology const& tTopo = iRecord.get(mtdTopoToken_);
-
   PMTDParameters const& ptp = iRecord.get(pmtdParamsToken_);
 
   MTDGeomBuilderFromGeometricTimingDet builder;
-  std::unique_ptr<MTDGeometry> mtd(builder.build(&(gD), ptp, &tTopo));
+  std::unique_ptr<MTDGeometry> mtd(builder.build(&(gD), ptp));
 
   if (applyAlignment_) {
     // Since fake is fully working when checking for 'empty', we should get rid of applyAlignment_!

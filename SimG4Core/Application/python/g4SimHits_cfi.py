@@ -95,9 +95,9 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
     ThresholdForGeometryExceptions = cms.double(0.1), ## in GeV
     TraceExceptions = cms.bool(False),
     CheckGeometry = cms.untracked.bool(False),
-    OnlySDs = cms.vstring('BSCSensitiveDetector','BCM1FSensitiveDetector','BHMSensitiveDetector','CTPPSDiamondSensitiveDetector','CTPPSSensitiveDetector','CaloTrkProcessing','CastorSensitiveDetector','EcalSensitiveDetector','HcalSensitiveDetector','MuonSensitiveDetector','PLTSensitiveDetector','RomanPotSensitiveDetector','TkAccumulatingSensitiveDetector','TotemSensitiveDetector','TotemT2ScintSensitiveDetector','ZdcSensitiveDetector'),
+    OnlySDs = cms.vstring('BSCSensitiveDetector','BCM1FSensitiveDetector','BHMSensitiveDetector','CTPPSDiamondSensitiveDetector','CTPPSSensitiveDetector','CaloTrkProcessing','CastorSensitiveDetector','EcalSensitiveDetector','HcalSensitiveDetector','MuonSensitiveDetector','PLTSensitiveDetector','RomanPotSensitiveDetector','TkAccumulatingSensitiveDetector','TotemSensitiveDetector','TotemT2ScintSensitiveDetector','ZdcSensitiveDetector','FSCSensitiveDetector'),
     TrackHits = cms.vstring('BCM1FHits','BHMHits','BSCHits','CTPPSPixelHits','CTPPSTimingHits','MuonCSCHits','MuonDTHits','MuonGEMHits','MuonME0Hits','MuonRPCHits','PLTHits','TotemHitsRP','TotemHitsT1','TrackerHitsPixelEndcapLowTof','TrackerHitsPixelEndcapHighTof','TrackerHitsPixelBarrelLowTof','TrackerHitsPixelBarrelHighTof','TrackerHitsTECLowTof','TrackerHitsTECHighTof','TrackerHitsTIBLowTof','TrackerHitsTIBHighTof','TrackerHitsTIDLowTof','TrackerHitsTIDHighTof','TrackerHitsTOBLowTof','TrackerHitsTOBHighTof'),
-    CaloHits = cms.vstring('CaloHitsTk','CastorBU','CastorFI','CastorPL','CastorTU','EcalHitsEB','EcalHitsEE','EcalHitsES','HcalHits','ZDCHITS'),
+    CaloHits = cms.vstring('CaloHitsTk','CastorBU','CastorFI','CastorPL','CastorTU','EcalHitsEB','EcalHitsEE','EcalHitsES','HcalHits','ZDCHITS','FSCHits'),
     Init = cms.PSet(
         DefaultVoxelDensity = cms.double(2.0),
         VoxelRegions = cms.vstring(),
@@ -118,6 +118,7 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         Depth = cms.int32(3),        # -1 means check whatever depth
         PVname = cms.string(''),
         LVname = cms.string(''),
+        NodeName = cms.string(''),
         NodeNames = cms.vstring('World')
     ),
     G4Commands = cms.vstring(),
@@ -181,7 +182,7 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         #        please select "SimG4Core/Physics/DummyPhysics" for type
         #        and turn ON DummyEMPhysics
         #
-        type = cms.string('SimG4Core/Physics/FTFP_BERT_EMM'),
+        type = cms.string('SimG4Core/Physics/FTFP_BERT_EMH'),
         DummyEMPhysics = cms.bool(False),
         # 1 will print cuts as they get set from DD
         # 2 will do as 1 + will dump Geant4 table of cuts
@@ -285,6 +286,7 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         MinPhiCut = cms.double(-3.14159265359), ## (radians)
         MaxPhiCut = cms.double(3.14159265359),  ## according to CMS conventions
         ApplyLumiMonitorCuts = cms.bool(False), ## primary for lumi monitors
+        IsSlepton = cms.bool(False),
         Verbosity = cms.untracked.int32(0),
         PDGselection = cms.PSet(
             PDGfilterSel = cms.bool(False), ## filter out unwanted particles
@@ -346,6 +348,7 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         EndPrintTrackID = cms.int32(0)
     ),
     SteppingAction = cms.PSet(
+        common_MCtruth,
         common_maximum_time,
         CMStoZDCtransport       = cms.bool(False),
         MaxNumberOfSteps        = cms.int32(20000),
@@ -372,7 +375,8 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         AllMuonsPersistent = cms.bool(True),
         UseDemoHitRPC = cms.bool(True),
         UseDemoHitGEM = cms.bool(True),
-        HaveDemoChambers = cms.bool(True)
+        HaveDemoChambers = cms.bool(True),
+        RemoveGEMHits = cms.vint32()
     ),
     CaloSD = cms.PSet(
         common_heavy_suppression,
@@ -380,10 +384,10 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         SuppressHeavy = cms.bool(False),
         EminTrack = cms.double(1.0),
         TmaxHit   = cms.double(1000.0),
-        HCNames   = cms.vstring('EcalHitsEB','EcalHitsEE','EcalHitsES','HcalHits','ZDCHITS'),
-        EminHits  = cms.vdouble(0.015,0.010,0.0,0.0,0.0),
-        EminHitsDepth = cms.vdouble(0.0,0.0,0.0,0.0,0.0),
-        TmaxHits  = cms.vdouble(500.0,500.0,500.0,500.0,2000.0),
+        HCNames   = cms.vstring('EcalHitsEB','EcalHitsEE','EcalHitsES','HcalHits','ZDCHITS','FSCHits'),
+        EminHits  = cms.vdouble(0.015,0.010,0.0,0.0,0.0,0.0),
+        EminHitsDepth = cms.vdouble(0.0,0.0,0.0,0.0,0.0,0.0),
+        TmaxHits  = cms.vdouble(500.0,500.0,500.0,500.0,2000.0,2000.0),
         UseResponseTables = cms.vint32(0,0,0,0,0),
         BeamPosition      = cms.double(0.0),
         CorrectTOFBeam    = cms.bool(False),
@@ -669,6 +673,15 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         TimeSliceUnit   = cms.double(1),
         IgnoreTrackID   = cms.bool(False),
     ),
+    FscSD = cms.PSet(
+        Verbosity = cms.untracked.int32(0),
+        UseBirkLaw    = cms.bool(True),
+        BirkC3        = cms.double(1.75),
+        BirkC2        = cms.double(0.142),
+        BirkC1        = cms.double(0.006),
+        TimeSliceUnit = cms.double(1),
+        IgnoreTrackID = cms.bool(False),
+    ),
 )
 ##
 ## Change the HFShowerLibrary file from Run 2
@@ -692,15 +705,16 @@ from Configuration.Eras.Modifier_run3_common_cff import run3_common
 run3_common.toModify( g4SimHits, CastorSD = dict( useShowerLibrary = False ) ) 
 run3_common.toModify( g4SimHits, LHCTransport = True )
 run3_common.toModify( g4SimHits,
-                      OnlySDs = ['BSCSensitiveDetector','BCM1FSensitiveDetector','BHMSensitiveDetector','CTPPSDiamondSensitiveDetector','CTPPSSensitiveDetector','CaloTrkProcessing','EcalSensitiveDetector','HcalSensitiveDetector','MuonSensitiveDetector','PLTSensitiveDetector','RomanPotSensitiveDetector','TkAccumulatingSensitiveDetector','TotemSensitiveDetector','TotemT2ScintSensitiveDetector','ZdcSensitiveDetector'],
+                      OnlySDs = ['BSCSensitiveDetector','BCM1FSensitiveDetector','BHMSensitiveDetector','CTPPSDiamondSensitiveDetector','CTPPSSensitiveDetector','CaloTrkProcessing','EcalSensitiveDetector','HcalSensitiveDetector','MuonSensitiveDetector','PLTSensitiveDetector','RomanPotSensitiveDetector','TkAccumulatingSensitiveDetector','TotemSensitiveDetector','TotemT2ScintSensitiveDetector','ZdcSensitiveDetector','FSCSensitiveDetector'],
                       TrackHits = ['BCM1FHits','BHMHits','BSCHits','CTPPSPixelHits','CTPPSTimingHits','MuonCSCHits','MuonDTHits','MuonGEMHits','MuonME0Hits','MuonRPCHits','PLTHits','TotemHitsRP','TotemHitsT1','TrackerHitsPixelEndcapLowTof','TrackerHitsPixelEndcapHighTof','TrackerHitsPixelBarrelLowTof','TrackerHitsPixelBarrelHighTof','TrackerHitsTECLowTof','TrackerHitsTECHighTof','TrackerHitsTIBLowTof','TrackerHitsTIBHighTof','TrackerHitsTIDLowTof','TrackerHitsTIDHighTof','TrackerHitsTOBLowTof','TrackerHitsTOBHighTof'],
-                      CaloHits = ['CaloHitsTk','EcalHitsEB','EcalHitsEE','EcalHitsES','HcalHits','TotemHitsT2Scint','ZDCHITS'] )
+                      CaloHits = ['CaloHitsTk','EcalHitsEB','EcalHitsEE','EcalHitsES','HcalHits','TotemHitsT2Scint','ZDCHITS','FSCHits'] )
 
 ##
 ## Disable PPS from Run 3 PbPb runs and enable ZDC 
 ##
 from Configuration.Eras.Modifier_pp_on_PbPb_run3_cff import pp_on_PbPb_run3
-pp_on_PbPb_run3.toModify(g4SimHits, LHCTransport = False)
+from Configuration.Eras.Modifier_run3_upc_cff import run3_upc
+(pp_on_PbPb_run3 | run3_upc).toModify(g4SimHits, LHCTransport = False)
 #                         SteppingAction = dict(
 #                             CMStoZDCtransport = True) )
 
@@ -751,9 +765,9 @@ dd4hep.toModify( g4SimHits,
 
 from Configuration.Eras.Modifier_phase2_common_cff import phase2_common
 phase2_common.toModify(g4SimHits,
-                       OnlySDs = ['BCM1FSensitiveDetector','BHMSensitiveDetector','CTPPSDiamondSensitiveDetector','CTPPSSensitiveDetector','CaloTrkProcessing','EcalSensitiveDetector','HFNoseSensitiveDetector','HGCScintillatorSensitiveDetector','HGCalSensitiveDetector','HcalSensitiveDetector','MtdSensitiveDetector','MuonSensitiveDetector','PLTSensitiveDetector','RomanPotSensitiveDetector','TkAccumulatingSensitiveDetector','ZdcSensitiveDetector'],
+                       OnlySDs = ['BCM1FSensitiveDetector','BHMSensitiveDetector','CTPPSDiamondSensitiveDetector','CTPPSSensitiveDetector','CaloTrkProcessing','EcalSensitiveDetector','HFNoseSensitiveDetector','HGCScintillatorSensitiveDetector','HGCalSensitiveDetector','HcalSensitiveDetector','MtdSensitiveDetector','MuonSensitiveDetector','PLTSensitiveDetector','RomanPotSensitiveDetector','TkAccumulatingSensitiveDetector','ZdcSensitiveDetector','FSCSensitiveDetector'],
                        TrackHits = ['BCM1FHits','BHMHits','CTPPSPixelHits','CTPPSTimingHits','FastTimerHitsBarrel','FastTimerHitsEndcap','HFNoseHits','MuonCSCHits','MuonDTHits','MuonGEMHits','MuonME0Hits','MuonRPCHits','PLTHits','TrackerHitsPixelEndcapLowTof','TrackerHitsPixelEndcapHighTof','TrackerHitsPixelBarrelLowTof','TrackerHitsPixelBarrelHighTof','TrackerHitsTECLowTof','TrackerHitsTECHighTof','TrackerHitsTIBLowTof','TrackerHitsTIBHighTof','TrackerHitsTIDLowTof','TrackerHitsTIDHighTof','TrackerHitsTOBLowTof','TrackerHitsTOBHighTof'],
-                       CaloHits = ["CalibrationHGCHitsEE",'CalibrationHGCHitsHEback',"CalibrationHGCHitsHEfront",'CaloHitsTk','EcalHitsEB','HFNoseHits',"HGCHitsEE","HGCHitsHEback","HGCHitsHEfront",'HcalHits','ZDCHITS'],
+                       CaloHits = ["CalibrationHGCHitsEE",'CalibrationHGCHitsHEback',"CalibrationHGCHitsHEfront",'CaloHitsTk','EcalHitsEB','HFNoseHits',"HGCHitsEE","HGCHitsHEback","HGCHitsHEfront",'HcalHits','ZDCHITS','FSCHits'],
                        LHCTransport = False, 
                        MuonSD = dict( 
                        HaveDemoChambers = False ) 
@@ -787,4 +801,12 @@ from Configuration.Eras.Modifier_phase2_hgcalV18_cff import phase2_hgcalV18
 phase2_hgcalV18.toModify(g4SimHits,
                  HGCSD = dict(
                      HitCollection = 2)
+)
+
+##
+## Fix for long-lived slepton simulation
+##
+from Configuration.ProcessModifiers.fixLongLivedSleptonSim_cff import fixLongLivedSleptonSim
+fixLongLivedSleptonSim.toModify( g4SimHits,
+                                 Generator = dict(IsSlepton = True)
 )

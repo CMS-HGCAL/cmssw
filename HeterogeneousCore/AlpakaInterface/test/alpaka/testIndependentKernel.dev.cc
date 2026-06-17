@@ -4,7 +4,7 @@
 #include <alpaka/alpaka.hpp>
 
 #define CATCH_CONFIG_MAIN
-#include <catch.hpp>
+#include <catch2/catch_all.hpp>
 
 #include "FWCore/Utilities/interface/stringize.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
@@ -18,8 +18,8 @@ using namespace ALPAKA_ACCELERATOR_NAMESPACE;
  * Each group is composed by the elements first[group]..first[group+1]-1 .
  */
 struct IndependentWorkKernel {
-  template <typename TAcc, typename T>
-  ALPAKA_FN_ACC void operator()(TAcc const& acc,
+  template <typename T>
+  ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                 T const* __restrict__ in,
                                 T* __restrict__ out,
                                 size_t const* __restrict__ indices,

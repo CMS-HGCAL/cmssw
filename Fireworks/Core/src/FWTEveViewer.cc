@@ -18,8 +18,10 @@
 // user include files
 
 #include "TMath.h"
-#include "TGLIncludes.h"
 #include "TGLFBO.h"
+
+#include <GL/gl.h>
+#include <GL/glu.h>
 
 #include "Fireworks/Core/interface/FWTEveViewer.h"
 #include "Fireworks/Core/interface/FWTGLViewer.h"
@@ -77,7 +79,7 @@ FWTEveViewer::~FWTEveViewer() {
 void FWTEveViewer::spawn_image_thread() {
   std::unique_lock<std::mutex> lko(m_moo);
 
-  m_thr = new std::thread([=]() {
+  m_thr = new std::thread([this]() {
     {
       std::unique_lock<std::mutex> lk(m_moo);
       m_cnd.notify_one();

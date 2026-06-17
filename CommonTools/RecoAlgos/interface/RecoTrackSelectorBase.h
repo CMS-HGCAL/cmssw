@@ -1,17 +1,18 @@
 #ifndef CommonTools_RecoAlgos_RecoTrackSelectorBase_h
 #define CommonTools_RecoAlgos_RecoTrackSelectorBase_h
 
-#include "FWCore/Framework/interface/Event.h"
-#include "FWCore/Framework/interface/ConsumesCollector.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "FWCore/Utilities/interface/InputTag.h"
-
+#include "DataFormats/BeamSpot/interface/BeamSpot.h"
+#include "DataFormats/Math/interface/deltaPhi.h"
 #include "DataFormats/TrackReco/interface/Track.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
-#include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
-#include "DataFormats/Math/interface/deltaPhi.h"
+#include "FWCore/Framework/interface/ConsumesCollector.h"
+#include "FWCore/Framework/interface/Event.h"
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/Utilities/interface/InputTag.h"
 
 class RecoTrackSelectorBase {
 public:
@@ -27,6 +28,7 @@ public:
         maxChi2_(cfg.getParameter<double>("maxChi2")),
         minHit_(cfg.getParameter<int>("minHit")),
         minPixelHit_(cfg.getParameter<int>("minPixelHit")),
+        maxPixelHit_(cfg.getParameter<int>("maxPixelHit")),
         minLayer_(cfg.getParameter<int>("minLayer")),
         min3DLayer_(cfg.getParameter<int>("min3DLayer")),
         usePV_(false),
@@ -79,6 +81,30 @@ public:
     vertex_ = (*hVtx)[0].position();
   }
 
+  static void fillPSetDescription(edm::ParameterSetDescription& desc) {
+    desc.add<bool>("invertRapidityCut", false);
+    desc.add<bool>("usePV", false);
+    desc.add<double>("lip", 300.0);
+    desc.add<double>("maxChi2", 10000.0);
+    desc.add<double>("maxPhi", -3.2);
+    desc.add<double>("maxRapidity", 5.0);
+    desc.add<double>("minPhi", 3.2);
+    desc.add<double>("minRapidity", -5.0);
+    desc.add<double>("ptMin", 0.1);
+    desc.add<double>("tip", 120.0);
+    desc.add<edm::InputTag>("beamSpot", edm::InputTag("offlineBeamSpot"));
+    desc.add<edm::InputTag>("vertexTag", edm::InputTag("offlinePrimaryVertices"));
+    desc.add<int>("min3DLayer", 0);
+    desc.add<int>("minHit", 0);
+    desc.add<int>("minLayer", 3);
+    desc.add<int>("minPixelHit", 0);
+    desc.add<int>("maxPixelHit", 99);
+    desc.add<std::vector<std::string> >("algorithm", {});
+    desc.add<std::vector<std::string> >("algorithmMaskContains", {});
+    desc.add<std::vector<std::string> >("originalAlgorithm", {});
+    desc.add<std::vector<std::string> >("quality", {});
+  }
+
   bool operator()(const reco::TrackRef& tref) const { return (*this)(*tref); }
 
   bool operator()(const reco::Track& t) const { return (*this)(t, vertex_); }
@@ -125,6 +151,7 @@ public:
 
     return ((algo_ok & quality_ok) && t.hitPattern().numberOfValidHits() >= minHit_ &&
             t.hitPattern().numberOfValidPixelHits() >= minPixelHit_ &&
+            t.hitPattern().numberOfValidPixelHits() <= maxPixelHit_ &&
             t.hitPattern().trackerLayersWithMeasurement() >= minLayer_ &&
             t.hitPattern().pixelLayersWithMeasurement() + t.hitPattern().numberOfValidStripLayersWithMonoAndStereo() >=
                 min3DLayer_ &&
@@ -143,6 +170,7 @@ private:
   double maxChi2_;
   int minHit_;
   int minPixelHit_;
+  int maxPixelHit_;
   int minLayer_;
   int min3DLayer_;
   bool usePV_;

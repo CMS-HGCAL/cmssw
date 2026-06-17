@@ -9,8 +9,8 @@
 #include "Tauola/Log.h"
 #include "Tauola/TauolaHepMCParticle.h"
 #include "Tauola/TauolaParticle.h"
+#include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
@@ -119,7 +119,7 @@ void TauolappInterface::init(const edm::EventSetup& es) {
   if (fPSet->exists("parameterSets")) {
     std::vector<std::string> par = fPSet->getParameter<std::vector<std::string> >("parameterSets");
     for (unsigned int ip = 0; ip < par.size(); ++ip) {
-      std::string curSet = par[ip];
+      const std::string& curSet = par[ip];
       if (curSet == "setNewCurrents")
         Tauolapp::Tauola::setNewCurrents(fPSet->getParameter<int>(curSet));
     }
@@ -133,7 +133,7 @@ void TauolappInterface::init(const edm::EventSetup& es) {
   if (fPSet->exists("parameterSets")) {
     std::vector<std::string> par = fPSet->getParameter<std::vector<std::string> >("parameterSets");
     for (unsigned int ip = 0; ip < par.size(); ++ip) {
-      std::string curSet = par[ip];
+      const std::string& curSet = par[ip];
       if (curSet == "spinCorrelationSetAll")
         Tauolapp::Tauola::spin_correlation.setAll(fPSet->getParameter<bool>(curSet));
       if (curSet == "spinCorrelationGAMMA")

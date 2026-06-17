@@ -128,8 +128,8 @@ void DDHGCalWaferPartialRotated::execute(DDCompactView& cpv) {
     for (unsigned int m = 0; m < placementIndex_.size(); ++m) {
       // First the mother
       std::string mother = parentName + placementIndexTags_[m] + waferTag_ + tags_[k];
-      std::vector<std::pair<double, double> > wxy =
-          HGCalWaferMask::waferXY(partialTypes_[k], placementIndex_[m], waferSize_, 0.0, 0.0, 0.0, (waferMode_ > 0));
+      std::vector<std::pair<double, double> > wxy = HGCalWaferMask::waferXY(
+          partialTypes_[k], placementIndex_[m], waferSize_, 0.0, 0.0, 0.0, (waferMode_ > 0), true);
       std::vector<double> xM, yM;
       for (unsigned int i = 0; i < (wxy.size() - 1); ++i) {
         xM.emplace_back(wxy[i].first);
@@ -233,11 +233,12 @@ void DDHGCalWaferPartialRotated::execute(DDCompactView& cpv) {
       }
       if (std::abs(thickTot - thick_) >= tol) {
         if (thickTot > thick_) {
-          edm::LogError("HGCalGeom") << "Thickness of the partition " << thick_ << " is smaller than " << thickTot
+          edm::LogError("HGCalGeom") << "DDHGCalWaferPartialRotated::Thickness of the partition " << thick_
+                                     << " is smaller than " << thickTot
                                      << ": thickness of all its components **** ERROR ****";
         } else {
-          edm::LogWarning("HGCalGeom") << "Thickness of the partition " << thick_ << " does not match with " << thickTot
-                                       << " of the components";
+          edm::LogWarning("HGCalGeom") << "DDHGCalWaferPartialRotated::Thickness of the partition " << thick_
+                                       << " does not match with " << thickTot << " of the components";
         }
       }
     }

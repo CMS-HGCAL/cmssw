@@ -1,32 +1,41 @@
-from __future__ import print_function
 from threading import Thread
 from Configuration.PyReleaseValidation import WorkFlow
 import os,time
 import shutil
+import re
 from subprocess import Popen 
 from os.path import exists, basename, join
 from datetime import datetime
 
 class WorkFlowRunner(Thread):
-    def __init__(self, wf, noRun=False,dryRun=False,cafVeto=True,dasOptions="",jobReport=False, nThreads=1, nStreams=0, maxSteps=9999, nEvents=0):
+    def __init__(self, wf, opt, noRun=False, dryRun=False, cafVeto=True, jobNumber=None, gpu = None):
         Thread.__init__(self)
         self.wf = wf
 
-        self.status=-1
-        self.report=''
-        self.nfail=0
-        self.npass=0
-        self.noRun=noRun
-        self.dryRun=dryRun
-        self.cafVeto=cafVeto
-        self.dasOptions=dasOptions
-        self.jobReport=jobReport
-        self.nThreads=nThreads
-        self.nStreams=nStreams
-        self.maxSteps=maxSteps
-        self.nEvents=nEvents
+        self.status = -1
+        self.report  =''
+        self.nfail = 0
+        self.npass = 0
+        self.noRun = noRun
+        self.dryRun = dryRun
+        self.cafVeto = cafVeto
+        self.gpu = gpu
+
+        self.dasOptions = opt.dasOptions
+        self.jobReport = opt.jobReports
+        self.nThreads = opt.nThreads
+        self.nStreams = opt.nStreams
+        self.maxSteps = opt.maxSteps
+        self.nEvents = opt.nEvents
+        self.recoOutput = ''
+        self.startFrom = opt.startFrom
+        self.recycle = opt.recycle
+        self.useRNTuple = opt.useRNTuple
         
         self.wfDir=str(self.wf.numId)+'_'+self.wf.nameId
+        if jobNumber is not None:
+            self.wfDir = self.wfDir + '_job' + str(jobNumber)
+
         return
 
     def doCmd(self, cmd):
@@ -50,6 +59,44 @@ class WorkFlowRunner(Thread):
 
         return ret
     
+    @staticmethod
+    def replace_filein_extensions(command_line, outputExtensionForStep, defaultExtension, fileOption='--filein'):
+        # Pattern to match --filein followed by file:file.ext entries (comma-separated)
+        filein_pattern = re.compile(
+            r'('+fileOption+r'\s+)((?:file:[a-zA-Z0-9_]+\.[a-z]+(?:,\s*)?)*)'
+        )
+
+        # Inner patterns to match individual file entries
+        # For stepN naming need to know the N
+        file_pattern_step = re.compile('file:step([1-9]+)(_[a-zA-Z]+)?\.[a-z]+')
+        # Some ALCA steps use special file names without stepN, those
+        # are assumed to use the default extension
+        file_pattern_gen = re.compile(r'file:([a-zA-Z0-9_]+)\.[a-z]+')
+
+        def replace_filein_match(filein_match):
+            filein_prefix = filein_match.group(1)
+            file_list_str = filein_match.group(2)
+
+            # Replace extensions in the file list
+            m = file_pattern_step.search(file_list_str)
+            if m:
+                new_file_list = file_pattern_step.sub(
+                    lambda m: 'file:step{0}{1}{2}'.format(m.group(1), m.group(2) or "", outputExtensionForStep[int(m.group(1))]),
+                    file_list_str
+                )
+            else:
+                new_file_list = file_pattern_gen.sub(
+                    lambda m: 'file:{0}{1}'.format(m.group(1), defaultExtension),
+                    file_list_str
+                )
+
+            return filein_prefix + new_file_list
+
+        # Replace the whole --filein section with updated extensions
+        new_command_line = filein_pattern.sub(replace_filein_match, command_line)
+
+        return new_command_line 
+
     def run(self):
 
         startDir = os.getcwd()
@@ -81,9 +128,25 @@ class WorkFlowRunner(Thread):
         def closeCmd(i,ID):
             return ' > %s 2>&1; ' % ('step%d_'%(i,)+ID+'.log ',)
 
+        # For --secondfilein the primary and secondary files must have
+        # the same format (TTree or RNTuple). For now find the last
+        # step that uses --secondfilein, and use TTree for all steps
+        # up to that step. Theoretically we could identify the exact
+        # steps that need TTree output in this case, but given the way
+        # --secondfilein is being used now, and the deployment plan
+        # for RNTuple for HL-LHC, that complexity does not seem worth it.
+        lastStepWithSecondFileIn = None
+        if self.useRNTuple:
+            for (istepmone,com) in enumerate(self.wf.cmds):
+                # I don't know what to do in case com is something else
+                if isinstance(com, str):
+                    if "--secondfilein" in com:
+                        lastStepWithSecondFileIn = istepmone+1
+
         inFile=None
         lumiRangeFile=None
         aborted=False
+        outputExtensionForStep = {}
         for (istepmone,com) in enumerate(self.wf.cmds):
             # isInputOk is used to keep track of the das result. In case this
             # is False we use a different error message to indicate the failed
@@ -91,6 +154,7 @@ class WorkFlowRunner(Thread):
             isInputOk=True
             istep=istepmone+1
             cmd = preamble
+            outputExtensionForStep[istep]=''
             if aborted:
                 self.npass.append(0)
                 self.nfail.append(0)
@@ -98,6 +162,9 @@ class WorkFlowRunner(Thread):
                 self.stat.append('NOTRUN')
                 continue
             if not isinstance(com,str):
+                if self.recycle:
+                    inFile = self.recycle
+                    continue
                 if self.cafVeto and (com.location == 'CAF' and not onCAF):
                     print("You need to be no CAF to run",self.wf.numId)
                     self.npass.append(0)
@@ -128,18 +195,40 @@ class WorkFlowRunner(Thread):
                         retStep = 1
                         dasOutput = None
                     else:
-                        # We consider only the files which have at least one logical filename
+                        # We consider only the files which have at least one logical or physical filename
                         # in it. This is because sometimes das fails and still prints out junk.
-                        dasOutput = [l for l in open(dasOutputPath).read().split("\n") if l.startswith("/")]
+                        dasOutput = [l for l in open(dasOutputPath).read().split("\n") if l.startswith("/") or l.startswith("root://eoscms.cern.ch")]
                     if not dasOutput:
                         retStep = 1
                         isInputOk = False
                  
                 inFile = 'filelist:' + basename(dasOutputPath)
+
+                if com.skimEvents:
+                    lumiRangeFile='step%d_lumiRanges.log'%(istep,)
+                    cmd2 = preamble + "mv lumi_ranges.txt " + lumiRangeFile
+                    retStep = self.doCmd(cmd2)
+
                 print("---")
+
             else:
                 #chaining IO , which should be done in WF object already and not using stepX.root but <stepName>.root
+                if self.gpu is not None:
+                    cmd = cmd + self.gpu
+
                 cmd += com
+
+                if self.useRNTuple and not \
+                   (lastStepWithSecondFileIn is not None and istep < lastStepWithSecondFileIn):
+                    cmd+=' --rntuple_out'
+                if self.startFrom:
+                    steps = cmd.split("-s ")[1].split(" ")[0]
+                    if self.startFrom not in steps:
+                        continue
+                    else:
+                        self.startFrom = False
+                        inFile = self.recycle
+                
                 if self.noRun:
                     cmd +=' --no_exec'
                 # in case previous step used DAS query (either filelist of das:)
@@ -153,14 +242,35 @@ class WorkFlowRunner(Thread):
                 # 134 is an existing workflow where harvesting has to operate on AlcaReco and NOT on DQM; hard-coded..    
                 if 'HARVESTING' in cmd and not 134==self.wf.numId and not '--filein' in cmd:
                     cmd+=' --filein file:step%d_inDQM.root --fileout file:step%d.root '%(istep-1,istep)
+                    outputExtensionForStep[istep] = '.root'
                 else:
                     # Disable input for premix stage1 to allow combined stage1+stage2 workflow
                     # Disable input for premix stage2 in FastSim to allow combined stage1+stage2 workflow (in FS, stage2 does also GEN)
                     # Ugly hack but works
+                    extension = '.root'
+                    if '--rntuple_out' in cmd:
+                        extension = '.rntpl'
+                    outputExtensionForStep[istep] = extension
                     if istep!=1 and not '--filein' in cmd and not 'premix_stage1' in cmd and not ("--fast" in cmd and "premix_stage2" in cmd):
-                        cmd+=' --filein  file:step%s.root '%(istep-1,)
+                        steps = cmd.split("-s ")[1].split(" ")[0] ## relying on the syntax: cmsDriver -s STEPS --otherFlags
+                        if "ALCA" not in steps:
+                            cmd+=' --filein  file:step%s%s '%(istep-1,outputExtensionForStep[istep-1])
+                        elif "ALCA" in steps and "RECO" in steps:
+                            cmd+=' --filein  file:step%s%s '%(istep-1,outputExtensionForStep[istep-1])
+                        elif self.recoOutput:
+                            cmd+=' --filein %s'%(self.recoOutput)
+                        else:
+                            cmd+=' --filein  file:step%s%s '%(istep-1,outputExtensionForStep[istep-1])
+                    elif istep!=1 and '--filein' in cmd and '--filetype' not in cmd:
+                        # make sure correct extension is being used
+                        cmd = self.replace_filein_extensions(cmd, outputExtensionForStep, extension)
+                    if '--pileup_input' in cmd and '--filetype' not in cmd:
+                        # make sure correct extension is being used
+                        cmd = self.replace_filein_extensions(cmd, outputExtensionForStep, extension, fileOption='--pileup_input')
                     if not '--fileout' in com:
-                        cmd+=' --fileout file:step%s.root '%(istep,)
+                        cmd+=' --fileout file:step%s%s '%(istep,extension)
+                        if "RECO" in cmd:
+                            self.recoOutput = "file:step%d%s"%(istep,extension)
                 if self.jobReport:
                   cmd += ' --suffix "-j JobReport%s.xml " ' % istep
                 if (self.nThreads > 1) and ('HARVESTING' not in cmd) and ('ALCAHARVEST' not in cmd):
@@ -174,6 +284,7 @@ class WorkFlowRunner(Thread):
                   cmd = split[0] + event_token + '%s ' % self.nEvents + pos_cmd
                 cmd+=closeCmd(istep,self.wf.nameId)            
                 retStep = 0
+
                 if istep>self.maxSteps:
                    wf_stats = open("%s/wf_steps.txt" % self.wfDir,"a")
                    wf_stats.write('step%s:%s\n' % (istep, cmd))

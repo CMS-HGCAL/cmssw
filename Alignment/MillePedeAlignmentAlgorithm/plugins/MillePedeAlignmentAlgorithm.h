@@ -32,6 +32,9 @@
 #include "CondFormats/PCLConfig/interface/AlignPCLThresholdsHG.h"
 #include "CondFormats/DataRecord/interface/AlignPCLThresholdsHGRcd.h"
 
+#include "CondFormats/SiPixelObjects/interface/SiPixelQuality.h"
+#include "CondFormats/DataRecord/interface/SiPixelQualityFromDbRcd.h"
+
 #include <vector>
 #include <string>
 #include <memory>
@@ -53,7 +56,9 @@ class IntegratedCalibrationBase;
 class MillePedeMonitor;
 class PedeSteerer;
 class PedeLabelerBase;
-class Mille;
+namespace Mille {
+  class MilleRecord;
+}
 class TrajectoryFactoryBase;
 
 // already from base class - and forward declaration does not work since typedef!
@@ -263,6 +268,10 @@ private:
                   const TkFittedLasBeam &lasBeam,
                   const std::vector<TrajectoryStateOnSurface> &tsoses);
 
+  // ensure our local label vector for Mille has the expected
+  // size and content.
+  void prepareLocalLabels(size_t nLocal);
+
   /// add measurement data from PXB survey
   void addPxbSurvey(const edm::ParameterSet &pxbSurveyCfg);
 
@@ -275,6 +284,7 @@ private:
 
   const edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> topoToken_;
   const edm::ESGetToken<AlignPCLThresholdsHG, AlignPCLThresholdsHGRcd> aliThrToken_;
+  const edm::ESGetToken<SiPixelQuality, SiPixelQualityFromDbRcd> siPixelQualityToken_;
   const edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
 
   enum EModeBit { myMilleBit = 1 << 0, myPedeRunBit = 1 << 1, myPedeSteerBit = 1 << 2, myPedeReadBit = 1 << 3 };
@@ -290,13 +300,14 @@ private:
   align::Alignables theAlignables;
   std::unique_ptr<AlignableNavigator> theAlignableNavigator;
   std::unique_ptr<MillePedeMonitor> theMonitor;
-  std::unique_ptr<Mille> theMille;
+  std::unique_ptr<Mille::MilleRecord> theMille;
   std::shared_ptr<PedeLabelerBase> thePedeLabels;
   std::unique_ptr<PedeSteerer> thePedeSteer;
   std::unique_ptr<TrajectoryFactoryBase> theTrajectoryFactory;
   std::vector<IntegratedCalibrationBase *> theCalibrations;
   std::shared_ptr<AlignPCLThresholdsHG> theThresholds;
   std::shared_ptr<PixelTopologyMap> pixelTopologyMap;
+  std::shared_ptr<SiPixelQuality> pixelQuality;
   unsigned int theMinNumHits;
   double theMaximalCor2D;  /// maximal correlation allowed for 2D hit in TID/TEC.
                            /// If larger, the 2D measurement gets diagonalized!!!
@@ -307,9 +318,8 @@ private:
   std::vector<float> theFloatBufferX;
   std::vector<float> theFloatBufferY;
   std::vector<int> theIntBuffer;
+  std::vector<unsigned int> theLocalLabelBuffer_ = {};
   bool theDoSurveyPixelBarrel;
-  // CHK for GBL
-  std::unique_ptr<gbl::MilleBinary> theBinary;
   bool theGblDoubleBinary;
 
   const bool runAtPCL_;

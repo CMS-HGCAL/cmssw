@@ -78,12 +78,13 @@ SiStripOfflineDQM::SiStripOfflineDQM(edm::ParameterSet const& pSet)
       auto token = useSSQ ? QualityToken{esConsumes<edm::Transition::EndRun>(
                                 edm::ESInputTag{"", tkMapPSet.getUntrackedParameter<std::string>("ssqLabel", "")})}
                           : QualityToken{};
-      tkMapOptions_.emplace_back(map_type, std::move(tkMapPSet), useSSQ, std::move(token));
+      tkMapOptions_.emplace_back(map_type, std::move(tkMapPSet), useSSQ, std::move(token));  //NOLINT
     }
   }
 
   if (createTkInfoFile_) {
-    tkinfoTree_ = edm::Service<TFileService> { } -> make<TTree>("TkDetIdInfo", ""); }
+    tkinfoTree_ = edm::Service<TFileService>{}->make<TTree>("TkDetIdInfo", "");
+  }
 
   // explicit dependency to make sure the QTest reults needed here are present
   // already in endRun.

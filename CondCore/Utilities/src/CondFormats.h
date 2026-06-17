@@ -1,6 +1,8 @@
 #ifndef Utilities_CondFormats_h
 #define Utilities_CondFormats_h
 //
+#include "CondFormats/MLObjects/interface/MLMetadata.h"
+#include "CondFormats/MLObjects/interface/MLMetadataWrapper.h"
 #include "CondFormats/HLTObjects/interface/AlCaRecoTriggerBits.h"
 #include "CondFormats/Alignment/interface/AlignmentErrors.h"
 #include "CondFormats/Alignment/interface/AlignmentErrorsExtended.h"
@@ -9,6 +11,7 @@
 #include "CondFormats/BeamSpotObjects/interface/BeamSpotObjects.h"
 #include "CondFormats/BeamSpotObjects/interface/BeamSpotOnlineObjects.h"
 #include "CondFormats/BeamSpotObjects/interface/SimBeamSpotObjects.h"
+#include "CondFormats/BeamSpotObjects/interface/SimBeamSpotHLLHCObjects.h"
 #include "CondFormats/CastorObjects/interface/CastorElectronicsMap.h"
 #include "CondFormats/CastorObjects/interface/CastorSaturationCorrs.h"
 #include "CondFormats/HIObjects/interface/CentralityTable.h"
@@ -282,6 +285,7 @@
 #include "CondFormats/L1TObjects/interface/L1TriggerKeyList.h"
 #include "CondFormats/L1TObjects/interface/L1TriggerKeyExt.h"
 #include "CondFormats/L1TObjects/interface/L1TriggerKeyListExt.h"
+#include "CondFormats/PhysicsToolsObjects/interface/DeDxCalibration.h"
 #include "CondFormats/PhysicsToolsObjects/interface/Histogram3D.h"
 #include "CondFormats/PhysicsToolsObjects/interface/PerformancePayload.h"
 #include "CondFormats/PhysicsToolsObjects/interface/PerformancePayloadFromTFormula.h"

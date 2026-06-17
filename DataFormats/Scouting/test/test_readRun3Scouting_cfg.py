@@ -1,17 +1,26 @@
 import FWCore.ParameterSet.Config as cms
 import sys
 import argparse
+from IOPool.Input.fixReading_12_4_X_Files import fixReading_12_4_X_Files
 
 parser = argparse.ArgumentParser(prog=sys.argv[0], description='Test Run 3 Scouting data formats')
 
 parser.add_argument("--electronVersion", type=int, help="electron data format version (default: 7)", default=7)
 parser.add_argument("--photonVersion", type=int, help="photon data format version (default: 6)", default=6)
-parser.add_argument("--vertexVersion", type=int, help="photon data format version (default: 4)", default=4)
+parser.add_argument("--vertexVersion", type=int, help="vertex data format version (default: 4)", default=4)
+parser.add_argument("--ebRecHitVersion", type=int, help="EBRecHit data format version (default: 3)", default=3)
+parser.add_argument("--eeRecHitVersion", type=int, help="EERecHit data format version (default: 3)", default=3)
+parser.add_argument("--hbheRecHitVersion", type=int, help="HBHERecHit data format version (default: 4)", default=4)
 parser.add_argument("--inputFile", type=str, help="Input file name (default: testRun3Scouting.root)", default="testRun3Scouting.root")
 parser.add_argument("--outputFileName", type=str, help="Output file name (default: testRun3Scouting2.root)", default="testRun3Scouting2.root")
+parser.add_argument("-f", "--fixStreamerInfo", action="store_true")
 args = parser.parse_args()
 
 process = cms.Process("READ")
+
+if args.fixStreamerInfo:
+    process = fixReading_12_4_X_Files(process)
+    print("FixingStreamerInfos")
 
 process.source = cms.Source("PoolSource", fileNames = cms.untracked.vstring("file:"+args.inputFile))
 
@@ -104,11 +113,36 @@ process.testReadRun3Scouting = cms.EDAnalyzer("TestReadRun3Scouting",
     expectedVertexIntegralValues = cms.vint32(
         15,  25,  35
     ),
-    vertexesTag = cms.InputTag("run3ScoutingProducer", "", "PROD")
+    vertexesTag = cms.InputTag("run3ScoutingProducer", "", "PROD"),
+    ebRecHitClassVersion = cms.int32(args.ebRecHitVersion),
+    expectedEBRecHitFloatingPointValues = cms.vdouble(
+        16.0,  26.0
+    ),
+    expectedEBRecHitIntegralValues = cms.vint32(
+        16,  26
+    ),
+    ebRecHitsTag = cms.InputTag("run3ScoutingProducer", "", "PROD"),
+    eeRecHitClassVersion = cms.int32(args.eeRecHitVersion),
+    expectedEERecHitFloatingPointValues = cms.vdouble(
+        17.0,  27.0
+    ),
+    expectedEERecHitIntegralValues = cms.vint32(
+        17
+    ),
+    eeRecHitsTag = cms.InputTag("run3ScoutingProducer", "", "PROD"),
+    hbheRecHitClassVersion = cms.int32(args.hbheRecHitVersion),
+    expectedHBHERecHitFloatingPointValues = cms.vdouble(
+        18.0,  28.0
+    ),
+    expectedHBHERecHitIntegralValues = cms.vint32(
+        18
+    ),
+    hbheRecHitsTag = cms.InputTag("run3ScoutingProducer", "", "PROD")
 )
 
 process.out = cms.OutputModule("PoolOutputModule",
-    fileName = cms.untracked.string(args.outputFileName)
+    fileName = cms.untracked.string(args.outputFileName),
+    fastCloning = cms.untracked.bool(False)
 )
 
 process.path = cms.Path(process.testReadRun3Scouting)

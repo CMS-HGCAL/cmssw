@@ -24,7 +24,6 @@
 #include "DataFormats/Provenance/interface/History.h"
 #include "DataFormats/Provenance/interface/ProductIDToBranchID.h"
 #include "DataFormats/Provenance/interface/ProductRegistry.h"
-#include "DataFormats/Provenance/interface/ThinnedAssociationsHelper.h"
 #include "FWCore/Utilities/interface/EDMException.h"
 #include "FWCore/Utilities/interface/propagate_const.h"
 
@@ -37,7 +36,7 @@
 namespace fwlite {
   namespace internal {
 
-    static const edm::BranchDescription kDefaultBranchDescription;
+    static const edm::ProductDescription kDefaultProductDescription;
 
     BMRStrategy::BMRStrategy(TFile* file, int fileVersion)
         : currentFile_(file),
@@ -56,7 +55,7 @@ namespace fwlite {
 
     class Strategy : public BMRStrategy {
     public:
-      typedef std::map<edm::BranchID, edm::BranchDescription> bidToDesc;
+      typedef std::map<edm::BranchID, edm::ProductDescription> bidToDesc;
 
       Strategy(TFile* file, int fileVersion);
       ~Strategy() override;
@@ -75,25 +74,18 @@ namespace fwlite {
       }
       bool updateMap() override { return true; }
       edm::BranchID productToBranchID(edm::ProductID const& pid) override;
-      edm::BranchDescription const& productToBranch(edm::ProductID const& pid) override;
-      edm::BranchDescription const& branchIDToBranch(edm::BranchID const& bid) const override;
-      std::vector<edm::BranchDescription> const& getBranchDescriptions() override;
-      edm::ThinnedAssociationsHelper const& thinnedAssociationsHelper() const override {
-        return *thinnedAssociationsHelper_;
-      }
+      edm::ProductDescription const& productToBranch(edm::ProductID const& pid) override;
+      edm::ProductDescription const& branchIDToBranch(edm::BranchID const& bid) const override;
+      std::vector<edm::ProductDescription> const& getProductDescriptions() override;
 
       TBranch* getBranchRegistry(edm::ProductRegistry** pReg);
 
-      bidToDesc branchDescriptionMap_;
-      std::vector<edm::BranchDescription> bDesc_;
+      bidToDesc productDescriptionMap_;
+      std::vector<edm::ProductDescription> bDesc_;
       bool mapperFilled_;
-      edm::propagate_const<std::unique_ptr<edm::ThinnedAssociationsHelper>> thinnedAssociationsHelper_;
     };
 
-    Strategy::Strategy(TFile* file, int fileVersion)
-        : BMRStrategy(file, fileVersion),
-          mapperFilled_(false),
-          thinnedAssociationsHelper_(new edm::ThinnedAssociationsHelper) {
+    Strategy::Strategy(TFile* file, int fileVersion) : BMRStrategy(file, fileVersion), mapperFilled_(false) {
       // do in derived obects
       // updateFile(file);
     }
@@ -108,7 +100,7 @@ namespace fwlite {
       luminosityBlockTree_ = dynamic_cast<TTree*>(currentFile_->Get(edm::poolNames::luminosityBlockTreeName().c_str()));
       runTree_ = dynamic_cast<TTree*>(currentFile_->Get(edm::poolNames::runTreeName().c_str()));
       fileUUID_ = currentFile_->GetUUID();
-      branchDescriptionMap_.clear();
+      productDescriptionMap_.clear();
       bDesc_.clear();
       return nullptr != eventTree_;
     }
@@ -125,9 +117,9 @@ namespace fwlite {
       return bReg;
     }
 
-    std::vector<edm::BranchDescription> const& Strategy::getBranchDescriptions() {
+    std::vector<edm::ProductDescription> const& Strategy::getProductDescriptions() {
       if (bDesc_.empty()) {
-        for (auto const& item : branchDescriptionMap_) {
+        for (auto const& item : productDescriptionMap_) {
           bDesc_.push_back(item.second);
         }
       }
@@ -138,19 +130,19 @@ namespace fwlite {
       throw edm::Exception(edm::errors::UnimplementedFeature) << "Unsupported EDM file version";
     }
 
-    edm::BranchDescription const& Strategy::productToBranch(edm::ProductID const& pid) {
+    edm::ProductDescription const& Strategy::productToBranch(edm::ProductID const& pid) {
       edm::BranchID bid = productToBranchID(pid);
-      bidToDesc::const_iterator bdi = branchDescriptionMap_.find(bid);
-      if (branchDescriptionMap_.end() == bdi) {
-        return kDefaultBranchDescription;
+      bidToDesc::const_iterator bdi = productDescriptionMap_.find(bid);
+      if (productDescriptionMap_.end() == bdi) {
+        return kDefaultProductDescription;
       }
       return bdi->second;
     }
 
-    edm::BranchDescription const& Strategy::branchIDToBranch(edm::BranchID const& bid) const {
-      bidToDesc::const_iterator bdi = branchDescriptionMap_.find(bid);
-      if (branchDescriptionMap_.end() == bdi) {
-        return kDefaultBranchDescription;
+    edm::ProductDescription const& Strategy::branchIDToBranch(edm::BranchID const& bid) const {
+      bidToDesc::const_iterator bdi = productDescriptionMap_.find(bid);
+      if (productDescriptionMap_.end() == bdi) {
+        return kDefaultProductDescription;
       }
       return bdi->second;
     }
@@ -183,7 +175,7 @@ namespace fwlite {
         return true;
       }
 
-      branchDescriptionMap_.clear();
+      productDescriptionMap_.clear();
       bDesc_.clear();
 
       edm::ProductRegistry reg;
@@ -194,11 +186,11 @@ namespace fwlite {
         edm::ProductRegistry::ProductList& prodList = reg.productListUpdator();
 
         for (auto& item : prodList) {
-          edm::BranchDescription& prod = item.second;
+          edm::ProductDescription& prod = item.second;
           if (edm::InEvent == prod.branchType()) {
             // call to regenerate branchName
             prod.init();
-            branchDescriptionMap_.insert(bidToDesc::value_type(prod.branchID(), prod));
+            productDescriptionMap_.insert(bidToDesc::value_type(prod.branchID(), prod));
           }
         }
         mapperFilled_ = true;
@@ -283,7 +275,7 @@ namespace fwlite {
       pEventEntryInfoVector_ = &eventEntryInfoVector_;
       entryInfoBranch_->SetAddress(&pEventEntryInfoVector_);
 
-      branchDescriptionMap_.clear();
+      productDescriptionMap_.clear();
       bDesc_.clear();
 
       edm::ProductRegistry reg;
@@ -294,11 +286,11 @@ namespace fwlite {
         edm::ProductRegistry::ProductList& prodList = reg.productListUpdator();
 
         for (auto& item : prodList) {
-          edm::BranchDescription& prod = item.second;
+          edm::ProductDescription& prod = item.second;
           if (edm::InEvent == prod.branchType()) {
             // call to regenerate branchName
             prod.init();
-            branchDescriptionMap_.insert(bidToDesc::value_type(prod.branchID(), prod));
+            productDescriptionMap_.insert(bidToDesc::value_type(prod.branchID(), prod));
           }
         }
       }
@@ -393,7 +385,7 @@ namespace fwlite {
 
       eventHistoryTree_ = dynamic_cast<TTree*>(currentFile_->Get(edm::poolNames::eventHistoryTreeName().c_str()));
 
-      branchDescriptionMap_.clear();
+      productDescriptionMap_.clear();
       bDesc_.clear();
 
       edm::ProductRegistry reg;
@@ -404,11 +396,11 @@ namespace fwlite {
         edm::ProductRegistry::ProductList& prodList = reg.productListUpdator();
 
         for (auto& item : prodList) {
-          edm::BranchDescription& prod = item.second;
+          edm::ProductDescription& prod = item.second;
           if (edm::InEvent == prod.branchType()) {
             // call to regenerate branchName
             prod.init();
-            branchDescriptionMap_.insert(bidToDesc::value_type(prod.branchID(), prod));
+            productDescriptionMap_.insert(bidToDesc::value_type(prod.branchID(), prod));
             //             std::cout << "v11 updatefile " << prod.branchID() << std::endl;
           }
         }
@@ -494,14 +486,6 @@ namespace fwlite {
             << "No " << edm::poolNames::metaDataTreeName() << " TTree in file";
       }
 
-      thinnedAssociationsHelper_ = std::make_unique<edm::ThinnedAssociationsHelper>();
-      edm::ThinnedAssociationsHelper* thinnedAssociationsHelperPtr = thinnedAssociationsHelper_.get();
-      if (metaDataTree->FindBranch(edm::poolNames::thinnedAssociationsHelperBranchName().c_str()) != nullptr) {
-        TBranch* b = metaDataTree->GetBranch(edm::poolNames::thinnedAssociationsHelperBranchName().c_str());
-        b->SetAddress(&thinnedAssociationsHelperPtr);
-        b->GetEntry(0);
-      }
-
       branchIDLists_ = std::make_unique<edm::BranchIDLists>();
       edm::BranchIDLists* branchIDListsPtr = branchIDLists_.get();
       if (metaDataTree->FindBranch(edm::poolNames::branchIDListBranchName().c_str()) != nullptr) {
@@ -516,7 +500,7 @@ namespace fwlite {
 
       eventsTree_ = dynamic_cast<TTree*>(currentFile_->Get(edm::poolNames::eventTreeName().c_str()));
 
-      branchDescriptionMap_.clear();
+      productDescriptionMap_.clear();
       bDesc_.clear();
 
       edm::ProductRegistry reg;
@@ -527,11 +511,11 @@ namespace fwlite {
         edm::ProductRegistry::ProductList& prodList = reg.productListUpdator();
 
         for (auto& item : prodList) {
-          edm::BranchDescription& prod = item.second;
+          edm::ProductDescription& prod = item.second;
           if (edm::InEvent == prod.branchType()) {
             // call to regenerate branchName
             prod.init();
-            branchDescriptionMap_.insert(bidToDesc::value_type(prod.branchID(), prod));
+            productDescriptionMap_.insert(bidToDesc::value_type(prod.branchID(), prod));
             //             std::cout << "v11 updatefile " << prod.branchID() << std::endl;
           }
         }
@@ -595,6 +579,9 @@ namespace fwlite {
     edm::FileFormatVersion v;
     edm::FileFormatVersion* pV = &v;
     TBranch* bVer = metaDataTree->GetBranch(edm::poolNames::fileFormatVersionBranchName().c_str());
+    if (nullptr == bVer) {
+      return 0;
+    }
     bVer->SetAddress(&pV);
     bVer->GetEntry(0);
     fileVersion_ = v.value();
@@ -634,12 +621,12 @@ namespace fwlite {
     return isNew;
   }
 
-  edm::BranchDescription const& BranchMapReader::productToBranch(edm::ProductID const& pid) {
+  edm::ProductDescription const& BranchMapReader::productToBranch(edm::ProductID const& pid) {
     return strategy_->productToBranch(pid);
   }
 
-  std::vector<edm::BranchDescription> const& BranchMapReader::getBranchDescriptions() {
-    return strategy_->getBranchDescriptions();
+  std::vector<edm::ProductDescription> const& BranchMapReader::getProductDescriptions() {
+    return strategy_->getProductDescriptions();
   }
 
   std::unique_ptr<internal::BMRStrategy> BranchMapReader::newStrategy(TFile* file, int fileVersion) {

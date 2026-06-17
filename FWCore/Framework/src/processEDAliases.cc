@@ -1,7 +1,8 @@
-#include "DataFormats/Provenance/interface/BranchDescription.h"
+#include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "DataFormats/Provenance/interface/BranchKey.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/Utilities/interface/EDMException.h"
+#include "FWCore/Framework/interface/SignallingProductRegistryFiller.h"
 
 #include "processEDAliases.h"
 
@@ -46,15 +47,11 @@ namespace edm {
 
       std::string const& theInstanceAlias(instanceAlias == star ? productInstanceName : instanceAlias);
       BranchKey aliasKey(friendlyClassName, alias, theInstanceAlias, processName);
-      if (auto it = preg.productList().find(aliasKey); it != preg.productList().end()) {
-        // We might have already inserted an alias that was a chosen case of a SwitchProducer
-        if (not it->second.isAlias()) {
-          throw Exception(errors::Configuration, "EDAlias conflicts with data\n")
-              << "A product of type '" << friendlyClassName << "'\n"
-              << "with module label '" << alias << "' and instance name '" << theInstanceAlias << "'\n"
-              << "already exists.\n";
-        }
-        return;
+      if (preg.productList().find(aliasKey) != preg.productList().end()) {
+        throw Exception(errors::Configuration, "EDAlias conflicts with data\n")
+            << "A product of type '" << friendlyClassName << "'\n"
+            << "with module label '" << alias << "' and instance name '" << theInstanceAlias << "'\n"
+            << "already exists.\n";
       }
       auto iter = aliasKeys.find(aliasKey);
       if (iter != aliasKeys.end()) {
@@ -91,7 +88,7 @@ namespace edm {
                           std::unordered_set<std::string> const& aliasModulesToProcess,
                           ParameterSet const& proc_pset,
                           std::string const& processName,
-                          ProductRegistry& preg) {
+                          SignallingProductRegistryFiller& preg) {
       if (aliasNamesToProcess.empty()) {
         return;
       }
@@ -108,7 +105,7 @@ namespace edm {
 
       // Auxiliary search structure to support wildcard for friendlyClassName
       std::multimap<std::string, BranchKey> moduleLabelToBranches;
-      for (auto const& prod : preg.productList()) {
+      for (auto const& prod : preg.registry().productList()) {
         if (processName == prod.second.processName()) {
           moduleLabelToBranches.emplace(prod.first.moduleLabel(), prod.first);
         }
@@ -149,7 +146,7 @@ namespace edm {
                                     processName,
                                     alias,
                                     instanceAlias,
-                                    preg,
+                                    preg.registry(),
                                     aliasMap,
                                     aliasKeys);
               }
@@ -165,8 +162,9 @@ namespace edm {
             } else if (productInstanceName == star) {
               bool match = false;
               BranchKey lowerBound(friendlyClassName, moduleLabel, empty, empty);
-              for (ProductRegistry::ProductList::const_iterator it = preg.productList().lower_bound(lowerBound);
-                   it != preg.productList().end() && it->first.friendlyClassName() == friendlyClassName &&
+              for (ProductRegistry::ProductList::const_iterator it =
+                       preg.registry().productList().lower_bound(lowerBound);
+                   it != preg.registry().productList().end() && it->first.friendlyClassName() == friendlyClassName &&
                    it->first.moduleLabel() == moduleLabel;
                    ++it) {
                 if (it->first.processName() != processName) {
@@ -180,14 +178,14 @@ namespace edm {
                                     processName,
                                     alias,
                                     instanceAlias,
-                                    preg,
+                                    preg.registry(),
                                     aliasMap,
                                     aliasKeys);
               }
               if (!match) {
                 // No product was found matching the alias.
                 // We throw an exception only if a module with the specified module label was created in this process.
-                for (auto const& product : preg.productList()) {
+                for (auto const& product : preg.registry().productList()) {
                   if (moduleLabel == product.first.moduleLabel() && processName == product.first.processName()) {
                     throw Exception(errors::Configuration, "EDAlias parameter set mismatch\n")
                         << "There are no products of type '" << friendlyClassName << "'\n"
@@ -202,7 +200,7 @@ namespace edm {
                                   processName,
                                   alias,
                                   instanceAlias,
-                                  preg,
+                                  preg.registry(),
                                   aliasMap,
                                   aliasKeys);
             }
@@ -213,8 +211,8 @@ namespace edm {
       // Now add the new alias entries to the product registry.
       for (auto const& aliasEntry : aliasMap) {
         // Then check that the alias-for product exists
-        ProductRegistry::ProductList::const_iterator it = preg.productList().find(aliasEntry.first);
-        assert(it != preg.productList().end());
+        ProductRegistry::ProductList::const_iterator it = preg.registry().productList().find(aliasEntry.first);
+        assert(it != preg.registry().productList().end());
         preg.addLabelAlias(it->second, aliasEntry.second.moduleLabel(), aliasEntry.second.productInstanceName());
       }
     }

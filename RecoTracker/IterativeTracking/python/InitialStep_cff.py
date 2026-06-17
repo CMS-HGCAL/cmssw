@@ -36,8 +36,8 @@ initialStepTrackingRegions = _globalTrackingRegionFromBeamSpot.clone(RegionPSet 
 ))
 from Configuration.Eras.Modifier_trackingPhase2PU140_cff import trackingPhase2PU140
 trackingPhase1.toModify(initialStepTrackingRegions, RegionPSet = dict(ptMin = 0.5))
-from Configuration.Eras.Modifier_highBetaStar_2018_cff import highBetaStar_2018
-highBetaStar_2018.toModify(initialStepTrackingRegions,RegionPSet = dict(
+from Configuration.Eras.Modifier_highBetaStar_cff import highBetaStar
+highBetaStar.toModify(initialStepTrackingRegions,RegionPSet = dict(
      ptMin        = 0.05,
      originRadius = 0.2
 ))
@@ -78,7 +78,7 @@ _initialStepCAHitQuadruplets = _caHitQuadrupletEDProducer.clone(
     CAThetaCut           = 0.0012,
     CAPhiCut             = 0.2,
 )
-highBetaStar_2018.toModify(_initialStepCAHitQuadruplets,
+highBetaStar.toModify(_initialStepCAHitQuadruplets,
     CAThetaCut = 0.0024,
     CAPhiCut   = 0.4
 )
@@ -119,7 +119,8 @@ _fastSim_initialStepSeeds = FastSimulation.Tracking.TrajectorySeedProducer_cfi.t
                              )
 )
 #new for phase1
-trackingPhase1.toModify(_fastSim_initialStepSeeds, seedFinderSelector = dict(
+#adding phase2 also
+(trackingPhase1|trackingPhase2PU140).toModify(_fastSim_initialStepSeeds, seedFinderSelector = dict(
         pixelTripletGeneratorFactory = None,
         CAHitQuadrupletGeneratorFactory = _hitSetProducerToFactoryPSet(initialStepHitQuadruplets).clone(SeedComparitorPSet = dict(ComponentName = 'none')),
         #new parameters required for phase1 seeding
@@ -137,7 +138,6 @@ trackingPhase1.toModify(_fastSim_initialStepSeeds, seedFinderSelector = dict(
 
 fastSim.toReplaceWith(initialStepSeeds,_fastSim_initialStepSeeds)
 
-
 # building
 import TrackingTools.TrajectoryFiltering.TrajectoryFilter_cff
 _initialStepTrajectoryFilterBase = TrackingTools.TrajectoryFiltering.TrajectoryFilter_cff.CkfBaseTrajectoryFilter_block.clone(
@@ -154,7 +154,7 @@ _tracker_apv_vfp30_2016.toModify(initialStepTrajectoryFilterBase, maxCCCLostHits
 from Configuration.Eras.Modifier_pp_on_XeXe_2017_cff import pp_on_XeXe_2017
 from Configuration.ProcessModifiers.pp_on_AA_cff import pp_on_AA
 (pp_on_XeXe_2017 | pp_on_AA).toModify(initialStepTrajectoryFilterBase, minPt=0.6)
-highBetaStar_2018.toModify(initialStepTrajectoryFilterBase, minPt = 0.05)
+highBetaStar.toModify(initialStepTrajectoryFilterBase, minPt = 0.05)
 
 initialStepTrajectoryFilterInOut = initialStepTrajectoryFilterBase.clone(
     minimumNumberOfHits = 4,
@@ -429,7 +429,7 @@ trackingPhase2PU140.toModify(initialStepSelector,
         ), #end of vpset
 ) #end of clone
 
-
+fastSim.toModify(initialStepSelector,vertices = "firstStepPrimaryVerticesBeforeMixing")
 
 # Final sequence
 InitialStepTask = cms.Task(initialStepSeedLayers,
@@ -485,4 +485,14 @@ _InitialStepTask_fastSim = cms.Task(initialStepTrackingRegions
                            ,initialStepClassifier1,initialStepClassifier2,initialStepClassifier3
                            ,initialStep
                            )
+_InitialStepTask_fastSim_Phase2 = _InitialStepTask_fastSim.copy()
+_InitialStepTask_fastSim_Phase2.replace(initialStep, initialStepSelector)
 fastSim.toReplaceWith(InitialStepTask, _InitialStepTask_fastSim)
+(fastSim & trackingPhase2PU140).toReplaceWith(InitialStepTask, _InitialStepTask_fastSim_Phase2)
+
+##
+## Modify for the tau embedding methods reco sim step
+##
+from Configuration.ProcessModifiers.tau_embedding_sim_cff import tau_embedding_sim
+from TauAnalysis.MCEmbeddingTools.Simulation_RECO_cff import tau_embedding_correct_hlt_vertices
+tau_embedding_sim.toReplaceWith(firstStepPrimaryVerticesUnsorted, tau_embedding_correct_hlt_vertices)

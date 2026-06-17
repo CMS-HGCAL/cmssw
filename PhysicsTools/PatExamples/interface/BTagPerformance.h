@@ -12,11 +12,12 @@
 #include "TArrayD.h"
 #include "TGraph.h"
 #include <cassert>
+#include <cmath>
 #include <map>
 
 class BTagPerformance {
 public:
-  BTagPerformance(){};
+  BTagPerformance() {}
   void Set(std::string name) {
     fname = name;
     fNcuts = 40;

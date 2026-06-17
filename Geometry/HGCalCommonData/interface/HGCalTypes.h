@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 class HGCalTypes {
@@ -19,18 +20,18 @@ public:
 
   static constexpr int32_t UnknownPosition = -1;
   static constexpr int32_t WaferCenter = 0;
-  static constexpr int32_t CornerCenterYp = 1;
-  static constexpr int32_t CornerCenterYm = 2;
-  static constexpr int32_t CornerCenterXp = 3;
-  static constexpr int32_t CornerCenterXm = 4;
-  static constexpr int32_t WaferCenterB = 5;
-  static constexpr int32_t WaferCenterR = 6;
+  static constexpr int32_t WaferCenterB = 1;
+  static constexpr int32_t CornerCenterYp = 2;
+  static constexpr int32_t CornerCenterYm = 3;
+  static constexpr int32_t WaferCenterR = 4;
+  static constexpr int32_t CornerCenterXp = 5;
+  static constexpr int32_t CornerCenterXm = 6;
 
   static constexpr int32_t WaferTypeUndefined = -1;
-  static constexpr int32_t WaferFineThin = 0;
-  static constexpr int32_t WaferCoarseThin = 1;
-  static constexpr int32_t WaferCoarseThick = 2;
-  static constexpr int32_t WaferFineThick = 3;
+  static constexpr int32_t WaferHD120 = 0;
+  static constexpr int32_t WaferLD200 = 1;
+  static constexpr int32_t WaferLD300 = 2;
+  static constexpr int32_t WaferHD200 = 3;
 
   static constexpr int32_t WaferFull = 0;
   static constexpr int32_t WaferFive = 1;
@@ -80,13 +81,13 @@ public:
   // Condition for cells in partial wafer: arr[0]*u + arr[1]*v <= arr[2]
   static constexpr std::array<int, 3> edgeWaferLDTop = {{1, 0, 7}};
   static constexpr std::array<int, 3> edgeWaferLDBottom = {{-1, 0, -8}};
-  static constexpr std::array<int, 3> edgeWaferLDLeft = {{-1, 2, 8}};
+  static constexpr std::array<int, 3> edgeWaferLDLeft = {{-1, 2, 7}};
   static constexpr std::array<int, 3> edgeWaferLDRight = {{1, -2, -7}};
   static constexpr std::array<int, 3> edgeWaferLDFive = {{-1, 2, 15}};
-  static constexpr std::array<int, 3> edgeWaferLDThree = {{1, -2, -14}};
+  static constexpr std::array<int, 3> edgeWaferLDThree = {{1, -2, -15}};
   static constexpr std::array<int, 3> edgeWaferHDTop = {{1, 0, 9}};
   static constexpr std::array<int, 3> edgeWaferHDBottom = {{-1, 0, -10}};
-  static constexpr std::array<int, 3> edgeWaferHDLeft = {{-1, 2, 5}};
+  static constexpr std::array<int, 3> edgeWaferHDLeft = {{-1, 2, 4}};
   static constexpr std::array<int, 3> edgeWaferHDRight = {{1, -2, -18}};
   static constexpr std::array<int, 3> edgeWaferHDFive = {{-1, 2, 18}};
 
@@ -137,8 +138,11 @@ public:
   static constexpr int32_t layerFrontBack(int32_t layerOrient) { return ((layerOrient == WaferCenterB) ? 1 : -1); }
   static constexpr int32_t waferFrontBack(int32_t index) { return ((index == 0) ? -1 : 1); }
   // LD vs HD and Fullvs Partial wafer
-  static constexpr bool waferHD(int32_t type) { return ((type == WaferFineThin) || (type == WaferFineThick)); }
+  static constexpr bool waferHD(int32_t type) { return ((type == WaferHD120) || (type == WaferHD200)); }
   static constexpr bool waferFull(int32_t type) { return (type == WaferFull); }
+  static std::string layerTypeX(int32_t type);
+  static std::string waferType(int32_t type);
+  static std::string waferTypeX(int32_t type);
 
 private:
   static constexpr int32_t facu_ = 1;

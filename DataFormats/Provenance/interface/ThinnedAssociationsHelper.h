@@ -3,17 +3,18 @@
 
 /** \class edm::ThinnedAssociationsHelper
 \author W. David Dagenhart, created 11 June 2014
+
+NOTE: This class is obsolete and only exists for backward compatiblity when reading old files.
 */
 
 #include "DataFormats/Provenance/interface/BranchID.h"
+#include "DataFormats/Provenance/interface/ProductDescriptionFwd.h"
 
 #include <map>
 #include <set>
 #include <vector>
 
 namespace edm {
-
-  class BranchDescription;
 
   class ThinnedAssociationBranches {
   public:
@@ -51,7 +52,7 @@ namespace edm {
 
     void clear() { vThinnedAssociationBranches_.clear(); }
 
-    void selectAssociationProducts(std::vector<BranchDescription const*> const& associationDescriptions,
+    void selectAssociationProducts(std::vector<ProductDescription const*> const& associationDescriptions,
                                    std::set<BranchID> const& keptProductsInEvent,
                                    std::map<BranchID, bool>& keepAssociation) const;
 

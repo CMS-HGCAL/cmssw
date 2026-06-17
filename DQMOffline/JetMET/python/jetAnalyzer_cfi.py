@@ -18,7 +18,7 @@ jetDQMAnalyzerAk4CaloUncleaned = DQMEDAnalyzer('JetAnalyzer',
     #
     #
     highPtJetTrigger = cms.PSet(
-        andOr         = cms.bool( False ),
+        andOr          = cms.bool( False ),
         dbLabel        = cms.string("JetMETDQMTrigger"),
         hltInputTag    = cms.InputTag( "TriggerResults::HLT" ),
         hltPaths       = cms.vstring( 'HLT_PFJet450_v*'), 
@@ -26,7 +26,7 @@ jetDQMAnalyzerAk4CaloUncleaned = DQMEDAnalyzer('JetAnalyzer',
         errorReplyHlt  = cms.bool( False ),
     ),
     lowPtJetTrigger = cms.PSet(
-        andOr         = cms.bool( False ),
+        andOr          = cms.bool( False ),
         dbLabel        = cms.string("JetMETDQMTrigger"),
         hltInputTag    = cms.InputTag( "TriggerResults::HLT" ),
         hltPaths       = cms.vstring( 'HLT_PFJet80_v*'), 
@@ -50,7 +50,7 @@ jetDQMAnalyzerAk4CaloUncleaned = DQMEDAnalyzer('JetAnalyzer',
         bypassAllPVChecks = True,
         ),
 
-    #for JPT and CaloJetID  
+    #Only for JPT and CaloJetID  -> need to define InputJetIDValueMap  
     InputJetIDValueMap         = cms.InputTag("ak4JetID"), 
     #options for Calo and JPT: LOOSE,LOOSE_AOD,TIGHT,MINIMAL
     #for PFJets: LOOSE,TIGHT
@@ -83,8 +83,22 @@ jetDQMAnalyzerAk4CaloUncleaned = DQMEDAnalyzer('JetAnalyzer',
       DetectorTypes = cms.untracked.string("ecal:hbhe:hf"),
       #DebugOn = cms.untracked.bool(True),
       alwaysPass = cms.untracked.bool(False)
-    )
+    ),
+    stage2L1 = cms.bool(False) # by default use legacy L1T code
 )
+
+## change the default to stage2 for all current eras
+from Configuration.Eras.Modifier_stage2L1Trigger_cff import stage2L1Trigger
+stage2L1Trigger.toModify(jetDQMAnalyzerAk4CaloUncleaned,
+                         stage2L1 = True,
+                         highPtJetTrigger = dict(stage2 = cms.bool(True),
+                                                 l1tAlgBlkInputTag = cms.InputTag("gtStage2Digis"),
+                                                 l1tExtBlkInputTag = cms.InputTag("gtStage2Digis"),
+                                                 ReadPrescalesFromFile = cms.bool(False)),
+                         lowPtJetTrigger = dict(stage2 = cms.bool(True),
+                                                l1tAlgBlkInputTag = cms.InputTag("gtStage2Digis"),
+                                                l1tExtBlkInputTag = cms.InputTag("gtStage2Digis"),
+                                                ReadPrescalesFromFile = cms.bool(False)))
 
 jetDQMAnalyzerAk4CaloCleaned=jetDQMAnalyzerAk4CaloUncleaned.clone(
     JetCleaningFlag   = True,
@@ -148,10 +162,101 @@ jetDQMAnalizerAk4PUPPICleaned=jetDQMAnalyzerAk4PFCleaned.clone(
     JetType = cms.string('puppi'),
     jetsrc = "ak4PFJetsPuppi",
     METCollectionLabel = "pfMetPuppi",
-    JetCorrections = "ak4PFPuppiL1FastL2L3ResidualCorrector",
+    JetCorrections = cms.InputTag("dqmAk4PFPuppiL1FastL2L3ResidualCorrector"),
     JetIDVersion = "RUN2ULPUPPI",
     JetIDQuality = cms.string("TIGHT"),
     fillCHShistos = True,
+)
+
+jetDQMAnalyzerAk4ScoutingUncleaned = jetDQMAnalyzerAk4CaloUncleaned.clone(  
+    JetType = cms.string('scouting'),
+    JetCorrections = cms.InputTag("dqmAk4PFScoutingL1FastL2L3ResidualCorrector"),
+    jetsrc = cms.InputTag("hltScoutingPFPacker"),                       ###---> this name goes to GUI and TTree under .../JetMET/Run summary/Jet
+    srcRho = cms.InputTag("hltScoutingPFPacker","rho"),
+    METCollectionLabel = cms.InputTag("hltScoutingPFPacker","pfMetPt"), ###---> this name goes to GUI and TTree under .../JetMET/Run summary/MET 
+    muonsrc = cms.InputTag("hltScoutingMuonPackerNoVtx","","HLT"),
+    l1algoname = cms.string("L1Tech_BPTX_plus_AND_minus.v0"),
+    filljetHighLevel = False,                                           ### for plots: "vertices" and "cleanup" in .../JetMET/Run summary/
+    fillsubstructure = False,
+    
+    highPtJetTrigger = cms.PSet(
+        andOr         = cms.bool( False ),
+        dbLabel        = cms.string("JetMETDQMTrigger"),
+        hltInputTag    = cms.InputTag( "TriggerResults::HLT" ),
+        hltPaths       = cms.vstring( 'DST_PFScouting_JetHT_v*'), 
+        andOrHlt       = cms.bool( True ),
+        errorReplyHlt  = cms.bool( False ),
+    ),
+    lowPtJetTrigger = cms.PSet(
+        andOr         = cms.bool( False ),
+        dbLabel        = cms.string("JetMETDQMTrigger"),
+        hltInputTag    = cms.InputTag( "TriggerResults::HLT" ),
+        hltPaths       = cms.vstring( 'DST_PFScouting_ZeroBias_v*'), 
+        andOrHlt       = cms.bool( True ),
+        errorReplyHlt  = cms.bool( False ),
+    ),
+
+    TriggerResultsLabel        = cms.InputTag("TriggerResults::HLT"),
+    processname                = cms.string("HLT"),                     
+
+    #
+    # Jet-related
+    #   
+
+    JetCleaningFlag            = cms.untracked.bool(False),       
+
+    runcosmics                 = False,                
+                                
+    #Cleanup parameters
+    CleaningParameters = cleaningParameters.clone(
+        bypassAllPVChecks = False,
+        ),
+
+    #for scouting PF jets: TIGHT
+    JetIDQuality               = cms.string("TIGHT"),
+    #for scouting PF jets: RUN3Scouting
+    JetIDVersion               = cms.string("RUN3Scouting"),
+    #
+    #Pileup JetID anf quark-gluon discrimination not exist for scouting PF jets. The following: actually done only for PFJets at the moment
+    ###InputMVAPUIDDiscriminant = cms.InputTag("pileupJetIdEvaluatorDQM","fullDiscriminant"),
+    ###InputCutPUIDDiscriminant = cms.InputTag("pileupJetIdEvaluatorDQM","cutbasedDiscriminant"),
+    ###InputMVAPUIDValue = cms.InputTag("pileupJetIdEvaluatorDQM","fullId"),
+    ###InputCutPUIDValue = cms.InputTag("pileupJetIdEvaluatorDQM","cutbasedId"),
+
+    ###InputQGMultiplicity = cms.InputTag("QGTagger", "mult"),
+    ###InputQGLikelihood = cms.InputTag("QGTagger", "qgLikelihood"),
+    ###InputQGPtDToken = cms.InputTag("QGTagger", "ptD"),
+    ###InputQGAxis2 = cms.InputTag("QGTagger", "axis2"),
+
+    fillCHShistos = False,
+    #
+    # For jetAnalysis
+    #
+    jetAnalysis = jetDQMParameters.clone(),
+
+    #
+    # DCS ### -> only used in JetMETDQMFilter.cc
+    #                             
+    DCSFilterForJetMonitoring = cms.PSet(
+      DetectorTypes = cms.untracked.string("ecal:hbhe:hf:pixel:sistrip:es:muon"),
+      #DebugOn = cms.untracked.bool(True),
+      alwaysPass = cms.untracked.bool(False)
+    )
+)
+
+stage2L1Trigger.toModify(jetDQMAnalyzerAk4ScoutingUncleaned,
+                         stage2L1 = True,
+                         highPtJetTrigger = dict(stage2 = cms.bool(True),
+                                                 l1tAlgBlkInputTag = cms.InputTag("gtStage2Digis"),
+                                                 l1tExtBlkInputTag = cms.InputTag("gtStage2Digis"),
+                                                 ReadPrescalesFromFile = cms.bool(False)),
+                         lowPtJetTrigger = dict(stage2 = cms.bool(True),
+                                                l1tAlgBlkInputTag = cms.InputTag("gtStage2Digis"),
+                                                l1tExtBlkInputTag = cms.InputTag("gtStage2Digis"),
+                                                ReadPrescalesFromFile = cms.bool(False)))
+
+jetDQMAnalyzerAk4ScoutingCleaned = jetDQMAnalyzerAk4ScoutingUncleaned.clone(
+    JetCleaningFlag = True
 )
 
 jetDQMAnalyzerAk4PFCHSUncleanedMiniAOD=jetDQMAnalyzerAk4PFUncleaned.clone(
@@ -295,4 +400,3 @@ jetDQMMatchAkPu5CaloAkPu5PF = DQMEDAnalyzer('JetAnalyzer_HeavyIons_matching',
                                              recoDelRMatch = cms.double(0.2),
                                              recoJetEtaCut = cms.double(2.0)
 )
-

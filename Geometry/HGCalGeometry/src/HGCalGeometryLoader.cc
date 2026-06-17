@@ -28,7 +28,8 @@ HGCalGeometry* HGCalGeometryLoader::build(const HGCalTopology& topology) {
   uint32_t numberOfShapes =
       (topology.tileTrapezoid() ? HGCalGeometry::k_NumberOfShapesTrd : HGCalGeometry::k_NumberOfShapes);
   HGCalGeometryMode::GeometryMode mode = topology.geomMode();
-  bool test = ((mode == HGCalGeometryMode::TrapezoidModule) || (mode == HGCalGeometryMode::TrapezoidCassette));
+  bool test = ((mode == HGCalGeometryMode::TrapezoidModule) || (mode == HGCalGeometryMode::TrapezoidCassette) ||
+               (mode == HGCalGeometryMode::TrapezoidFineCell));
 #ifdef EDM_ML_DEBUG
   edm::LogVerbatim("HGCalGeom") << "Number of Cells " << numberOfCells << ":" << numberExpected << " for sub-detector "
                                 << topology.subDetector() << " Shapes " << numberOfShapes << ":" << parametersPerShape_
@@ -89,6 +90,11 @@ HGCalGeometry* HGCalGeometryLoader::build(const HGCalTopology& topology) {
       int ring = topology.dddConstants().getParameter()->iradMinBH_[indx];
       int nphi = topology.dddConstants().getParameter()->scintCells(layer);
       int type = topology.dddConstants().getParameter()->scintType(layer);
+#ifdef EDM_ML_DEBUG
+      edm::LogVerbatim("HGCalGeom") << "Trap::Layer " << layer << ":" << indx << " Ring " << ring << ":"
+                                    << topology.dddConstants().getParameter()->iradMaxBH_[indx] << " Phi " << nphi
+                                    << " Type " << type;
+#endif
       for (int md = topology.dddConstants().getParameter()->firstModule_[indx];
            md <= topology.dddConstants().getParameter()->lastModule_[indx];
            ++md) {
@@ -99,15 +105,19 @@ HGCalGeometry* HGCalGeometryLoader::build(const HGCalTopology& topology) {
             id.setType(typm.first);
             id.setSiPM(typm.second);
           }
+          int granul = topology.dddConstants().tileGranularity(layer);
+          id.setGranularity(granul);
           bool ok = test ? topology.dddConstants().tileExist(zside, layer, ring, iphi) : true;
 #ifdef EDM_ML_DEBUG
           edm::LogVerbatim("HGCalGeom") << "HGCalGeometryLoader::layer:rad:phi:type:sipm " << layer << ":"
                                         << ring * zside << ":" << iphi << ":" << type << ":" << typm.first << ":"
-                                        << typm.second << " Test " << test << ":" << ok << " ID " << id;
+                                        << typm.second << " Granularity " << granul << " Test " << test << ":" << ok
+                                        << " ID " << id;
 #endif
           if (ok) {
+            int layer0(layer);
             DetId detId = static_cast<DetId>(id);
-            const auto& w = topology.dddConstants().locateCellTrap(zside, layer, ring, iphi, true, false);
+            const auto& w = topology.dddConstants().locateCellTrap(zside, layer0, ring, iphi, true, false);
             double xx = (zside > 0) ? w.first : -w.first;
             CLHEP::Hep3Vector h3v(xx, w.second, mytr.h3v.z());
             const HepGeom::Transform3D ht3d(mytr.hr, h3v);
@@ -197,6 +207,7 @@ HGCalGeometry* HGCalGeometryLoader::build(const HGCalTopology& topology) {
 void HGCalGeometryLoader::buildGeom(
     const ParmVec& params, const HepGeom::Transform3D& ht3d, const DetId& detId, HGCalGeometry* geom, int mode) {
 #ifdef EDM_ML_DEBUG
+  edm::LogVerbatim("HGCalGeom") << "buildGeom::Mode " << mode;
   for (int i = 0; i < parametersPerShape_; ++i)
     edm::LogVerbatim("HGCalGeom") << "Parameter[" << i << "] : " << params[i];
 #endif

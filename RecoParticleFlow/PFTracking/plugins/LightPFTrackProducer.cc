@@ -3,19 +3,22 @@
 #include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/stream/EDProducer.h"
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "RecoParticleFlow/PFTracking/interface/PFTrackTransformer.h"
 #include "TrackingTools/PatternTools/interface/Trajectory.h"
 
-class LightPFTrackProducer : public edm::stream::EDProducer<> {
+#include <memory>
+
+class LightPFTrackProducer : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   ///Constructor
   explicit LightPFTrackProducer(const edm::ParameterSet&);
 
-  ///Destructor
-  ~LightPFTrackProducer() override;
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
 private:
   void beginRun(const edm::Run&, const edm::EventSetup&) override;
@@ -25,8 +28,8 @@ private:
   void produce(edm::Event&, const edm::EventSetup&) override;
 
   ///PFTrackTransformer
-  PFTrackTransformer* pfTransformer_;
-  std::vector<edm::EDGetTokenT<reco::TrackCollection> > tracksContainers_;
+  std::unique_ptr<PFTrackTransformer> pfTransformer_;
+  std::vector<edm::EDGetTokenT<reco::TrackCollection>> tracksContainers_;
 
   const edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> magneticFieldToken_;
   ///TRACK QUALITY
@@ -37,13 +40,22 @@ private:
 #include "FWCore/Framework/interface/MakerMacros.h"
 DEFINE_FWK_MODULE(LightPFTrackProducer);
 
+void LightPFTrackProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+  edm::ParameterSetDescription desc;
+  desc.add<std::string>("TrackQuality", "highPurity");
+  desc.add<bool>("UseQuality", true);
+  desc.add<std::vector<edm::InputTag>>(
+      "TkColList", {edm::InputTag("generalTracks"), edm::InputTag("secStep"), edm::InputTag("thStep")});
+  descriptions.add("lightpftrack", desc);
+}
+
 using namespace std;
 using namespace edm;
 LightPFTrackProducer::LightPFTrackProducer(const ParameterSet& iConfig)
     : pfTransformer_(nullptr), magneticFieldToken_(esConsumes<edm::Transition::BeginRun>()) {
   produces<reco::PFRecTrackCollection>();
 
-  std::vector<InputTag> tags = iConfig.getParameter<vector<InputTag> >("TkColList");
+  std::vector<InputTag> tags = iConfig.getParameter<vector<InputTag>>("TkColList");
 
   for (unsigned int i = 0; i < tags.size(); ++i)
     tracksContainers_.push_back(consumes<reco::TrackCollection>(tags[i]));
@@ -51,8 +63,6 @@ LightPFTrackProducer::LightPFTrackProducer(const ParameterSet& iConfig)
   useQuality_ = iConfig.getParameter<bool>("UseQuality");
   trackQuality_ = reco::TrackBase::qualityByName(iConfig.getParameter<std::string>("TrackQuality"));
 }
-
-LightPFTrackProducer::~LightPFTrackProducer() { delete pfTransformer_; }
 
 void LightPFTrackProducer::produce(Event& iEvent, const EventSetup& iSetup) {
   //create the empty collections
@@ -81,12 +91,9 @@ void LightPFTrackProducer::produce(Event& iEvent, const EventSetup& iSetup) {
 // ------------ method called once each job just before starting event loop  ------------
 void LightPFTrackProducer::beginRun(const edm::Run& run, const EventSetup& iSetup) {
   auto const& magneticField = &iSetup.getData(magneticFieldToken_);
-  pfTransformer_ = new PFTrackTransformer(math::XYZVector(magneticField->inTesla(GlobalPoint(0, 0, 0))));
+  pfTransformer_ = std::make_unique<PFTrackTransformer>(math::XYZVector(magneticField->inTesla(GlobalPoint(0, 0, 0))));
   pfTransformer_->OnlyProp();
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
-void LightPFTrackProducer::endRun(const edm::Run& run, const EventSetup& iSetup) {
-  delete pfTransformer_;
-  pfTransformer_ = nullptr;
-}
+void LightPFTrackProducer::endRun(const edm::Run& run, const EventSetup& iSetup) { pfTransformer_.reset(); }

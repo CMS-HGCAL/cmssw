@@ -2,11 +2,11 @@
 # Way to use this:
 #   cmsRun runHGCalTestDDD_cfg.py type=V17
 #
-#   Options for type V16, V17, V17n, V17ng, V18, V18n, V18ng
+#   Options for type V16, V17, V17n, V17ng, V18, V18n, V18ng, V19, V19n, V19ng
 #
 ###############################################################################
 import FWCore.ParameterSet.Config as cms
-import os, sys, imp, re
+import os, sys, importlib, re
 import FWCore.ParameterSet.VarParsing as VarParsing
 
 ####################################################################
@@ -16,20 +16,29 @@ options.register('type',
                  "V17",
                   VarParsing.VarParsing.multiplicity.singleton,
                   VarParsing.VarParsing.varType.string,
-                  "type of operations: V16, V17, V17n, V17ng, V18, V18n, V18ng")
+                  "type of operations: V16, V17, V17n, V17ng, V18, V18n, V18ng, V19, V19n, V19ng")
 
 ### get and parse the command line arguments
 options.parseArguments()
 print(options)
 
-if (options.type === "V18"):
+if (options.type == "V18"):
     from Configuration.Eras.Era_Phase2C22I13M9_cff import Phase2C22I13M9
     process = cms.Process("HGCalTest",Phase2C22I13M9)
-elif (options.type === "V18n"):
+elif (options.type == "V18n"):
     from Configuration.Eras.Era_Phase2C22I13M9_cff import Phase2C22I13M9
     process = cms.Process("HGCalTest",Phase2C22I13M9)
-elif (options.type === "V18ng"):
+elif (options.type == "V18ng"):
     from Configuration.Eras.Era_Phase2C22I13M9_cff import Phase2C22I13M9
+    process = cms.Process("HGCalTest",Phase2C22I13M9)
+elif (options.type == "V19"):
+    from Configuration.Eras.Era_Phase2C26I13M9_cff import Phase2C26I13M9
+    process = cms.Process("HGCalTest",Phase2C26I13M9)
+elif (options.type == "V19n"):
+    from Configuration.Eras.Era_Phase2C26I13M9_cff import Phase2C26I13M9
+    process = cms.Process("HGCalTest",Phase2C26I13M9)
+elif (options.type == "V19ng"):
+    from Configuration.Eras.Era_Phase2C26I13M9_cff import Phase2C26I13M9
     process = cms.Process("HGCalTest",Phase2C22I13M9)
 else:
     from Configuration.Eras.Era_Phase2C17I13M9_cff import Phase2C17I13M9
@@ -65,6 +74,7 @@ process.load('Configuration.StandardSequences.EndOfProcess_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 if 'MessageLogger' in process.__dict__:
+    process.MessageLogger.HGCalGeom=dict()
     process.MessageLogger.HGCSim=dict()
 #   process.MessageLogger.CaloSim=dict()
 
@@ -132,7 +142,7 @@ process.FEVTDEBUGoutput = cms.OutputModule("PoolOutputModule",
 # Other statements
 process.genstepfilter.triggerConditions=cms.vstring("generation_step")
 from Configuration.AlCa.GlobalTag import GlobalTag
-process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic_T21', '')
+process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic_T35', '')
 
 process.generator = cms.EDProducer("FlatRandomEGunProducer",
     PGunParameters = cms.PSet(

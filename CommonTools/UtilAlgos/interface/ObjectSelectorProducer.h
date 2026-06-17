@@ -4,6 +4,7 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "CommonTools/UtilAlgos/interface/StoreManagerTrait.h"
 #include "CommonTools/UtilAlgos/interface/SelectedOutputCollectionTrait.h"
@@ -32,6 +33,7 @@ public:
   /// constructor
   explicit ObjectSelectorProducer(const edm::ParameterSet& cfg)
       : Base(cfg),
+        throwOnMissing_(cfg.template getParameter<bool>("throwOnMissing")),
         srcToken_(
             this->template consumes<typename Selector::collection>(cfg.template getParameter<edm::InputTag>("src"))),
         selectorInit_(this->consumesCollector()),
@@ -42,12 +44,27 @@ public:
   /// destructor
   ~ObjectSelectorProducer() override {}
 
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+    edm::ParameterSetDescription desc;
+    desc.add<bool>("throwOnMissing", true);
+    desc.add<edm::InputTag>("src", edm::InputTag(""));
+    Selector::fillPSetDescription(desc);
+    descriptions.addWithDefaultLabel(desc);
+  }
+
 private:
   /// process one event
   void produce(edm::Event& evt, const edm::EventSetup& es) override {
     selectorInit_.init(selector_, evt, es);
     edm::Handle<typename Selector::collection> source;
     evt.getByToken(srcToken_, source);
+
+    // If the input source is not valid AND throwOnMissing is false skip the event
+    // This is necessary when filtering e.g. HLT collection that are not available for all events
+    if (!source.isValid() && !throwOnMissing_) {
+      return;
+    }
+
     StoreManager manager(source);
     selector_.select(source, evt, es);
     manager.cloneAndStore(selector_.begin(), selector_.end(), evt);
@@ -55,6 +72,7 @@ private:
     postProcessor_.process(filtered, evt);
   }
   /// source collection label
+  const bool throwOnMissing_;
   edm::EDGetTokenT<typename Selector::collection> srcToken_;
   /// Object collection selector
   Init selectorInit_;

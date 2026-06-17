@@ -21,6 +21,8 @@
 #include "FWCore/Framework/interface/EDConsumerBase.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
+#include "DataFormats/JetReco/interface/JetFwd.h"
+#include "DataFormats/TauReco/interface/PFTauFwd.h"
 #include "DataFormats/Common/interface/Handle.h"
 #include "RecoTauTag/RecoTau/interface/RecoTauQualityCuts.h"
 
@@ -40,11 +42,6 @@ namespace edm {
 }  // namespace edm
 
 namespace reco {
-  class PFTau;
-  class Jet;
-}  // namespace reco
-
-namespace reco {
   namespace tau {
 
     class RecoTauVertexAssociator {
@@ -52,7 +49,7 @@ namespace reco {
       enum Algorithm { kHighestPtInEvent, kClosestDeltaZ, kHighestWeigtForLeadTrack, kCombined };
 
       RecoTauVertexAssociator(const edm::ParameterSet& pset, edm::ConsumesCollector&& iC);
-      virtual ~RecoTauVertexAssociator(){};
+      virtual ~RecoTauVertexAssociator() {}
       /// Get the primary vertex associated to a given jet.
       /// Returns a null Ref if no vertex is found.
       reco::VertexRef associatedVertex(const Jet& jet) const;

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <typeinfo>
 #include <map>
+#include <cmath>
 #include <sstream>
 #include <sys/time.h>
 
@@ -178,7 +179,8 @@ namespace evf {
           edm::LogError("TestErrorMessage") << qualifier_;
           break;
         case 8:
-          *pi = 0;  //intentionally caused segfault by assigning null pointer (this produces static-checker warning)
+          [[clang::suppress]] *pi =
+              0;  //intentionally caused segfault by assigning null pointer (this produces static-checker warning)
           break;
         case 9:
           for (unsigned int j = 0; j < intqualifier_ * 1000 * 100; j++) {
@@ -209,8 +211,10 @@ namespace evf {
         case 12: {
           timeval tv_now;
           gettimeofday(&tv_now, nullptr);
-          if ((unsigned)(tv_now.tv_sec - tv_start_.tv_sec) > intqualifier_)
-            *pi = 0;  //intentionally caused segfault by assigning null pointer (this produces static-checker warning)
+          if ((unsigned)(tv_now.tv_sec - tv_start_.tv_sec) > intqualifier_) {
+            [[clang::suppress]] *pi =
+                0;  //intentionally caused segfault by assigning null pointer (this produces static-checker warning)
+          }
         } break;
         case 13: {
           void *vp = malloc(1024);

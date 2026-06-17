@@ -7,10 +7,10 @@
 
 #include "DataFormats/SiPixelDetId/interface/PixelModuleName.h"
 #include "DataFormats/SiPixelDetId/interface/PXBDetId.h"
+#include "DataFormats/DetId/interface/DetIdFwd.h"
 
 #include <string>
 
-class DetId;
 class TrackerTopology;
 
 class PixelBarrelName : public PixelModuleName {
@@ -63,6 +63,10 @@ public:
 
   /// check equality of modules from datamemebers
   bool operator==(const PixelModuleName&) const override;
+  bool operator==(const PixelBarrelName& other) const {
+    return (thePart == other.thePart && theLayer == other.theLayer && theModule == other.theModule &&
+            theLadder == other.theLadder);
+  }
 
 private:
   Shell thePart;

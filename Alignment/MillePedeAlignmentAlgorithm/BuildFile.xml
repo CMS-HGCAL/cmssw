@@ -3,16 +3,19 @@
 <use name="Alignment/CommonAlignmentParametrization"/>
 <use name="Alignment/MuonAlignment"/>
 <use name="Alignment/ReferenceTrajectories"/>
+<use name="CondFormats/DataRecord"/>
 <use name="CondFormats/PCLConfig"/>
+<use name="CondFormats/SiPixelObjects"/>
 <use name="DataFormats/CLHEP"/>
-<use name="DataFormats/SiStripDetId"/>
 <use name="DataFormats/GeometryVector"/>
+<use name="DataFormats/SiStripDetId"/>
 <use name="DataFormats/TrackReco"/>
 <use name="FWCore/MessageLogger"/>
 <use name="FWCore/ParameterSet"/>
 <use name="FWCore/PluginManager"/>
 <use name="Geometry/CommonDetUnit" source_only="1"/>
 <use name="rootcore"/>
+<use name="mille"/>
 <export>
   <lib name="1"/>
 </export>

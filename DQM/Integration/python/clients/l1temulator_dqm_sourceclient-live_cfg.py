@@ -1,4 +1,3 @@
-from __future__ import print_function
 # L1 Emulator DQM sequence
 #
 #   authors previous versions - see CVS
@@ -34,8 +33,8 @@ process.load("DQM.Integration.config.environment_cfi")
 process.dqmEnv.subSystemFolder = 'L1TEMU'
 process.dqmSaver.tag = 'L1TEMU'
 process.dqmSaver.runNumber = options.runNumber
-process.dqmSaverPB.tag = 'L1TEMU'
-process.dqmSaverPB.runNumber = options.runNumber
+# process.dqmSaverPB.tag = 'L1TEMU'
+# process.dqmSaverPB.runNumber = options.runNumber
 #
 # no references needed
 
@@ -94,7 +93,7 @@ else:
 process.l1EmulatorMonitorClientPath = cms.Path(process.l1EmulatorMonitorClient)
 
 #
-process.l1EmulatorMonitorEndPath = cms.EndPath(process.dqmEnv*process.dqmSaver*process.dqmSaverPB)
+process.l1EmulatorMonitorEndPath = cms.EndPath(process.dqmEnv*process.dqmSaver)#*process.dqmSaverPB)
 
 #
 process.valCscTriggerPrimitiveDigis.gangedME1a = False
@@ -186,7 +185,7 @@ print("Running with run type = ", process.runType.getRunType())
 process.castorDigis.InputLabel = "rawDataCollector"
 process.csctfDigis.producer = "rawDataCollector"
 process.dttfDigis.DTTF_FED_Source = "rawDataCollector"
-process.ecalDigisCPU.InputLabel = "rawDataCollector"
+process.ecalDigis.InputLabel = "rawDataCollector"
 process.ecalPreshowerDigis.sourceTag = "rawDataCollector"
 process.gctDigis.inputLabel = "rawDataCollector"
 process.gtDigis.DaqGtInputTag = "rawDataCollector"
@@ -198,7 +197,7 @@ process.muonCSCDigis.InputObjects = "rawDataCollector"
 process.muonDTDigis.inputLabel = "rawDataCollector"
 process.muonRPCDigis.InputLabel = "rawDataCollector"
 process.scalersRawToDigi.scalersInputTag = "rawDataCollector"
-process.siPixelDigis.cpu.InputLabel = "rawDataCollector"
+process.siPixelDigis.InputLabel = "rawDataCollector"
 process.siStripDigis.ProductLabel = "rawDataCollector"
 
 #--------------------------------------------------
@@ -208,7 +207,7 @@ if (process.runType.getRunType() == process.runType.hi_run):
     process.castorDigis.InputLabel = "rawDataRepacker"
     process.csctfDigis.producer = "rawDataRepacker"
     process.dttfDigis.DTTF_FED_Source = "rawDataRepacker"
-    process.ecalDigisCPU.InputLabel = "rawDataRepacker"
+    process.ecalDigis.InputLabel = "rawDataRepacker"
     process.ecalPreshowerDigis.sourceTag = "rawDataRepacker"
     process.gctDigis.inputLabel = "rawDataRepacker"
     process.gtDigis.DaqGtInputTag = "rawDataRepacker"
@@ -220,7 +219,7 @@ if (process.runType.getRunType() == process.runType.hi_run):
     process.muonDTDigis.inputLabel = "rawDataRepacker"
     process.muonRPCDigis.InputLabel = "rawDataRepacker"
     process.scalersRawToDigi.scalersInputTag = "rawDataRepacker"
-    process.siPixelDigis.cpu.InputLabel = "rawDataRepacker"
+    process.siPixelDigis.InputLabel = "rawDataRepacker"
     process.siStripDigis.ProductLabel = "rawDataRepacker"
 
 

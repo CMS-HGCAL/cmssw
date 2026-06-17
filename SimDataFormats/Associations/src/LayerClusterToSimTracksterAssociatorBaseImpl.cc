@@ -2,28 +2,28 @@
 
 #include "SimDataFormats/Associations/interface/LayerClusterToSimTracksterAssociatorBaseImpl.h"
 
-namespace hgcal {
-  LayerClusterToSimTracksterAssociatorBaseImpl::LayerClusterToSimTracksterAssociatorBaseImpl(){};
-  LayerClusterToSimTracksterAssociatorBaseImpl::~LayerClusterToSimTracksterAssociatorBaseImpl(){};
+namespace ticl {
+  LayerClusterToSimTracksterAssociatorBaseImpl::LayerClusterToSimTracksterAssociatorBaseImpl() {}
+  LayerClusterToSimTracksterAssociatorBaseImpl::~LayerClusterToSimTracksterAssociatorBaseImpl() {}
 
-  hgcal::RecoToSimTracksterCollection LayerClusterToSimTracksterAssociatorBaseImpl::associateRecoToSim(
+  ticl::RecoToSimTracksterCollection LayerClusterToSimTracksterAssociatorBaseImpl::associateRecoToSim(
       const edm::Handle<reco::CaloClusterCollection> &cCCH,
       const edm::Handle<ticl::TracksterCollection> &sTCH,
       const edm::Handle<CaloParticleCollection> &cPCH,
-      const hgcal::RecoToSimCollection &lCToCPs,
+      const ticl::RecoToSimCollectionT<reco::CaloClusterCollection> &lCToCPs,
       const edm::Handle<SimClusterCollection> &sCCH,
-      const hgcal::RecoToSimCollectionWithSimClusters &lCToSCs) const {
-    return hgcal::RecoToSimTracksterCollection();
+      const ticl::RecoToSimCollectionWithSimClustersT<reco::CaloClusterCollection> &lCToSCs) const {
+    return ticl::RecoToSimTracksterCollection();
   }
 
-  hgcal::SimTracksterToRecoCollection LayerClusterToSimTracksterAssociatorBaseImpl::associateSimToReco(
+  ticl::SimTracksterToRecoCollection LayerClusterToSimTracksterAssociatorBaseImpl::associateSimToReco(
       const edm::Handle<reco::CaloClusterCollection> &cCCH,
       const edm::Handle<ticl::TracksterCollection> &sTCH,
       const edm::Handle<CaloParticleCollection> &cPCH,
-      const hgcal::SimToRecoCollection &cPToLCs,
+      const ticl::SimToRecoCollectionT<reco::CaloClusterCollection> &cPToLCs,
       const edm::Handle<SimClusterCollection> &sCCH,
-      const hgcal::SimToRecoCollectionWithSimClusters &sCToLCs) const {
-    return hgcal::SimTracksterToRecoCollection();
+      const ticl::SimToRecoCollectionWithSimClustersT<reco::CaloClusterCollection> &sCToLCs) const {
+    return ticl::SimTracksterToRecoCollection();
   }
 
-}  // namespace hgcal
+}  // namespace ticl

@@ -2,19 +2,17 @@
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Sources/interface/EventSkipperByID.h"
-#include "FWCore/Utilities/interface/DebugMacros.h"
 #include "FWCore/Utilities/interface/EDMException.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include "FWCore/Utilities/interface/TimeOfDay.h"
-#include "FWCore/Catalog/interface/InputFileCatalog.h"
-
-#include "Utilities/StorageFactory/interface/IOFlags.h"
-#include "Utilities/StorageFactory/interface/StorageFactory.h"
+#include "FWStorage/Catalog/interface/InputFileCatalog.h"
+#include "FWStorage/StorageFactory/interface/IOFlags.h"
+#include "FWStorage/StorageFactory/interface/StorageFactory.h"
 
 #include <iomanip>
 #include <iostream>
 
-namespace edm {
+namespace edm::streamer {
 
   StreamerInputFile::~StreamerInputFile() { closeStreamerFile(); }
 
@@ -232,15 +230,12 @@ namespace edm {
 
   bool StreamerInputFile::openNextFile() {
     if (currentFile_ <= streamerNames_.size() - 1) {
-      FDEBUG(10) << "Opening file " << streamerNames_.at(currentFile_).fileNames()[0].c_str() << std::endl;
-
       openStreamerFile(streamerNames_.at(currentFile_).fileNames()[0],
                        streamerNames_.at(currentFile_).logicalFileName());
 
       // If start message was already there, then compare the
       // previous and new headers
       if (startMsg_) {
-        FDEBUG(10) << "Comparing Header" << std::endl;
         compareHeader();
       }
       ++currentFile_;
@@ -321,19 +316,8 @@ namespace edm {
         eventSize = head.size();
         if (code != Header::EVENT) {
           if (code == Header::INIT) {
-            edm::LogWarning("StreamerInputFile") << "Found another INIT header in the file. It will be skipped";
-            if (eventSize < sizeof(EventHeader)) {
-              //very unlikely case that EventHeader is larger than total INIT size inserted in the middle of the file
-              hdrSkipped = nGot - eventSize;
-              memmove(&eventBuf_[0], &eventBuf_[eventSize], hdrSkipped);
-              continue;
-            }
-            if (headerBuf_.size() < eventSize)
-              headerBuf_.resize(eventSize);
-            memcpy(&headerBuf_[0], &eventBuf_[0], nGot);
-            readBytes(&headerBuf_[nGot], eventSize, true, nGot);
-            //do not parse this header and proceed to the next event
-            continue;
+            throw Exception(errors::FileReadError, "StreamerInputFile::readEventMessage")
+                << "Found another INIT header in the file.";
           }
           throw Exception(errors::FileReadError, "StreamerInputFile::readEventMessage")
               << "Failed reading streamer file, unknown code in event header\n"
@@ -380,4 +364,4 @@ namespace edm {
     LogAbsolute("fileAction") << std::setprecision(0) << TimeOfDay() << msg << currentFileName_;
     FlushMessageLog();
   }
-}  // namespace edm
+}  // namespace edm::streamer

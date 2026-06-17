@@ -124,7 +124,7 @@ namespace edm {
                                     std::set<ParameterTypes>& parameterTypes,
                                     std::set<ParameterTypes>& wildcardTypes) const final {}
 
-    void validate_(ParameterSet& pset, std::set<std::string>& validatedLabels, bool optional) const final {
+    void validate_(ParameterSet& pset, std::set<std::string>& validatedLabels, Modifier modifier) const final {
       loadDescription(findType(pset)).validate(pset);
       //all names are good
       auto n = pset.getParameterNames();
@@ -132,7 +132,7 @@ namespace edm {
     }
 
     void writeCfi_(std::ostream& os,
-                   bool optional,
+                   Modifier modifier,
                    bool& startWithComma,
                    int indentation,
                    CfiOptions& options,
@@ -151,6 +151,17 @@ namespace edm {
       if (std::holds_alternative<cfi::ClassFile>(options)) {
         std::get<cfi::ClassFile>(options).parameterMustBeTyped();
       }
+    }
+
+    cfi::Trackiness trackiness_(std::string_view path) const override {
+      cfi::Trackiness trackiness = cfi::Trackiness::kNotAllowed;
+      for (auto& e : loadDescription(findType(edm::ParameterSet{}))) {
+        cfi::Trackiness t = e.node()->trackiness(path);
+        if (t != cfi::Trackiness::kNotAllowed) {
+          return t;
+        }
+      }
+      return trackiness;
     }
 
     bool hasNestedContent_() const final { return true; }

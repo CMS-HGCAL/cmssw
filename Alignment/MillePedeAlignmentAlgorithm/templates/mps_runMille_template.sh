@@ -89,6 +89,12 @@ export X509_USER_PROXY=${RUNDIR}/.user_proxy
 BATCH_DIR=$(pwd)
 echo "Running at $(date) \n        on $HOST \n        in directory $BATCH_DIR."
 
+# in singularity containers, source baseline setup script
+if [[ ! -z "${SINGULARITY_NAME}" ]] 
+then 
+    source /cvmfs/cms.cern.ch/cmsset_default.sh
+fi 
+
 # set up the CMS environment (choose your release and working area):
 cd CMSSW_RELEASE_AREA
 echo Setting up $(pwd) as CMSSW environment. 
@@ -104,12 +110,35 @@ gzip -f *.log
 gzip milleBinaryISN.dat
 echo "\nDirectory content after running cmsRun and zipping log+dat files:"
 ls -lh 
+
 # Copy everything you need to MPS directory of your job,
 # but you might want to copy less stuff to save disk space
 # (separate cp's for each item, otherwise you loose all if one file is missing):
+rm -f $RUNDIR/STDOUT.gz $RUNDIR/alignment.log.gz
 cp -p *.log.gz $RUNDIR
 # store  millePedeMonitor also in $RUNDIR, below is backup in $MSSDIR
 cp -p millePedeMonitor*root $RUNDIR
+
+# After logfiles have been copied, check whether binary and metadata files exist.
+# Their absence indicates typically that no events have been processed, 
+#   e.g. due to JSON exclusion, and there is no point in trying to 
+#   copy any files to mass storage.
+if [[ ! -f milleBinaryISN.dat.gz ]]
+then
+  echo "Missing milleBinary"
+  return 1
+fi
+if [[ ! -f millePedeMonitorISN.root ]]
+then
+  echo "Missing Monitor"
+  return 1
+fi
+if [[ ! -f treeFile.root ]]
+then
+  echo "Missing treeFile"
+  return 1
+fi
+
 
 # Copy MillePede binary file to Castor
 # Must use different command for the cmscafuser pool

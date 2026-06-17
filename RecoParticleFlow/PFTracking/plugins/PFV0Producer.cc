@@ -10,13 +10,16 @@
 #include "RecoParticleFlow/PFTracking/interface/PFTrackTransformer.h"
 #include "TrackingTools/PatternTools/interface/Trajectory.h"
 
-class PFV0Producer : public edm::stream::EDProducer<> {
+#include <memory>
+class PFV0Producer : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   ///Constructor
   explicit PFV0Producer(const edm::ParameterSet&);
 
   ///Destructor
   ~PFV0Producer() override;
+
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
 private:
   void beginRun(const edm::Run&, const edm::EventSetup&) override;
@@ -26,8 +29,8 @@ private:
   void produce(edm::Event&, const edm::EventSetup&) override;
 
   ///PFTrackTransformer
-  PFTrackTransformer* pfTransformer_;
-  std::vector<edm::EDGetTokenT<reco::VertexCompositeCandidateCollection> > V0list_;
+  std::unique_ptr<PFTrackTransformer> pfTransformer_;
+  std::vector<edm::EDGetTokenT<reco::VertexCompositeCandidateCollection>> V0list_;
 
   const edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> magneticFieldToken_;
 };
@@ -35,21 +38,28 @@ private:
 #include "FWCore/Framework/interface/MakerMacros.h"
 DEFINE_FWK_MODULE(PFV0Producer);
 
+void PFV0Producer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+  edm::ParameterSetDescription desc;
+  desc.add<std::vector<edm::InputTag>>(
+      "V0List", {edm::InputTag("generalV0Candidates", "Kshort"), edm::InputTag("generalV0Candidates", "Lambda")});
+  descriptions.add("pfV0", desc);
+}
+
 using namespace std;
 using namespace edm;
 using namespace reco;
 PFV0Producer::PFV0Producer(const ParameterSet& iConfig)
-    : pfTransformer_(nullptr), magneticFieldToken_(esConsumes<edm::Transition::BeginRun>()) {
+    : pfTransformer_(), magneticFieldToken_(esConsumes<edm::Transition::BeginRun>()) {
   produces<reco::PFV0Collection>();
   produces<reco::PFRecTrackCollection>();
 
-  std::vector<edm::InputTag> tags = iConfig.getParameter<vector<InputTag> >("V0List");
+  std::vector<edm::InputTag> tags = iConfig.getParameter<vector<InputTag>>("V0List");
 
   for (unsigned int i = 0; i < tags.size(); ++i)
     V0list_.push_back(consumes<reco::VertexCompositeCandidateCollection>(tags[i]));
 }
 
-PFV0Producer::~PFV0Producer() { delete pfTransformer_; }
+PFV0Producer::~PFV0Producer() {}
 
 void PFV0Producer::produce(Event& iEvent, const EventSetup& iSetup) {
   LogDebug("PFV0Producer") << "START event: " << iEvent.id().event() << " in run " << iEvent.id().run();
@@ -95,12 +105,9 @@ void PFV0Producer::produce(Event& iEvent, const EventSetup& iSetup) {
 // ------------ method called once each job just before starting event loop  ------------
 void PFV0Producer::beginRun(const edm::Run& run, const EventSetup& iSetup) {
   auto const& magneticField = &iSetup.getData(magneticFieldToken_);
-  pfTransformer_ = new PFTrackTransformer(math::XYZVector(magneticField->inTesla(GlobalPoint(0, 0, 0))));
+  pfTransformer_ = std::make_unique<PFTrackTransformer>(math::XYZVector(magneticField->inTesla(GlobalPoint(0, 0, 0))));
   pfTransformer_->OnlyProp();
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
-void PFV0Producer::endRun(const edm::Run& run, const EventSetup& iSetup) {
-  delete pfTransformer_;
-  pfTransformer_ = nullptr;
-}
+void PFV0Producer::endRun(const edm::Run& run, const EventSetup& iSetup) { pfTransformer_.reset(); }

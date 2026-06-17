@@ -18,6 +18,8 @@ RawTask::RawTask(edm::ParameterSet const& ps)
   _vflags[fBcnMsm] = flag::Flag("BcnMsm");
   _vflags[fBadQ] = flag::Flag("BadQ");
   _vflags[fOrnMsm] = flag::Flag("OrnMsm");
+  _vflags[fUnknownIds] = flag::Flag("UnknownIds");
+  _NBadQEvent = 0;
 }
 
 /* virtual */ void RawTask::bookHistograms(DQMStore::IBooker& ib, edm::Run const& r, edm::EventSetup const& es) {
@@ -131,6 +133,18 @@ RawTask::RawTask(edm::ParameterSet const& ps)
                                new hcaldqm::quantity::FEDQuantity(vFEDs),
                                new hcaldqm::quantity::ValueQuantity(hcaldqm::quantity::fState),
                                0);
+      _cBadQ_FEDvsLS.initialize(_name,
+                                "BadQ_FEDvsLS",
+                                new hcaldqm::quantity::LumiSectionCoarse(_maxLS, 10),
+                                new hcaldqm::quantity::FEDQuantity(vFEDs),
+                                new hcaldqm::quantity::ValueQuantity(hcaldqm::quantity::fN),
+                                0);
+      _cBadQ_FEDvsLSmod10.initialize(_name,
+                                     "BadQ_FEDvsLSmod10",
+                                     new hcaldqm::quantity::LumiSection(10),
+                                     new hcaldqm::quantity::FEDQuantity(vFEDs),
+                                     new hcaldqm::quantity::ValueQuantity(hcaldqm::quantity::fN),
+                                     0);
       //	FED Size vs LS
       _cDataSizevsLS_FED.initialize(_name,
                                     "DataSizevsLS",
@@ -166,6 +180,8 @@ RawTask::RawTask(edm::ParameterSet const& ps)
     _xBadQLS.book(_emap);
     _cSummaryvsLS_FED.book(ib, _emap, _subsystem);
     _cSummaryvsLS.book(ib, _subsystem);
+    _cBadQ_FEDvsLSmod10.book(ib, _subsystem);
+    _cBadQ_FEDvsLS.book(ib, _subsystem);
     _cDataSizevsLS_FED.book(ib, _emap, _subsystem);
   }
 
@@ -217,13 +233,44 @@ RawTask::RawTask(edm::ParameterSet const& ps)
     if (nbadq >= _thresh_calib_nbadq)
       return;
   }
+  if (_ptype == fOnline &&
+      lumiCache->EvtCntLS == 1) {  // Reset the bin for  _cBadQ_FEDvsLSmod10 at the beginning of each new LS
+    for (std::vector<uint32_t>::const_iterator it = _vhashFEDs.begin(); it != _vhashFEDs.end(); ++it) {
+      HcalElectronicsId eid = HcalElectronicsId(*it);
+      _cBadQ_FEDvsLSmod10.setBinContent(eid, _currentLS % 10, 0);
+    }
+  }
 
-  int nn = 0;
   //	loop thru and fill the detIds with bad quality
   //	NOTE: Calibration Channels are skipped!
   //	TODO: Include for Online Calibration Channels marked as bad
   //	a comment below is left on purpose!
   //_cBadQualityvsBX.fill(bx, creport->badQualityDigis());
+
+  bool Nbadqevt = false;
+  for (std::vector<DetId>::const_iterator it = creport->bad_quality_begin(); it != creport->bad_quality_end(); ++it) {
+    //  skip non HCAL det ids
+    if (!HcalGenericDetId(*it).isHcalDetId())
+      continue;
+    //  skip those that are of bad quality from conditions
+    //  Masked or Dead
+    if (_xQuality.exists(HcalDetId(*it))) {
+      HcalChannelStatus cs(it->rawId(), _xQuality.get(HcalDetId(*it)));
+      if (cs.isBitSet(HcalChannelStatus::HcalCellMask) || cs.isBitSet(HcalChannelStatus::HcalCellDead))
+        continue;
+    }
+    HcalElectronicsId eid = HcalElectronicsId(_ehashmap.lookup(*it));
+    // Masked HEP07 sporadic bad data https://gitlab.cern.ch/cmshcal/docs/-/issues/242
+    if (eid.crateId() == 21 && eid.slot() == 11 && eid.fiberIndex() == 19)
+      continue;
+    Nbadqevt = true;
+  }
+  if (lumiCache->EvtCntLS == 1)
+    _NBadQEvent = 0;  // Reset at the beginning of each new LS
+  if (Nbadqevt)
+    _NBadQEvent++;
+
+  int nn = 0;
   for (std::vector<DetId>::const_iterator it = creport->bad_quality_begin(); it != creport->bad_quality_end(); ++it) {
     //	skip non HCAL det ids
     if (!HcalGenericDetId(*it).isHcalDetId())
@@ -236,13 +283,18 @@ RawTask::RawTask(edm::ParameterSet const& ps)
       if (cs.isBitSet(HcalChannelStatus::HcalCellMask) || cs.isBitSet(HcalChannelStatus::HcalCellDead))
         continue;
     }
-
-    nn++;
+    // Masked HEP07 sporadic bad data https://gitlab.cern.ch/cmshcal/docs/-/issues/242
     HcalElectronicsId eid = HcalElectronicsId(_ehashmap.lookup(*it));
+    if (eid.crateId() == 21 && eid.slot() == 11 && eid.fiberIndex() == 19)
+      continue;
+    nn++;
+    //HcalElectronicsId eid = HcalElectronicsId(_ehashmap.lookup(*it));
     _cBadQuality_depth.fill(HcalDetId(*it));
     //	ONLINE ONLY!
     if (_ptype == fOnline)
+      //Number of BadQualityDigis
       _xBadQLS.get(eid)++;
+
     if (_ptype != fOffline) {  // hidefed2crate
       if (!eid.isVMEid()) {
         if (_filter_FEDsuTCA.filter(eid))
@@ -393,7 +445,7 @@ std::shared_ptr<hcaldqm::Cache> RawTask::globalBeginLuminosityBlock(edm::Luminos
   for (std::vector<uint32_t>::const_iterator it = _vhashFEDs.begin(); it != _vhashFEDs.end(); ++it) {
     flag::Flag fSum("RAW");
     HcalElectronicsId eid = HcalElectronicsId(*it);
-
+    int fed = hcaldqm::utilities::crate2fed(eid.crateId(), eid.slot());
     std::vector<uint32_t>::const_iterator cit = std::find(_vcdaqEids.begin(), _vcdaqEids.end(), *it);
     if (cit == _vcdaqEids.end()) {
       // not @cDAQ
@@ -404,7 +456,8 @@ std::shared_ptr<hcaldqm::Cache> RawTask::globalBeginLuminosityBlock(edm::Luminos
     }
 
     //	FED is @cDAQ
-    if (hcaldqm::utilities::isFEDHBHE(eid) || hcaldqm::utilities::isFEDHF(eid) || hcaldqm::utilities::isFEDHO(eid)) {
+    if (hcaldqm::utilities::isFEDHBHE(eid) || hcaldqm::utilities::isFEDHF(eid) || hcaldqm::utilities::isFEDHO(eid) ||
+        hcaldqm::utilities::isFEDZDC(eid)) {
       if (_xEvnMsmLS.get(eid) > 0)
         _vflags[fEvnMsm]._state = flag::fBAD;
       else
@@ -419,11 +472,16 @@ std::shared_ptr<hcaldqm::Cache> RawTask::globalBeginLuminosityBlock(edm::Luminos
         _vflags[fOrnMsm]._state = flag::fGOOD;
       if (double(_xBadQLS.get(eid)) > double(12 * _evsPerLS))
         _vflags[fBadQ]._state = flag::fBAD;
-      else if (_xBadQLS.get(eid) > 0)
+      else if (_xBadQLS.get(eid) > 0) {
         _vflags[fBadQ]._state = flag::fPROBLEMATIC;
-      else
+      } else
         _vflags[fBadQ]._state = flag::fGOOD;
     }
+    _unknownIdsPresent = false;
+    if (_unknownIdsPresent)
+      _vflags[fUnknownIds]._state = hcaldqm::flag::fBAD;
+    else
+      _vflags[fUnknownIds]._state = hcaldqm::flag::fGOOD;
 
     int iflag = 0;
     //	iterate over all flags:
@@ -431,6 +489,14 @@ std::shared_ptr<hcaldqm::Cache> RawTask::globalBeginLuminosityBlock(edm::Luminos
     //	- reset each flag right after using it
     for (std::vector<flag::Flag>::iterator ft = _vflags.begin(); ft != _vflags.end(); ++ft) {
       _cSummaryvsLS_FED.setBinContent(eid, _currentLS, int(iflag), ft->_state);
+
+      // Following line added due to https://gitlab.cern.ch/cmshcal/docs/-/issues/233                                                                                                               // BadQ > (5%) of number of events in this LS.
+      if (ft->_name == "BadQ" && (double(_xBadQLS.get(eid)) > 0 && double(_NBadQEvent) > double(0.05 * _evsPerLS))) {
+        if (!hcaldqm::utilities::isFEDHO(eid) && fed != 1136 && ft->_state != 3) {
+          _cBadQ_FEDvsLSmod10.setBinContent(eid, _currentLS % 10, (double(_NBadQEvent) / double(_evsPerLS)) * 100);
+          _cBadQ_FEDvsLS.setBinContent(eid, _currentLS, (double(_NBadQEvent) / double(_evsPerLS)) * 100);
+        }
+      }
       fSum += (*ft);
       iflag++;
 
@@ -438,6 +504,8 @@ std::shared_ptr<hcaldqm::Cache> RawTask::globalBeginLuminosityBlock(edm::Luminos
       //	each one of them after using
       ft->reset();
     }
+    if (fed == 1136)
+      edm::LogWarning(" fSum._state =") << fSum._state << std::endl;
     _cSummaryvsLS.setBinContent(eid, _currentLS, fSum._state);
   }
 

@@ -156,7 +156,7 @@ namespace fwlite {
             return true;
           }
         }  // end ignore "first" file that we tried
-      }    // end loop over files
+      }  // end loop over files
 
       // did not find the event with id "id".
       return false;
@@ -195,8 +195,8 @@ namespace fwlite {
     return event_->getBranchNameFor(iType, iModule, iInstance, iProcess);
   }
 
-  std::vector<edm::BranchDescription> const& ChainEvent::getBranchDescriptions() const {
-    return event_->getBranchDescriptions();
+  std::vector<edm::ProductDescription> const& ChainEvent::getProductDescriptions() const {
+    return event_->getProductDescriptions();
   }
 
   std::vector<std::string> const& ChainEvent::getProcessHistory() const { return event_->getProcessHistory(); }
@@ -223,23 +223,6 @@ namespace fwlite {
 
   edm::WrapperBase const* ChainEvent::getByProductID(edm::ProductID const& iID) const {
     return event_->getByProductID(iID);
-  }
-
-  std::optional<std::tuple<edm::WrapperBase const*, unsigned int>> ChainEvent::getThinnedProduct(
-      edm::ProductID const& pid, unsigned int key) const {
-    return event_->getThinnedProduct(pid, key);
-  }
-
-  void ChainEvent::getThinnedProducts(edm::ProductID const& pid,
-                                      std::vector<edm::WrapperBase const*>& foundContainers,
-                                      std::vector<unsigned int>& keys) const {
-    event_->getThinnedProducts(pid, foundContainers, keys);
-  }
-
-  edm::OptionalThinnedKey ChainEvent::getThinnedKeyFrom(edm::ProductID const& parent,
-                                                        unsigned int key,
-                                                        edm::ProductID const& thinned) const {
-    return event_->getThinnedKeyFrom(parent, key, thinned);
   }
 
   bool ChainEvent::isValid() const { return event_->isValid(); }

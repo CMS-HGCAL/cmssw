@@ -84,11 +84,6 @@ void GEMRecHitSource::bookHistograms(DQMStore::IBooker& ibooker, edm::Run const&
   mapCLSPerCh_ = MEMap4Inf(
       this, "cls", "Cluster size of RecHits", nCLSMax_, 0.5, nCLSMax_ + 0.5, 1, 0.5, 1.5, "Cluster size", "iEta");
 
-  if (nRunType_ == GEMDQM_RUNTYPE_OFFLINE) {
-    mapCLSOver5_.TurnOff();
-    mapCLSPerCh_.TurnOff();
-  }
-
   if (nRunType_ == GEMDQM_RUNTYPE_RELVAL) {
     mapRecHitXY_layer_.TurnOff();
     mapCLSAverage_.TurnOff();
@@ -171,7 +166,8 @@ int GEMRecHitSource::ProcessWithMEMap3(BookingHelper& bh, ME3IdsKey key) {
       mapCLSOver5_.FindHist(key)->setYTitle("Module");
     }
     for (Int_t i = 1; i <= stationInfo.nNumModules_; i++) {
-      std::string strLabel = std::string(Form("M%i", i));
+      Int_t module_number = getDisplayModuleNumber(keyToStation(key), keyToLayer(key), i);
+      std::string strLabel = std::string(Form("M%i", module_number));
       if (mapCLSAverage_.isOperating()) {
         mapCLSAverage_.FindHist(key)->setBinLabel(i, strLabel, 2);
       }
@@ -204,7 +200,8 @@ int GEMRecHitSource::ProcessWithMEMap4WithChamber(BookingHelper& bh, ME4IdsKey k
       mapCLSPerCh_.FindHist(key)->setYTitle("Module");
     }
     for (Int_t i = 1; i <= stationInfo.nNumModules_; i++) {
-      std::string strLabel = std::string(Form("M%i", i));
+      Int_t module_number = getDisplayModuleNumber(keyToStation(key), keyToLayer(key), i);
+      std::string strLabel = std::string(Form("M%i", module_number));
       if (mapCLSPerCh_.isOperating()) {
         mapCLSPerCh_.FindHist(key)->setBinLabel(i, strLabel, 2);
       }
@@ -287,7 +284,7 @@ void GEMRecHitSource::analyze(edm::Event const& event, edm::EventSetup const& ev
   for (auto [key, num_total_rechit] : total_rechit_iEta) {
     mapTotalRecHitPerEvtIEta_.Fill(key, num_total_rechit);
   }
-  for (auto [key, mapSub] : mapCLSOver5) {
+  for (const auto& [key, mapSub] : mapCLSOver5) {
     for (auto [chamber, b] : mapSub) {
       mapCLSOver5_.Fill(key4Tokey3(key), chamber, keyToIEta(key));
     }

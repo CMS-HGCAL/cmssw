@@ -1,6 +1,5 @@
 import FWCore.ParameterSet.Config as cms
 from HeterogeneousCore.AlpakaCore.functions import *
-from HeterogeneousCore.CUDACore.SwitchProducerCUDA import SwitchProducerCUDA
 
 from RecoLocalTracker.SiStripRecHitConverter.StripCPEfromTrackAngle_cfi import *
 from RecoLocalTracker.SiStripRecHitConverter.SiStripRecHitMatcher_cfi import *
@@ -88,122 +87,10 @@ _pixelTracksTask_lowPU = pixelTracksTask.copy()
 _pixelTracksTask_lowPU.replace(pixelTracksHitQuadruplets, pixelTracksHitTriplets)
 trackingLowPU.toReplaceWith(pixelTracksTask, _pixelTracksTask_lowPU)
 
-
-# "Patatrack" pixel ntuplets, fishbone cleaning, Broken Line fit, and density-based vertex reconstruction
-from Configuration.ProcessModifiers.pixelNtupletFit_cff import pixelNtupletFit
-
-from RecoTracker.PixelSeeding.caHitNtupletCUDAPhase1_cfi import caHitNtupletCUDAPhase1 as _pixelTracksCUDA
-from RecoTracker.PixelSeeding.caHitNtupletCUDAPhase2_cfi import caHitNtupletCUDAPhase2 as _pixelTracksCUDAPhase2
-from RecoTracker.PixelSeeding.caHitNtupletCUDAHIonPhase1_cfi import caHitNtupletCUDAHIonPhase1 as _pixelTracksCUDAHIonPhase1
-
 # Phase 2 modifier
 from Configuration.Eras.Modifier_phase2_tracker_cff import phase2_tracker
 # HIon modifiers
 from Configuration.ProcessModifiers.pp_on_AA_cff import pp_on_AA
-
-# SwitchProducer providing the pixel tracks in SoA format on the CPU
-pixelTracksSoA = SwitchProducerCUDA(
-    # build pixel ntuplets and pixel tracks in SoA format on the CPU
-    cpu = _pixelTracksCUDA.clone(
-        pixelRecHitSrc = "siPixelRecHitsPreSplittingSoA",
-        idealConditions = False,
-        onGPU = False
-    )
-)
-
-# use quality cuts tuned for Run 2 ideal conditions for all Run 3 workflows
-run3_common.toModify(pixelTracksSoA.cpu,
-    idealConditions = True
-)
-
-# convert the pixel tracks from SoA to legacy format
-from RecoTracker.PixelTrackFitting.pixelTrackProducerFromSoAPhase1_cfi import pixelTrackProducerFromSoAPhase1 as _pixelTrackProducerFromSoA
-from RecoTracker.PixelTrackFitting.pixelTrackProducerFromSoAPhase2_cfi import pixelTrackProducerFromSoAPhase2 as _pixelTrackProducerFromSoAPhase2
-from RecoTracker.PixelTrackFitting.pixelTrackProducerFromSoAHIonPhase1_cfi import pixelTrackProducerFromSoAHIonPhase1 as _pixelTrackProducerFromSoAHIonPhase1
-
-pixelNtupletFit.toReplaceWith(pixelTracks, _pixelTrackProducerFromSoA.clone(
-    pixelRecHitLegacySrc = "siPixelRecHitsPreSplitting",
-))
-
-(pixelNtupletFit & phase2_tracker).toReplaceWith(pixelTracks, _pixelTrackProducerFromSoAPhase2.clone(
-    pixelRecHitLegacySrc = "siPixelRecHitsPreSplitting",
-))
-
-(pixelNtupletFit & pp_on_AA).toReplaceWith(pixelTracks, _pixelTrackProducerFromSoAHIonPhase1.clone(
-    pixelRecHitLegacySrc = "siPixelRecHitsPreSplitting",
-))
-
-pixelNtupletFit.toReplaceWith(pixelTracksTask, cms.Task(
-    # build the pixel ntuplets and the pixel tracks in SoA format on the GPU
-    pixelTracksSoA,
-    # convert the pixel tracks from SoA to legacy format
-    pixelTracks
-))
-
-# "Patatrack" sequence running on GPU (or CPU if not available)
-from Configuration.ProcessModifiers.gpu_cff import gpu
-
-# build the pixel ntuplets and pixel tracks in SoA format on the GPU
-pixelTracksCUDA = _pixelTracksCUDA.clone(
-    pixelRecHitSrc = "siPixelRecHitsPreSplittingCUDA",
-    idealConditions = False,
-    onGPU = True,
-)
-
-# use quality cuts tuned for Run 2 ideal conditions for all Run 3 workflows
-run3_common.toModify(pixelTracksCUDA,
-    idealConditions = True
-)
-
-# SwitchProducer providing the pixel tracks in SoA format on the CPU
-from RecoTracker.PixelTrackFitting.pixelTrackSoAFromCUDAPhase1_cfi import pixelTrackSoAFromCUDAPhase1 as _pixelTracksSoA
-from RecoTracker.PixelTrackFitting.pixelTrackSoAFromCUDAPhase2_cfi import pixelTrackSoAFromCUDAPhase2 as _pixelTracksSoAPhase2
-from RecoTracker.PixelTrackFitting.pixelTrackSoAFromCUDAHIonPhase1_cfi import pixelTrackSoAFromCUDAHIonPhase1 as _pixelTracksSoAHIonPhase1
-
-gpu.toModify(pixelTracksSoA,
-    # transfer the pixel tracks in SoA format to the host
-    cuda = _pixelTracksSoA.clone()
-)
-
-(gpu & phase2_tracker).toModify(pixelTracksSoA,cuda = _pixelTracksSoAPhase2.clone(
-))
-
-(gpu & pp_on_AA).toModify(pixelTracksSoA,cuda = _pixelTracksSoAHIonPhase1.clone(
-))
-
-phase2_tracker.toModify(pixelTracksSoA,cpu = _pixelTracksCUDAPhase2.clone(
-    pixelRecHitSrc = "siPixelRecHitsPreSplittingSoA",
-    onGPU = False
-))
-
-(pp_on_AA & ~phase2_tracker).toModify(pixelTracksSoA,cpu = _pixelTracksCUDAHIonPhase1.clone(
-    pixelRecHitSrc = "siPixelRecHitsPreSplittingSoA",
-    onGPU = False
-))
-
-phase2_tracker.toReplaceWith(pixelTracksCUDA,_pixelTracksCUDAPhase2.clone(
-    pixelRecHitSrc = "siPixelRecHitsPreSplittingCUDA",
-    onGPU = True,
-))
-
-(pp_on_AA & ~phase2_tracker).toReplaceWith(pixelTracksCUDA,_pixelTracksCUDAHIonPhase1.clone(
-    pixelRecHitSrc = "siPixelRecHitsPreSplittingCUDA",
-    onGPU = True,
-))
-
-(pixelNtupletFit & gpu).toReplaceWith(pixelTracksTask, cms.Task(
-    # build the pixel ntuplets and pixel tracks in SoA format on the GPU
-    pixelTracksCUDA,
-    # transfer the pixel tracks in SoA format to the CPU, and convert them to legacy format
-    pixelTracksTask.copy()
-))
-
-## GPU vs CPU validation
-# force CPU vertexing to use hit SoA from CPU chain and not the converted one from GPU chain
-from Configuration.ProcessModifiers.gpuValidationPixel_cff import gpuValidationPixel
-(pixelNtupletFit & gpu & gpuValidationPixel).toModify(pixelTracksSoA.cpu,
-    pixelRecHitSrc = "siPixelRecHitsPreSplittingSoA@cpu"
-    )
 
 ######################################################################
 
@@ -214,25 +101,64 @@ from Configuration.ProcessModifiers.alpaka_cff import alpaka
 # pixel tracks SoA producer on the device
 from RecoTracker.PixelSeeding.caHitNtupletAlpakaPhase1_cfi import caHitNtupletAlpakaPhase1 as _pixelTracksAlpakaPhase1
 from RecoTracker.PixelSeeding.caHitNtupletAlpakaPhase2_cfi import caHitNtupletAlpakaPhase2 as _pixelTracksAlpakaPhase2
+from RecoTracker.PixelSeeding.caHitNtupletAlpakaHIonPhase1_cfi import caHitNtupletAlpakaHIonPhase1 as _pixelTracksAlpakaHIonPhase1
+from RecoTracker.PixelSeeding.caHitNtupletAlpakaPhase2OT_cfi import caHitNtupletAlpakaPhase2OT as _pixelTracksAlpakaPhase2Extended
 
-pixelTracksAlpaka = _pixelTracksAlpakaPhase1.clone()
+pixelTracksAlpaka = _pixelTracksAlpakaPhase1.clone(
+    avgHitsPerTrack    = 4.6,      
+    avgCellsPerHit     = 13,
+    avgCellsPerCell    = 0.0268, 
+    avgTracksPerCell   = 0.0123, 
+    maxNumberOfDoublets = str(512*1024),    # could be lowered to 315k, keeping the same for a fair comparison with master
+    maxNumberOfTuples   = str(32 * 1024),   # this couul be much lower (2.1k, these are quads)
+)
+
 phase2_tracker.toReplaceWith(pixelTracksAlpaka,_pixelTracksAlpakaPhase2.clone())
+
+def _modifyForPPonAAandNotPhase2(producer):
+    nPairs = int(len(producer.geometry.pairGraph) / 2)
+    producer.maxNumberOfDoublets = str(6 * 512 *1024)    # this could be 2.3M
+    producer.maxNumberOfTuples = str(256 * 1024)         # this could be 4.7
+    producer.avgHitsPerTrack = 5.0
+    producer.avgCellsPerHit = 40
+    producer.avgCellsPerCell = 0.07                      # with maxNumberOfDoublets ~= 3.14M; 0.02  for HLT HI on 2024 HI Data 
+    producer.avgTracksPerCell = 0.03                     # with maxNumberOfDoublets ~= 3.14M; 0.005 for HLT HI on 2024 HI Data
+    producer.cellZ0Cut = 8.0                             # setup currenlty used @ HLT (was 10.0) 
+    producer.geometry.ptCuts = [0.5] * nPairs            # setup currenlty used @ HLT (was 0.0) 
+
+(pp_on_AA & ~phase2_tracker).toModify(pixelTracksAlpaka, _modifyForPPonAAandNotPhase2)
+
+from Configuration.ProcessModifiers.phase2CAExtension_cff import phase2CAExtension
+phase2CAExtension.toReplaceWith(pixelTracksAlpaka,_pixelTracksAlpakaPhase2Extended.clone(
+    pixelRecHitSrc = "siPixelRecHitsExtendedPreSplittingAlpaka",
+))
 
 # pixel tracks SoA producer on the cpu, for validation
 pixelTracksAlpakaSerial = makeSerialClone(pixelTracksAlpaka,
     pixelRecHitSrc = 'siPixelRecHitsPreSplittingAlpakaSerial'
 )
 
-# legacy pixel tracks from SoA
-from  RecoTracker.PixelTrackFitting.pixelTrackProducerFromSoAAlpakaPhase1_cfi import pixelTrackProducerFromSoAAlpakaPhase1 as _pixelTrackProducerFromSoAAlpakaPhase1
-from  RecoTracker.PixelTrackFitting.pixelTrackProducerFromSoAAlpakaPhase2_cfi import pixelTrackProducerFromSoAAlpakaPhase2 as _pixelTrackProducerFromSoAAlpakaPhase2
+phase2CAExtension.toModify(pixelTracksAlpakaSerial,
+                           pixelRecHitSrc = 'siPixelRecHitsExtendedPreSplittingAlpakaSerial'
+                           )
 
-(alpaka & ~phase2_tracker).toReplaceWith(pixelTracks, _pixelTrackProducerFromSoAAlpakaPhase1.clone(
+# legacy pixel tracks from SoA
+from  RecoTracker.PixelTrackFitting.pixelTrackProducerFromSoAAlpaka_cfi import pixelTrackProducerFromSoAAlpaka as _pixelTrackProducerFromSoAAlpaka
+
+(alpaka & ~phase2CAExtension).toReplaceWith(pixelTracks, _pixelTrackProducerFromSoAAlpaka.clone(
     pixelRecHitLegacySrc = "siPixelRecHitsPreSplitting",
 ))
 
-(alpaka & phase2_tracker).toReplaceWith(pixelTracks, _pixelTrackProducerFromSoAAlpakaPhase2.clone(
+phase2CAExtension.toReplaceWith(pixelTracks, _pixelTrackProducerFromSoAAlpaka.clone(
     pixelRecHitLegacySrc = "siPixelRecHitsPreSplitting",
+    beamSpot = cms.InputTag("offlineBeamSpot"),
+    minNumberOfHits = cms.int32(0),
+    minQuality = cms.string('tight'),
+    trackSrc = cms.InputTag("pixelTracksAlpaka"),
+    outerTrackerRecHitSrc = cms.InputTag("siPhase2RecHits"),
+    outerTrackerRecHitSoAConverterSrc = cms.InputTag("phase2OTRecHitsSoAConverter"),
+    useOTExtension = cms.bool(True),
+    requireQuadsFromConsecutiveLayers = cms.bool(True)
 ))
 
 alpaka.toReplaceWith(pixelTracksTask, cms.Task(

@@ -50,7 +50,9 @@ SiPixelSimBlock = cms.PSet(
     KillBadFEDChannels = cms.bool(False),
     UseReweighting = cms.bool(False),
     applyLateReweighting = cms.bool(False),
+    usePixelExtraLiteFormat = cms.bool(False),
     store_SimHitEntryExitPoints = cms.bool(False),
+    store_SimHitEntryExitPointsLite = cms.bool(False),
     PrintClusters = cms.bool(False),
     PrintTemplates = cms.bool(False),
     DoPixelAging = cms.bool(False),
@@ -137,6 +139,15 @@ premix_stage1.toModify(SiPixelSimBlock,
     AddPixelInefficiency = False, #done in second step
     KillBadFEDChannels = False, #done in second step
     killModules = False #done in second step
+)
+
+##
+## Disable all noise for the tau embedding methods simulation step
+##
+from Configuration.ProcessModifiers.tau_embedding_sim_cff import tau_embedding_sim
+tau_embedding_sim.toModify(SiPixelSimBlock, 
+    AddNoise = False,
+    AddNoisyPixels = False,
 )
 
 # Threshold in electrons are the Official CRAFT09 numbers:

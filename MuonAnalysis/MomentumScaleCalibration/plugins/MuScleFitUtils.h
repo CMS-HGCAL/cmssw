@@ -16,6 +16,7 @@
 #include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticleFwd.h"
 #include "SimDataFormats/Track/interface/SimTrackContainer.h"
+#include "SimDataFormats/Track/interface/SimTrackFwd.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "TGraphErrors.h"
 #include "TH2F.h"
@@ -42,7 +43,6 @@ class resolutionFunctionBase;
 class backgroundFunctionBase;
 class BackgroundHandler;
 
-class SimTrack;
 class TString;
 class TTree;
 
@@ -52,11 +52,11 @@ class MuScleFitUtils {
 public:
   // Constructor
   // ----------
-  MuScleFitUtils(){};
+  MuScleFitUtils() {}
 
   // Destructor
   // ----------
-  virtual ~MuScleFitUtils(){};
+  virtual ~MuScleFitUtils() {}
 
   // Operations
   // ----------

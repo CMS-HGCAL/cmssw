@@ -9,6 +9,7 @@
 #define DATAFORMATS_SCALERS_L1TRIGGERRATES_H
 
 #include "DataFormats/Scalers/interface/TimeSpec.h"
+#include "DataFormats/Scalers/interface/L1TriggerScalersFwd.h"
 
 #include <ctime>
 #include <iosfwd>
@@ -25,11 +26,9 @@
 /// \class L1TriggerRates.h
 /// \brief Persistable copy of L1 Trigger Rates
 
-class L1TriggerScalers;
-
 class L1TriggerRates {
 public:
-  enum { N_BX = 3654, N_BX_ACTIVE = 2808 };
+  static constexpr int N_BX = 3654, N_BX_ACTIVE = 2808;
 
 #define BX_SPACING (double)25E-9
 

@@ -1,6 +1,6 @@
 
 #include "FWCore/ParameterSet/interface/ParameterWildcardBase.h"
-
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/DocFormatHelper.h"
 #include "FWCore/Utilities/interface/EDMException.h"
 
@@ -61,7 +61,10 @@ namespace edm {
     wildcardTypes.insert(type());
   }
 
-  void ParameterWildcardBase::print_(std::ostream& os, bool optional, bool /*writeToCfi*/, DocFormatHelper& dfh) const {
+  void ParameterWildcardBase::print_(std::ostream& os,
+                                     Modifier modifier,
+                                     bool /*writeToCfi*/,
+                                     DocFormatHelper& dfh) const {
     if (dfh.pass() == 0) {
       dfh.setAtLeast1(11U);
       if (isTracked()) {
@@ -71,6 +74,8 @@ namespace edm {
       }
       dfh.setAtLeast3(8U);
     } else {
+      const bool optional = (Modifier::kOptional == modifier);
+      const bool obsolete = (Modifier::kObsolete == modifier);
       if (dfh.brief()) {
         dfh.indent(os);
         std::ios::fmtflags oldFlags = os.flags();
@@ -89,6 +94,8 @@ namespace edm {
         os << std::setw(dfh.column3());
         if (optional)
           os << "optional";
+        else if (obsolete)
+          os << "obsolete";
         else
           os << "";
 
@@ -121,6 +128,8 @@ namespace edm {
 
         if (optional)
           os << " optional";
+        if (obsolete)
+          os << "obsolete";
         os << "\n";
 
         dfh.indent2(os);
@@ -147,7 +156,7 @@ namespace edm {
   }
 
   void ParameterWildcardBase::writeCfi_(std::ostream& os,
-                                        bool optional,
+                                        Modifier modifier,
                                         bool& startWithComma,
                                         int indentation,
                                         CfiOptions& options,
@@ -162,8 +171,10 @@ namespace edm {
 
     os << "allowAnyLabel_ = cms.";
 
-    if (optional) {
+    if (Modifier::kOptional == modifier) {
       os << "optional.";
+    } else if (Modifier::kObsolete == modifier) {
+      os << "obsolete.";
     } else {
       os << "required.";
     }
@@ -171,6 +182,17 @@ namespace edm {
       os << "untracked.";
 
     writeTemplate(os, indentation, options);
+  }
+
+  cfi::Trackiness ParameterWildcardBase::trackiness_(std::string_view path) const {
+    if (path.empty()) {
+      return cfi::Trackiness::kNotAllowed;
+    }
+    auto dotPos = path.find('.');
+    if (dotPos != std::string_view::npos) {
+      return cfi::Trackiness::kUnknown;
+    }
+    return isTracked() ? cfi::Trackiness::kTracked : cfi::Trackiness::kUntracked;
   }
 
   void ParameterWildcardBase::writeTemplate(std::ostream& os, int indentation, CfiOptions&) const {

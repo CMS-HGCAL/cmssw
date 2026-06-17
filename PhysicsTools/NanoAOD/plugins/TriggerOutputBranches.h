@@ -7,12 +7,12 @@
 #include "FWCore/Framework/interface/EventForOutput.h"
 #include "DataFormats/Common/interface/TriggerResults.h"
 #include "FWCore/Common/interface/TriggerNames.h"
-#include "DataFormats/Provenance/interface/BranchDescription.h"
+#include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "FWCore/Utilities/interface/EDGetToken.h"
 
 class TriggerOutputBranches {
 public:
-  TriggerOutputBranches(const edm::BranchDescription *desc, const edm::EDGetToken &token)
+  TriggerOutputBranches(const edm::ProductDescription *desc, const edm::EDGetToken &token)
       : m_token(token), m_lastRun(-1), m_fills(0), m_processName(desc->processName()) {
     if (desc->className() != "edm::TriggerResults")
       throw cms::Exception("Configuration",
@@ -49,7 +49,7 @@ private:
   void fillColumn(NamedBranchPtr &nb, const edm::TriggerResults &triggers) {
     nb.buffer = (nb.idx >= 0) ? triggers.accept(nb.idx) : 0;
     nb.branch->SetAddress(&(nb.buffer));  // Can be improved: this is not reallt needed at each event
-        //but we should be sure that resize of vectors of TriggerOutputBranches do not mess up things
+    //but we should be sure that resize of vectors of TriggerOutputBranches do not mess up things
   }
 };
 

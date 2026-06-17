@@ -15,6 +15,8 @@
 #include "Geometry/Records/interface/MuonGeometryRecord.h"
 #include "CondFormats/DataRecord/interface/DTTtrigRcd.h"
 #include "DataFormats/DTDigi/interface/DTDigiCollection.h"
+#include "DataFormats/MuonDetId/interface/DTChamberIdFwd.h"
+#include "DataFormats/MuonDetId/interface/DTLayerIdFwd.h"
 
 #include <string>
 #include <vector>
@@ -22,9 +24,7 @@
 #include <ctime>
 
 class DTGeometry;
-class DTChamberId;
 class DTSuperLayerId;
-class DTLayerId;
 class DTWireId;
 class DTTtrig;
 class TFile;
@@ -41,7 +41,7 @@ public:
   void beginJob() override;
   void beginRun(const edm::Run& run, const edm::EventSetup& setup) override;
   void analyze(const edm::Event& e, const edm::EventSetup& c) override;
-  void endRun(const edm::Run& run, const edm::EventSetup& setup) override{};
+  void endRun(const edm::Run& run, const edm::EventSetup& setup) override {}
   void endJob() override;
 
 private:

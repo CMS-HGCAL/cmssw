@@ -1,4 +1,3 @@
-from __future__ import print_function
 import FWCore.ParameterSet.Config as cms
 
 # Define here the BeamSpotOnline record name,
@@ -14,8 +13,8 @@ if 'runkey=hi_run' in sys.argv:
   from Configuration.Eras.Era_Run3_pp_on_PbPb_approxSiStripClusters_cff import Run3_pp_on_PbPb_approxSiStripClusters
   process = cms.Process("BeamMonitorLegacy", Run3_pp_on_PbPb_approxSiStripClusters)
 else:
-  from Configuration.Eras.Era_Run3_cff import Run3
-  process = cms.Process("BeamMonitorLegacy", Run3)
+  from Configuration.Eras.Era_Run3_2025_cff import Run3_2025
+  process = cms.Process("BeamMonitorLegacy", Run3_2025)
 
 process.load('FWCore.MessageService.MessageLogger_cfi')
 process.MessageLogger.debugModules = cms.untracked.vstring('*')
@@ -44,6 +43,9 @@ else:
     process.load("DQM.Integration.config.fileinputsource_cfi")
     from DQM.Integration.config.fileinputsource_cfi import options
 
+if (options.inputFiles):
+  useLockRecords = False
+
 #--------------------------
 # HLT Filter
 process.hltTriggerTypeFilter = cms.EDFilter("HLTTriggerTypeFilter",
@@ -56,8 +58,8 @@ process.load("DQM.Integration.config.environment_cfi")
 process.dqmEnv.subSystemFolder = 'BeamMonitorLegacy'
 process.dqmSaver.tag           = 'BeamMonitorLegacy'
 process.dqmSaver.runNumber     = options.runNumber
-process.dqmSaverPB.tag         = 'BeamMonitorLegacy'
-process.dqmSaverPB.runNumber   = options.runNumber
+# process.dqmSaverPB.tag         = 'BeamMonitorLegacy'
+# process.dqmSaverPB.runNumber   = options.runNumber
 
 process.dqmEnvPixelLess = process.dqmEnv.clone(
   subSystemFolder = 'BeamMonitor_PixelLess'
@@ -87,13 +89,6 @@ else:
 
 #--------------------------------------------------------
 # Swap offline <-> online BeamSpot as in Express and HLT
-import RecoVertex.BeamSpotProducer.onlineBeamSpotESProducer_cfi as _mod
-process.BeamSpotESProducer = _mod.onlineBeamSpotESProducer.clone()
-
-# for running offline enhance the time validity of the online beamspot in DB
-if ((not live) or process.isDqmPlayback.value): 
-  process.BeamSpotESProducer.timeThreshold = cms.int32(int(1e6))
-
 import RecoVertex.BeamSpotProducer.BeamSpotOnline_cfi
 process.offlineBeamSpot = RecoVertex.BeamSpotProducer.BeamSpotOnline_cfi.onlineBeamSpotProducer.clone()
 
@@ -160,7 +155,10 @@ process.pixelTracksCutClassifier = cms.EDProducer( "TrackCutClassifier",
       minNdof = cms.vdouble( 1.0E-5, 1.0E-5, 1.0E-5 ),
       maxChi2 = cms.vdouble( 9999., 9999., 30.0 ),
       maxDr = cms.vdouble( 99., 99., 1. ),
-      minLayers = cms.vint32( 0, 2, 3 )
+      minLayers = cms.vint32( 0, 2, 3 ),
+      passThroughForAll = cms.bool(False),
+      passThroughForDisplaced = cms.bool(False),
+      minLayersForDisplaced = cms.int32(4)
     ),
     ignoreVertices = cms.bool( True ),
 )
@@ -252,7 +250,7 @@ process.dqmTKStatus = cms.EDAnalyzer("TKStatus",
 
 #
 process.dqmcommon = cms.Sequence(process.dqmEnv
-                               * process.dqmSaver*process.dqmSaverPB)
+                               * process.dqmSaver)#*process.dqmSaverPB)
 
 #
 process.monitor = cms.Sequence(process.dqmBeamMonitor
@@ -307,7 +305,7 @@ else:
 process.castorDigis.InputLabel           = rawDataInputTag
 process.csctfDigis.producer              = rawDataInputTag 
 process.dttfDigis.DTTF_FED_Source        = rawDataInputTag
-process.ecalDigisCPU.InputLabel          = rawDataInputTag
+process.ecalDigis.InputLabel             = rawDataInputTag
 process.ecalPreshowerDigis.sourceTag     = rawDataInputTag
 process.gctDigis.inputLabel              = rawDataInputTag
 process.gtDigis.DaqGtInputTag            = rawDataInputTag
@@ -316,7 +314,7 @@ process.muonCSCDigis.InputObjects        = rawDataInputTag
 process.muonDTDigis.inputLabel           = rawDataInputTag
 process.muonRPCDigis.InputLabel          = rawDataInputTag
 process.scalersRawToDigi.scalersInputTag = rawDataInputTag
-process.siPixelDigis.cpu.InputLabel      = rawDataInputTag
+process.siPixelDigis.InputLabel      = rawDataInputTag
 process.siStripDigis.ProductLabel        = rawDataInputTag
 process.tcdsDigis.InputLabel             = rawDataInputTag
 
@@ -336,7 +334,7 @@ process.dqmBeamMonitor.PVFitter.errorScale = 1.2
 
 #----------------------------
 # Pixel tracks/vertices reco
-process.load("RecoTracker.Configuration.RecoPixelVertexing_cff")
+process.load("RecoVertex.Configuration.RecoPixelVertexing_cff")
 from RecoVertex.PrimaryVertexProducer.OfflinePixel3DPrimaryVertices_cfi import *
 process.pixelVertices = pixelVertices.clone(
   TkFilterParameters = dict( minPt = process.pixelTracksTrackingRegions.RegionPSet.ptMin)
@@ -354,8 +352,7 @@ process.tracking_FirstStep = cms.Sequence(
     * process.siStripDigis
     * process.striptrackerlocalreco
     * process.offlineBeamSpot
-    * process.siPixelClustersPreSplitting
-    * process.siPixelRecHitsPreSplitting
+    * process.pixeltrackerlocalreco
     * process.siPixelClusterShapeCachePreSplitting
     * process.recopixelvertexing)
 
@@ -385,18 +382,15 @@ process.dqmBeamMonitor.hltResults = "TriggerResults::HLT"
 
 #---------
 # Upload BeamSpotOnlineObject (LegacyRcd) to CondDB
-if unitTest == False:
-    process.OnlineDBOutputService = cms.Service("OnlineDBOutputService",
-
+if (not unitTest) and (not options.inputFiles):
+  process.OnlineDBOutputService = cms.Service("OnlineDBOutputService",
         DBParameters = cms.PSet(
-                                messageLevel = cms.untracked.int32(0),
-                                authenticationPath = cms.untracked.string('.')
-                            ),
-
+          messageLevel = cms.untracked.int32(0),
+          authenticationPath = cms.untracked.string('.')
+        ),
         # Upload to CondDB
         connect = cms.string('oracle://cms_orcon_prod/CMS_CONDITIONS'),
         preLoadConnectionString = cms.untracked.string('frontier://FrontierProd/CMS_CONDITIONS'),
-
         runNumber = cms.untracked.uint64(options.runNumber),
         omsServiceUrl = cms.untracked.string(BSOnlineOmsServiceUrl),
         latency = cms.untracked.uint32(2),
@@ -413,13 +407,11 @@ if unitTest == False:
     )
 
 else:
-    process.OnlineDBOutputService = cms.Service("OnlineDBOutputService",
-
+  process.OnlineDBOutputService = cms.Service("OnlineDBOutputService",
         DBParameters = cms.PSet(
-                                messageLevel = cms.untracked.int32(0),
-                                authenticationPath = cms.untracked.string('.')
-                            ),
-
+          messageLevel = cms.untracked.int32(0),
+          authenticationPath = cms.untracked.string('.')
+        ),
         # Upload to CondDB
         connect = cms.string('sqlite_file:BeamSpotOnlineLegacy.db'),
         preLoadConnectionString = cms.untracked.string('sqlite_file:BeamSpotOnlineLegacy.db'),

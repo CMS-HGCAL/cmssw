@@ -56,9 +56,11 @@ public:
                         int tdc[8] = nullptr,
                         int lat[8] = nullptr);
 
-  L1Phase2MuDTExtPhDigi(const L1Phase2MuDTExtPhDigi &digi);
+  L1Phase2MuDTExtPhDigi(const L1Phase2MuDTExtPhDigi& digi);
+  L1Phase2MuDTExtPhDigi& operator=(const L1Phase2MuDTExtPhDigi&) = default;
+  L1Phase2MuDTExtPhDigi& operator=(L1Phase2MuDTExtPhDigi&&) = default;
 
-  ~L1Phase2MuDTExtPhDigi() override{};
+  ~L1Phase2MuDTExtPhDigi() override {}
 
   // Operations
   int xLocal() const;

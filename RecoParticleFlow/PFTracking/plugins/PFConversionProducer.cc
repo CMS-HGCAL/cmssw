@@ -14,13 +14,12 @@
 #include "TrackingTools/Records/interface/TransientTrackRecord.h"
 #include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
 
-class PFConversionProducer : public edm::stream::EDProducer<> {
+class PFConversionProducer : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   ///Constructor
   explicit PFConversionProducer(const edm::ParameterSet&);
 
-  ///Destructor
-  ~PFConversionProducer() override;
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
 private:
   void beginRun(const edm::Run&, const edm::EventSetup&) override;
@@ -30,7 +29,7 @@ private:
   void produce(edm::Event&, const edm::EventSetup&) override;
 
   ///PFTrackTransformer
-  PFTrackTransformer* pfTransformer_;
+  std::unique_ptr<PFTrackTransformer> pfTransformer_;
   edm::EDGetTokenT<reco::ConversionCollection> pfConversionContainer_;
   edm::EDGetTokenT<reco::VertexCollection> vtx_h;
 
@@ -40,6 +39,13 @@ private:
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 DEFINE_FWK_MODULE(PFConversionProducer);
+
+void PFConversionProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+  edm::ParameterSetDescription desc;
+  desc.add<edm::InputTag>("conversionCollection", {"allConversions", ""});
+  desc.add<edm::InputTag>("PrimaryVertexLabel", {"offlinePrimaryVertices"});
+  descriptions.add("pfConversions", desc);
+}
 
 typedef std::multimap<unsigned, std::vector<unsigned> > BlockMap;
 using namespace std;
@@ -56,8 +62,6 @@ PFConversionProducer::PFConversionProducer(const ParameterSet& iConfig)
 
   vtx_h = consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("PrimaryVertexLabel"));
 }
-
-PFConversionProducer::~PFConversionProducer() { delete pfTransformer_; }
 
 void PFConversionProducer::produce(Event& iEvent, const EventSetup& iSetup) {
   //create the empty collections
@@ -147,10 +151,10 @@ void PFConversionProducer::produce(Event& iEvent, const EventSetup& iSetup) {
 
         if (greater_prob)
           break;  //if a duplicate track is found in a collection with greater Chi^2 probability for Vertex fit then break out of comparison loop
-      }           //end loop over collection 2 checking
+      }  //end loop over collection 2 checking
       if (greater_prob)
         break;  //if a duplicate track is found in a collection with greater Chi^2 probability for Vertex fit then one does not need to check the other track the collection will not be stored
-    }           //end loop over tracks in collection 1
+    }  //end loop over tracks in collection 1
     if (!greater_prob)
       conv_coll.push_back(icoll1);
   }  //end loop over collection 1
@@ -196,12 +200,9 @@ void PFConversionProducer::produce(Event& iEvent, const EventSetup& iSetup) {
 // ------------ method called once each job just before starting event loop  ------------
 void PFConversionProducer::beginRun(const edm::Run& run, const EventSetup& iSetup) {
   auto const& magneticField = &iSetup.getData(magneticFieldToken_);
-  pfTransformer_ = new PFTrackTransformer(math::XYZVector(magneticField->inTesla(GlobalPoint(0, 0, 0))));
+  pfTransformer_ = std::make_unique<PFTrackTransformer>(math::XYZVector(magneticField->inTesla(GlobalPoint(0, 0, 0))));
   pfTransformer_->OnlyProp();
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
-void PFConversionProducer::endRun(const edm::Run& run, const EventSetup& iSetup) {
-  delete pfTransformer_;
-  pfTransformer_ = nullptr;
-}
+void PFConversionProducer::endRun(const edm::Run& run, const EventSetup& iSetup) { pfTransformer_.reset(); }

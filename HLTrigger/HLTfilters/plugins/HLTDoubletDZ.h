@@ -9,16 +9,13 @@
 #include "DataFormats/EgammaCandidates/interface/ElectronFwd.h"
 #include "HLTrigger/HLTcore/interface/HLTFilter.h"
 #include "DataFormats/L1Trigger/interface/P2GTAlgoBlock.h"
+#include "DataFormats/HLTReco/interface/TriggerFilterObjectWithRefsFwd.h"
 
 #include <string>
 #include <vector>
 
 namespace edm {
   class ConfigurationDescriptions;
-}
-
-namespace trigger {
-  class TriggerFilterObjectWithRefs;
 }
 
 template <typename T1, typename T2>
@@ -57,7 +54,7 @@ private:
   const edm::EDGetTokenT<trigger::TriggerFilterObjectWithRefs> inputToken2_;
   const edm::EDGetTokenT<reco::ElectronCollection> electronToken_;
   const edm::InputTag l1GTAlgoBlockTag_;
-  const edm::EDGetTokenT<std::vector<l1t::P2GTAlgoBlock>> algoBlockToken_;
+  const edm::EDGetTokenT<l1t::P2GTAlgoBlockMap> algoBlockToken_;
   const std::string l1GTAlgoName1_;
   const std::string l1GTAlgoName2_;
   const int triggerType1_;

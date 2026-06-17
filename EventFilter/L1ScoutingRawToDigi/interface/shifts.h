@@ -89,6 +89,35 @@ namespace l1ScoutingRun3 {
     };
   }  // namespace demux
 
+  namespace bmtf {
+    struct shiftsStubs {
+      static constexpr uint32_t valid = 0;
+      static constexpr uint32_t phi = 1;
+      static constexpr uint32_t phiB = 13;
+      static constexpr uint32_t qual = 23;
+      static constexpr uint32_t eta = 26;
+      static constexpr uint32_t qeta = 33;
+      static constexpr uint32_t station = 40;
+      static constexpr uint32_t wheel = 42;
+      static constexpr uint32_t reserved = 45;
+      static constexpr uint32_t bx = 48;
+    };
+  }  // namespace bmtf
+
+  namespace calol1 {
+    struct shiftsCaloTowers {
+      static constexpr uint32_t ET = 0;
+      static constexpr uint32_t erBits = 9;
+      static constexpr uint32_t miscBits = 12;
+      static constexpr uint32_t zeroFlag = 12;
+      static constexpr uint32_t eohrFlag = 13;
+      static constexpr uint32_t hcalFlag = 14;
+      static constexpr uint32_t ecalFlag = 15;
+      static constexpr uint32_t phi = 16;
+      static constexpr uint32_t eta = 24;
+    };
+  }  // namespace calol1
+
   struct header_shifts {
     static constexpr uint32_t bxmatch = 24;
     static constexpr uint32_t mAcount = 16;

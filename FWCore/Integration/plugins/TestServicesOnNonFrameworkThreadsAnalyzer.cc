@@ -1,3 +1,4 @@
+#include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
 #include "FWCore/Framework/interface/stream/EDAnalyzer.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/Event.h"
@@ -5,7 +6,6 @@
 #include "FWCore/ServiceRegistry/interface/ServiceRegistry.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
 
-#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/MessageLogger/interface/edm_MessageLogger.h"
 #include <thread>
@@ -24,6 +24,8 @@ namespace edmtest {
     ~TestServicesOnNonFrameworkThreadsAnalyzer() override;
 
     void analyze(edm::Event const&, edm::EventSetup const&) final;
+
+    static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
   private:
     void runOnOtherThread();
@@ -52,6 +54,11 @@ namespace edmtest {
     m_continueProcessing = true;
   }
 
+  void TestServicesOnNonFrameworkThreadsAnalyzer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+    edm::ParameterSetDescription desc;
+    descriptions.addDefault(desc);
+  }
+
   TestServicesOnNonFrameworkThreadsAnalyzer::~TestServicesOnNonFrameworkThreadsAnalyzer() {
     if (m_thread) {
       shutdownThread();
@@ -64,7 +71,9 @@ namespace edmtest {
     edm::ServiceToken token = edm::ServiceRegistry::instance().presentToken();
     m_serviceToken = &token;
     m_streamID = iEvent.streamID();
-    { edm::LogSystem("FrameworkThread") << "new Event"; }
+    {
+      edm::LogSystem("FrameworkThread") << "new Event";
+    }
     m_mutex.unlock();
     {
       std::unique_lock<std::mutex> lk(m_mutex);

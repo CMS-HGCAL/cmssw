@@ -25,7 +25,6 @@ class AlignableMuon;
 class AlignableExtras;
 class AlignmentParameterStore;
 class IntegratedCalibrationBase;
-class Trajectory;
 // These data formats cannot be forward declared since they are typedef's,
 // so include the headers that define the typedef's
 // (no need to include in dependencies in BuildFile):
@@ -36,6 +35,9 @@ class Trajectory;
 #include "Alignment/LaserAlignment/interface/TsosVectorCollection.h"
 #include "DataFormats/Alignment/interface/TkFittedLasBeamCollectionFwd.h"
 #include "DataFormats/Alignment/interface/AliClusterValueMapFwd.h"
+#include "DataFormats/TrackReco/interface/TrackFwd.h"
+#include "DataFormats/BeamSpot/interface/BeamSpotFwd.h"
+#include "TrackingTools/PatternTools/interface/TrajectoryFwd.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 
@@ -43,10 +45,6 @@ namespace edm {
   class EventSetup;
   class ParameterSet;
 }  // namespace edm
-namespace reco {
-  class Track;
-  class BeamSpot;
-}  // namespace reco
 
 /*** Global typedefs part I (see EOF for part II) ***/
 typedef std::pair<const Trajectory *, const reco::Track *> ConstTrajTrackPair;
@@ -112,10 +110,10 @@ public:
   };
 
   /// Constructor
-  AlignmentAlgorithmBase(const edm::ParameterSet &, const edm::ConsumesCollector &){};
+  AlignmentAlgorithmBase(const edm::ParameterSet &, const edm::ConsumesCollector &) {}
 
   /// Destructor
-  virtual ~AlignmentAlgorithmBase(){};
+  virtual ~AlignmentAlgorithmBase() {}
 
   /// Call at beginning of job (must be implemented in derived class)
   virtual void initialize(const edm::EventSetup &setup,
@@ -161,16 +159,16 @@ public:
   virtual void run(const edm::EventSetup &setup, const EventInfo &eventInfo) = 0;
 
   /// called at begin of run
-  virtual void beginRun(const edm::Run &, const edm::EventSetup &, bool changed){};
+  virtual void beginRun(const edm::Run &, const edm::EventSetup &, bool changed) {}
 
   /// called at end of run - order of arguments like in EDProducer etc.
-  virtual void endRun(const EndRunInfo &runInfo, const edm::EventSetup &setup){};
+  virtual void endRun(const EndRunInfo &runInfo, const edm::EventSetup &setup) {}
 
   /// called at begin of luminosity block (no lumi block info passed yet)
-  virtual void beginLuminosityBlock(const edm::EventSetup &setup){};
+  virtual void beginLuminosityBlock(const edm::EventSetup &setup) {}
 
   /// called at end of luminosity block (no lumi block info passed yet)
-  virtual void endLuminosityBlock(const edm::EventSetup &setup){};
+  virtual void endLuminosityBlock(const edm::EventSetup &setup) {}
 
   /// called in order to pass parameters to alignables for a specific run
   /// range in case the algorithm supports run range dependent alignment.

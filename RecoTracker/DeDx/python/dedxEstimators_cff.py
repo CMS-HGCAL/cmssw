@@ -16,6 +16,8 @@ dedxHitInfo = cms.EDProducer("DeDxHitInfoProducer",
     useCalibration     = cms.bool(False),
     calibrationPath    = cms.string("file:Gains.root"),
     shapeTest          = cms.bool(True),
+    clusterShapeCache  = cms.InputTag("siPixelClusterShapeCache"),
+    storeMomentumAtHit = cms.bool(False),
 
     lowPtTracksPrescalePass = cms.uint32(100),   # prescale factor for low pt tracks above the dEdx cut
     lowPtTracksPrescaleFail = cms.uint32(2000), # prescale factor for low pt tracks below the dEdx cut
@@ -87,3 +89,30 @@ run3_common.toModify(dedxHitInfo,
     lowPtTracksEstimatorParameters = dict(fraction = 0., exponent = -2.0,truncate = False),
     usePixelForPrescales = False
 )
+
+# dEdx for Run-3 UPC
+dedxAllHitInfo = dedxHitInfo.clone(minTrackPt = 0)
+from Configuration.Eras.Modifier_run3_upc_cff import run3_upc
+run3_upc.toModify(dedxHitInfo, lowPtTracksPrescalePass = 50, lowPtTracksPrescaleFail = 50, minTrackPtPrescale = 0, usePixelForPrescales = True, storeMomentumAtHit = True)
+from Configuration.Eras.Modifier_run3_oxygen_cff import run3_oxygen
+(run3_upc & ~run3_oxygen).toModify(dedxHitInfo, lowPtTracksPrescalePass = 4, lowPtTracksPrescaleFail = 4)
+
+from RecoTracker.DeDx.dedxHitCalibrator_cfi import dedxHitCalibrator as _dedxHitCalibrator
+from SimGeneral.MixingModule.SiStripSimParameters_cfi import SiStripSimBlock as _SiStripSimBlock
+dedxHitCalibrator = _dedxHitCalibrator.clone(
+    dedxHitInfo = 'dedxAllHitInfo',
+    MeVPerElectron = 1000*_SiStripSimBlock.GevPerElectron.value(),
+)
+
+dedxAllLikelihood = _mod.DeDxEstimatorProducer.clone(
+    UseStrip = True, UsePixel = True,
+    estimator = 'likelihoodFit',
+    UseDeDxHits = True,
+    pixelDeDxHits = 'dedxHitCalibrator:PixelHits',
+    stripDeDxHits = 'dedxHitCalibrator:StripHits'
+)
+dedxPixelLikelihood = dedxAllLikelihood.clone(UseStrip = False, UsePixel = True)
+dedxStripLikelihood = dedxAllLikelihood.clone(UseStrip = True,  UsePixel = False)
+
+from Configuration.Eras.Modifier_dedx_lfit_cff import dedx_lfit
+dedx_lfit.toReplaceWith(doAlldEdXEstimatorsTask, cms.Task(doAlldEdXEstimatorsTask.copy(), dedxAllHitInfo, dedxHitCalibrator, dedxStripLikelihood, dedxPixelLikelihood, dedxAllLikelihood))

@@ -1,6 +1,5 @@
 #include "IOPool/Streamer/interface/ClassFiller.h"
 #include "FWCore/Utilities/interface/EDMException.h"
-#include "FWCore/Utilities/interface/DebugMacros.h"
 #include "FWCore/Reflection/interface/DictionaryTools.h"
 #include "FWCore/Utilities/interface/TypeID.h"
 #include "FWCore/Reflection/interface/TypeWithDict.h"
@@ -11,16 +10,14 @@
 #include <algorithm>
 #include <iostream>
 
-namespace edm {
+namespace edm::streamer {
 
   bool loadCap(std::string const& name, std::vector<std::string>& missingDictionaries) {
-    FDEBUG(1) << "Loading dictionary for " << name << "\n";
     TypeWithDict typeWithDict = TypeWithDict::byName(name);
     return checkClassDictionaries(missingDictionaries, name, typeWithDict);
   }
 
   void doBuildRealData(std::string const& name) {
-    FDEBUG(3) << "doing BuildRealData for " << name << "\n";
     TClass* ttest = TClass::GetClass(name.c_str());
     if (ttest != nullptr) {
       ttest->BuildRealData();
@@ -64,4 +61,4 @@ namespace edm {
     TypeID const type(ti);
     return getRootClass(type.className());
   }
-}  // namespace edm
+}  // namespace edm::streamer

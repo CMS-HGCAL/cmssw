@@ -3,7 +3,7 @@
 // Package:    RPCSeedGenerator
 // Class:      RPCSeedGenerator
 //
-/**\class RPCSeedGenerator RPCSeedGenerator.cc RecoMuon/MuonSeedGenerator/src/RPCSeedGenerator.cc
+/**\class RPCSeedGenerator RPCSeedGenerator.cc RecoMuon/MuonSeedGenerator/interface/RPCSeedGenerator.cc
 
 Description: <one line class summary>
 
@@ -32,12 +32,12 @@ Implementation:
 #include "DataFormats/TrajectorySeed/interface/TrajectorySeed.h"
 #include <vector>
 // Using other classes
-#include "RecoMuon/MuonSeedGenerator/src/RPCSeedPattern.h"
-#include "RecoMuon/MuonSeedGenerator/src/RPCSeedFinder.h"
-#include "RecoMuon/MuonSeedGenerator/src/RPCSeedrecHitFinder.h"
-#include "RecoMuon/MuonSeedGenerator/src/RPCCosmicSeedrecHitFinder.h"
-#include "RecoMuon/MuonSeedGenerator/src/RPCSeedLayerFinder.h"
-#include "RecoMuon/MuonSeedGenerator/src/RPCSeedOverlapper.h"
+#include "RecoMuon/MuonSeedGenerator/interface/RPCSeedPattern.h"
+#include "RecoMuon/MuonSeedGenerator/interface/RPCSeedFinder.h"
+#include "RecoMuon/MuonSeedGenerator/interface/RPCSeedrecHitFinder.h"
+#include "RecoMuon/MuonSeedGenerator/interface/RPCCosmicSeedrecHitFinder.h"
+#include "RecoMuon/MuonSeedGenerator/interface/RPCSeedLayerFinder.h"
+#include "RecoMuon/MuonSeedGenerator/interface/RPCSeedOverlapper.h"
 // Geometry
 #include "TrackingTools/DetLayers/interface/DetLayer.h"
 #include "RecoMuon/MeasurementDet/interface/MuonDetLayerMeasurements.h"
@@ -83,7 +83,7 @@ typedef RPCSeedPattern::weightedTrajectorySeed weightedTrajectorySeed;
 
 class RPCSeedFinder;
 
-class RPCSeedGenerator : public edm::stream::EDProducer<> {
+class RPCSeedGenerator : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   explicit RPCSeedGenerator(const edm::ParameterSet& iConfig);
   ~RPCSeedGenerator() override;
@@ -190,14 +190,14 @@ void RPCSeedGenerator::produce(edm::Event& iEvent, const edm::EventSetup& iSetup
   MuonDetLayerGeometry const& muonLayers = iSetup.getData(muonLayersToken);
 
   // Get the RPC layers
-  vector<const DetLayer*> RPCBarrelLayers = muonLayers.barrelRPCLayers();
+  const vector<const DetLayer*>& RPCBarrelLayers = muonLayers.barrelRPCLayers();
   const DetLayer* RB4L = RPCBarrelLayers[5];
   const DetLayer* RB3L = RPCBarrelLayers[4];
   const DetLayer* RB22L = RPCBarrelLayers[3];
   const DetLayer* RB21L = RPCBarrelLayers[2];
   const DetLayer* RB12L = RPCBarrelLayers[1];
   const DetLayer* RB11L = RPCBarrelLayers[0];
-  vector<const DetLayer*> RPCEndcapLayers = muonLayers.endcapRPCLayers();
+  const vector<const DetLayer*>& RPCEndcapLayers = muonLayers.endcapRPCLayers();
   const DetLayer* REM3L = RPCEndcapLayers[0];
   const DetLayer* REM2L = RPCEndcapLayers[1];
   const DetLayer* REM1L = RPCEndcapLayers[2];

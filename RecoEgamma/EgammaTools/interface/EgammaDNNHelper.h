@@ -1,7 +1,7 @@
 #ifndef RecoEgamma_ElectronTools_EgammaDNNHelper_h
 #define RecoEgamma_ElectronTools_EgammaDNNHelper_h
 
-#include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
+#include "PhysicsTools/ONNXRuntime/interface/ONNXRuntime.h"
 #include <vector>
 #include <memory>
 #include <string>
@@ -9,7 +9,7 @@
 
 //author: Davide Valsecchi
 //description:
-// Handles Tensorflow DNN graphs and variables scaler configuration.
+// Handles ONNXRuntime DNN graphs and variables scaler configuration.
 // To be used for PFID egamma DNNs
 
 namespace egammaTools {
@@ -42,7 +42,6 @@ namespace egammaTools {
   public:
     EgammaDNNHelper(const DNNConfiguration&, const ModelSelector& sel, const std::vector<std::string>& availableVars);
 
-    std::vector<tensorflow::Session*> getSessions() const;
     // Function getting the input vector for a specific electron, already scaled
     // together with the model index it has to be used.
     // The model index is determined by the ModelSelector functor passed in the constructor
@@ -50,11 +49,10 @@ namespace egammaTools {
     std::pair<uint, std::vector<float>> getScaledInputs(const std::map<std::string, float>& variables) const;
 
     std::vector<std::pair<uint, std::vector<float>>> evaluate(
-        const std::vector<std::map<std::string, float>>& candidates,
-        const std::vector<tensorflow::Session*>& sessions) const;
+        const std::vector<std::map<std::string, float>>& candidates) const;
 
   private:
-    void initTensorFlowGraphs();
+    void initONNXRuntimeSessions();
     void initScalerFiles(const std::vector<std::string>& availableVars);
 
     const DNNConfiguration cfg_;
@@ -64,7 +62,8 @@ namespace egammaTools {
     // Number of inputs for each loaded model
     std::vector<uint> nInputs_;
 
-    std::vector<std::unique_ptr<const tensorflow::GraphDef>> graphDefs_;
+    // ONNXRuntime sessions
+    std::vector<std::unique_ptr<cms::Ort::ONNXRuntime>> onnx_sessions_;
 
     // List of input variables for each of the model;
     std::vector<std::vector<ScalerConfiguration>> featuresMap_;

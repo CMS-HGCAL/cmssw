@@ -63,7 +63,7 @@ public:
 
   void analyze(const edm::Event&, const edm::EventSetup&) override;
   void beginRun(edm::Run const&, edm::EventSetup const&) override;
-  void endRun(edm::Run const&, edm::EventSetup const&) override{};
+  void endRun(edm::Run const&, edm::EventSetup const&) override {}
 
 private:
   void printout(const RefCountedKinematicVertex& myVertex) const;
@@ -157,10 +157,10 @@ void KineExample::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
         else
           edm::LogPrint("KineExample") << "KVF fit Position: " << Vertex::Point(tv.position()) << "\n";
 
-        TransientTrack ttMuPlus = t_tks[0];
-        TransientTrack ttMuMinus = t_tks[1];
-        TransientTrack ttKPlus = t_tks[2];
-        TransientTrack ttKMinus = t_tks[3];
+        const TransientTrack& ttMuPlus = t_tks[0];
+        const TransientTrack& ttMuMinus = t_tks[1];
+        const TransientTrack& ttKPlus = t_tks[2];
+        const TransientTrack& ttKMinus = t_tks[3];
 
         //the final state muons and kaons from the Bs->J/PsiPhi->mumuKK decay
         //Creating a KinematicParticleFactory

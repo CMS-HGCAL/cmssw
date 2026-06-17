@@ -301,13 +301,16 @@ void EvtGenInterface::init() {
   //Setup evtGen following instructions on http://evtgen.warwick.ac.uk/docs/external/
   bool convertPythiaCodes = fPSet->getUntrackedParameter<bool>(
       "convertPythiaCodes", true);  // Specify if we want to use Pythia 6 physics codes for decays
-  std::string pythiaDir =
+  char* tmp =
       std::getenv("PYTHIA8DATA");  // Specify the pythia xml data directory to use the default PYTHIA8DATA location
-  if (pythiaDir.empty()) {
+
+  if (tmp == nullptr) {
     edm::LogError("EvtGenInterface::~EvtGenInterface")
         << "EvtGenInterface::init() PYTHIA8DATA not defined. Terminating program ";
     exit(0);
   }
+
+  std::string pythiaDir(tmp);
   std::string photonType("gamma");  // Specify the photon type for Photos
   bool useEvtGenRandom(true);       // Specify if we want to use the EvtGen random number engine for these generators
 
@@ -461,6 +464,7 @@ HepMC::GenEvent* EvtGenInterface::decay(HepMC::GenEvent* evt) {
   // decay all request unforced particles and store the forced decays to later decay one per event
   unsigned int nisforced = 0;
   std::vector<std::vector<HepMC::GenParticle*> > forcedparticles;
+  forcedparticles.reserve(forced_pdgids.size());
   for (unsigned int i = 0; i < forced_pdgids.size(); i++)
     forcedparticles.push_back(std::vector<HepMC::GenParticle*>());
 

@@ -172,12 +172,17 @@ public:
   * muon system, set the tracker bounds to larger values.
   */
   const bool insideTrackerBounds(const GlobalPoint& point) const {
-    return ((point.transverse() < trackerBoundsRadius) && (abs(point.z()) < trackerBoundsHalfLength));
+    return ((point.transverse() < trackerBoundsRadius) && (std::abs(point.z()) < trackerBoundsHalfLength));
   }
 
   void setTrackerBounds(float radius, float halfLength) {
     trackerBoundsRadius = radius;
     trackerBoundsHalfLength = halfLength;
+  }
+
+  void setMuonSystemBounds() {
+    trackerBoundsRadius = kMuonSystemBoundsRadius;
+    trackerBoundsHalfLength = kMuonSystemBoundsHalfLength;
   }
 
 protected:
@@ -245,6 +250,8 @@ private:
   // FIXME using hard-coded tracker bounds as default instead of taking them from geometry service
   float trackerBoundsRadius{112.};
   float trackerBoundsHalfLength{273.5};
+  static constexpr float kMuonSystemBoundsRadius = 740.;
+  static constexpr float kMuonSystemBoundsHalfLength = 960.;
 
   edm::ParameterSet thePSet;
   LinearizationPointFinder* theLinP;

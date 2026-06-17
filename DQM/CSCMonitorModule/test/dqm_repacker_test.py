@@ -1,4 +1,3 @@
-from __future__ import print_function
 import FWCore.ParameterSet.Config as cms
 
 process = cms.Process("CSCDQMLIVE")
@@ -124,7 +123,7 @@ del cscConditions
 #--------------------------
 
 #process.ModuleWebRegistry = cms.Service("ModuleWebRegistry")
-#process.AdaptorConfig = cms.Service("AdaptorConfig")
+#
 
 #--------------------------
 # Message Logger

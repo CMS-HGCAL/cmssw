@@ -217,13 +217,15 @@ namespace edm {
     ParameterDescriptionNode* clone() const override { return new ParameterDescription(*this); }
 
   private:
-    void validate_(ParameterSet& pset, std::set<std::string>& validatedLabels, bool optional) const override;
+    void validate_(ParameterSet& pset, std::set<std::string>& validatedLabels, Modifier modifier) const override;
 
     void printDefault_(std::ostream& os, bool writeToCfi, DocFormatHelper& dfh) const override;
 
     bool hasNestedContent_() const override;
 
     void printNestedContent_(std::ostream& os, bool optional, DocFormatHelper& dfh) const override;
+
+    cfi::Trackiness trackiness_(std::string_view path) const override;
 
     bool exists_(ParameterSet const& pset) const override;
 
@@ -274,7 +276,7 @@ namespace edm {
     void setPartOfDefaultOfVPSet(bool value) { partOfDefaultOfVPSet_ = value; }
 
   private:
-    void validate_(ParameterSet& pset, std::set<std::string>& validatedLabels, bool optional) const override;
+    void validate_(ParameterSet& pset, std::set<std::string>& validatedLabels, Modifier modifier) const override;
 
     void printDefault_(std::ostream& os, bool writeToCfi, DocFormatHelper& dfh) const override;
 

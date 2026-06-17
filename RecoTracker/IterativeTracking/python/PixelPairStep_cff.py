@@ -86,14 +86,14 @@ _region_Phase1 = dict(
 )
 trackingPhase1.toModify(pixelPairStepTrackingRegions, RegionPSet=_region_Phase1)
 trackingPhase2PU140.toModify(pixelPairStepTrackingRegions, RegionPSet=_region_Phase1)
-from Configuration.Eras.Modifier_highBetaStar_2018_cff import highBetaStar_2018
-highBetaStar_2018.toModify(pixelPairStepTrackingRegions,RegionPSet = dict(
+from Configuration.Eras.Modifier_highBetaStar_cff import highBetaStar
+highBetaStar.toModify(pixelPairStepTrackingRegions,RegionPSet = dict(
      ptMin        = 0.05,
      originRadius = 0.2,
      fixedError   = 4.
 ))
 from Configuration.Eras.Modifier_run3_upc_cff import run3_upc
-(highBetaStar_2018 & run3_upc).toModify(pixelPairStepTrackingRegions,RegionPSet = dict(originRadius = 0.015))
+(highBetaStar & run3_upc).toModify(pixelPairStepTrackingRegions,RegionPSet = dict(originRadius = 0.015))
 fastSim.toModify(pixelPairStepTrackingRegions, RegionPSet=dict(VertexCollection = 'firstStepPrimaryVerticesBeforeMixing'))
 
 # SEEDS
@@ -173,10 +173,11 @@ pixelPairStepTrackingRegionsSeedLayersB = _pixelInactiveAreaTrackingRegionsAndSe
     ),
     ignoreSingleFPixPanelModules = True,
 )
-highBetaStar_2018.toModify(pixelPairStepTrackingRegionsSeedLayersB,RegionPSet = dict(
+highBetaStar.toModify(pixelPairStepTrackingRegionsSeedLayersB,RegionPSet = dict(
      ptMin        = 0.05,
      originRadius = 0.2,
 ))
+(highBetaStar & run3_upc).toModify(pixelPairStepTrackingRegionsSeedLayersB,RegionPSet = dict(ptMin = 0.08, originRadius  = 0.015))
 #include commented lines from above in pp_on_XY eras; global seeds (A) are not used in this era b/c timing
 from Configuration.Eras.Modifier_pp_on_XeXe_2017_cff import pp_on_XeXe_2017
 from Configuration.ProcessModifiers.pp_on_AA_cff import pp_on_AA
@@ -231,7 +232,7 @@ trackingPhase2PU140.toReplaceWith(pixelPairStepTrajectoryFilterBase, _pixelPairS
     maxLostHitsFraction = 1./10.,
     constantValueForLostHitsFractionFilter = 0.701,
 ))
-highBetaStar_2018.toModify(pixelPairStepTrajectoryFilterBase, minPt = 0.05)
+highBetaStar.toModify(pixelPairStepTrajectoryFilterBase, minPt = 0.05)
 
 import RecoTracker.PixelLowPtUtilities.StripSubClusterShapeTrajectoryFilter_cfi
 pixelPairStepTrajectoryFilterShape = RecoTracker.PixelLowPtUtilities.StripSubClusterShapeTrajectoryFilter_cfi.StripSubClusterShapeTrajectoryFilterTIX12.clone()
@@ -272,7 +273,7 @@ _tracker_apv_vfp30_2016.toModify(pixelPairStepChi2Est,
 trackingLowPU.toModify(pixelPairStepChi2Est,
     clusterChargeCut = dict(refToPSet_ = 'SiStripClusterChargeCutTiny'),
 )
-highBetaStar_2018.toModify(pixelPairStepChi2Est, MaxChi2 = 30)
+highBetaStar.toModify(pixelPairStepChi2Est, MaxChi2 = 30)
 
 # TRACK BUILDING
 import RecoTracker.CkfPattern.GroupedCkfTrajectoryBuilder_cfi
@@ -383,7 +384,7 @@ trackdnn.toReplaceWith(pixelPairStep, trackTfClassifier.clone(
     qualityCuts=qualityCutDictionary.PixelPairStep.value()
 ))
 
-highBetaStar_2018.toModify(pixelPairStep,qualityCuts = [-0.95,0.0,0.3])
+highBetaStar.toModify(pixelPairStep,qualityCuts = [-0.95,0.0,0.3])
 pp_on_AA.toModify(pixelPairStep, qualityCuts = [0.85, 0.95, 0.98])
 fastSim.toModify(pixelPairStep, vertices = 'firstStepPrimaryVerticesBeforeMixing')
 
@@ -457,6 +458,8 @@ trackingPhase2PU140.toModify(pixelPairStepSelector,
     vertices = 'firstStepPrimaryVertices'
 ) #end of clone
 
+fastSim.toModify(pixelPairStepSelector, vertices = "firstStepPrimaryVerticesBeforeMixing")
+
 from Configuration.ProcessModifiers.vectorHits_cff import vectorHits
 vectorHits.toModify(pixelPairStepSelector.trackSelectors[2], minNumberLayers = 3, minNumber3DLayers = 3)
 
@@ -494,12 +497,14 @@ _PixelPairStepTask_pp_on_AA.replace(pixelPairStepHitDoublets, cms.Task(pixelPair
 #fastSim
 import FastSimulation.Tracking.FastTrackerRecHitMaskProducer_cfi
 pixelPairStepMasks = FastSimulation.Tracking.FastTrackerRecHitMaskProducer_cfi.maskProducerFromClusterRemover(pixelPairStepClusters)
-fastSim.toReplaceWith(PixelPairStepTask,
-                      cms.Task(pixelPairStepMasks
-                                   ,pixelPairStepTrackingRegions
-                                   ,pixelPairStepSeeds
-                                   ,pixelPairStepTrackCandidates
-                                   ,pixelPairStepTracks
-                                   ,pixelPairStep 
-                                   )
+_PixelPairStepTask_fastSim = cms.Task(pixelPairStepMasks
+                                     ,pixelPairStepTrackingRegions
+                                     ,pixelPairStepSeeds
+                                     ,pixelPairStepTrackCandidates
+                                     ,pixelPairStepTracks
+                                     ,pixelPairStep
 )
+_PixelPairStepTask_fastSim_phase2 = _PixelPairStepTask_fastSim.copy()
+_PixelPairStepTask_fastSim_phase2.replace(pixelPairStep, pixelPairStepSelector)
+fastSim.toReplaceWith(PixelPairStepTask, _PixelPairStepTask_fastSim)
+(fastSim & trackingPhase2PU140).toReplaceWith(PixelPairStepTask, _PixelPairStepTask_fastSim_phase2)

@@ -32,17 +32,17 @@
 #include "RecoTracker/DeDx/interface/SmirnovDeDxDiscriminator.h"
 #include "RecoTracker/DeDx/interface/ASmirnovDeDxDiscriminator.h"
 #include "RecoTracker/DeDx/interface/BTagLikeDeDxDiscriminator.h"
+#include "RecoTracker/DeDx/interface/LikelihoodFitDeDxEstimator.h"
 
 #include "RecoTracker/DeDx/interface/DeDxTools.h"
 
-#include "TrackingTools/PatternTools/interface/TrajTrackAssociation.h"
 #include "TrackingTools/PatternTools/interface/TrajTrackAssociation.h"
 
 //
 // class declaration
 //
 
-class DeDxEstimatorProducer : public edm::stream::EDProducer<> {
+class DeDxEstimatorProducer : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 public:
   explicit DeDxEstimatorProducer(const edm::ParameterSet&);
   ~DeDxEstimatorProducer() override;
@@ -63,7 +63,10 @@ private:
   std::unique_ptr<BaseDeDxEstimator> m_estimator;
 
   edm::EDGetTokenT<reco::TrackCollection> m_tracksTag;
+  edm::EDGetTokenT<reco::TrackDeDxHitsCollection> m_pixelDeDxHitsTag;
+  edm::EDGetTokenT<reco::TrackDeDxHitsCollection> m_stripDeDxHitsTag;
 
+  bool useDeDxHits;
   bool usePixel;
   bool useStrip;
   float meVperADCPixel;

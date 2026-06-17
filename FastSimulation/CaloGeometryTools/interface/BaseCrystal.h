@@ -14,8 +14,6 @@
 
 #include <vector>
 
-class DetId;
-
 class BaseCrystal {
 public:
   typedef math::XYZVector XYZVector;
@@ -25,7 +23,7 @@ public:
   // side numbering
   //  enum CrystalSide{EAST=0,NORTH=1,WEST=2,SOUTH=3,FRONT=4,BACK=5};
   /// Empty constructor
-  BaseCrystal() { ; };
+  BaseCrystal() = default;
   /// constructor from DetId
   BaseCrystal(const DetId& cell);
 
@@ -36,7 +34,7 @@ public:
   //      computeBasicProperties();
   //      std::cout << " done " << std::endl;
   //    }
-  ~BaseCrystal() { ; }
+  ~BaseCrystal() = default;
   ///
   void setCorners(const CaloCellGeometry::CornersVec& vec, const GlobalPoint& pos);
 

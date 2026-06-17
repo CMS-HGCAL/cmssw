@@ -13,13 +13,12 @@ process.Thing = cms.EDProducer("ThingProducer")
 
 process.OtherThing = cms.EDProducer("OtherThingProducer")
 
-process.output = cms.OutputModule("PoolOutputModule",
-    fileName = cms.untracked.string('file:PoolOutputTest.root')
-)
+process.output = cms.OutputModule("AsciiOutputModule", verbosity = cms.untracked.uint32(0))
 
 process.source = cms.Source("EmptySource")
 
 process.p = cms.Path(process.Thing*process.OtherThing)
 process.ep = cms.EndPath(process.output)
 
-
+#from FWCore.Services.modules import Tracer
+#process.add_(Tracer(dumpPathsAndConsumes = True))

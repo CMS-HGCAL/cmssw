@@ -22,7 +22,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   class TestAlpakaGlobalProducerE : public global::EDProducer<> {
   public:
     TestAlpakaGlobalProducerE(edm::ParameterSet const& config)
-        : esToken_(esConsumes(config.getParameter<edm::ESInputTag>("eventSetupSource"))),
+        : EDProducer<>(config),
+          esToken_(esConsumes(config.getParameter<edm::ESInputTag>("eventSetupSource"))),
           getToken_(consumes(config.getParameter<edm::InputTag>("source"))),
           getTokenMulti2_(consumes(config.getParameter<edm::InputTag>("source"))),
           getTokenMulti3_(consumes(config.getParameter<edm::InputTag>("source"))),
@@ -57,11 +58,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   private:
     const device::ESGetToken<AlpakaESTestDataEDevice, AlpakaESTestRecordC> esToken_;
     const device::EDGetToken<portabletest::TestDeviceCollection> getToken_;
-    const device::EDGetToken<portabletest::TestDeviceMultiCollection2> getTokenMulti2_;
-    const device::EDGetToken<portabletest::TestDeviceMultiCollection3> getTokenMulti3_;
+    const device::EDGetToken<portabletest::TestDeviceCollection2> getTokenMulti2_;
+    const device::EDGetToken<portabletest::TestDeviceCollection3> getTokenMulti3_;
     const device::EDPutToken<portabletest::TestDeviceCollection> putToken_;
-    const device::EDPutToken<portabletest::TestDeviceMultiCollection2> putTokenMulti2_;
-    const device::EDPutToken<portabletest::TestDeviceMultiCollection3> putTokenMulti3_;
+    const device::EDPutToken<portabletest::TestDeviceCollection2> putTokenMulti2_;
+    const device::EDPutToken<portabletest::TestDeviceCollection3> putTokenMulti3_;
 
     // implementation of the algorithm
     TestAlgo algo_;

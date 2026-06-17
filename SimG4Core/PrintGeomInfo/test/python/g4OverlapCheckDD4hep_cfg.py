@@ -2,7 +2,7 @@
 # Way to use this:  
 #   cmsRun g4OverlapCheckDD4hep_cfg.py geometry=2021 tol=0.1
 #
-#   Options for geometry 2017, 2018, 2021, 2023, 2024
+#   Options for geometry 2016, 2017, 2018, 2021, 2023, 2024, 2025, 2026
 #
 ###############################################################################
 import FWCore.ParameterSet.Config as cms
@@ -13,7 +13,7 @@ options.register('geometry',
                  "2021",
                   VarParsing.VarParsing.multiplicity.singleton,
                   VarParsing.VarParsing.varType.string,
-                  "geometry of operations: 2017, 2018, 2021, 2023, 2024")
+                  "geometry of operations: 2016, 2017, 2018, 2021, 2023, 2024, 2025, 2026")
 options.register('tol',
                  0.01,
                  VarParsing.VarParsing.multiplicity.singleton,
@@ -27,7 +27,10 @@ baseName = "cmsDD4hep" + options.geometry
 geomName = "Configuration.Geometry.GeometryDD4hepExtended" + options.geometry + "Reco_cff"
 
 from Configuration.ProcessModifiers.dd4hep_cff import dd4hep
-if (options.geometry == "2017"):
+if (options.geometry == "2016"):
+    from Configuration.Eras.Era_Run2_2016_cff import Run2_2016
+    process = cms.Process('G4PrintGeometry',Run2_2016,dd4hep)
+elif (options.geometry == "2017"):
     from Configuration.Eras.Era_Run2_2017_cff import Run2_2017
     process = cms.Process('G4PrintGeometry',Run2_2017,dd4hep)
 elif (options.geometry == "2018"):
@@ -53,18 +56,18 @@ process = checkOverlap(process)
 process.g4SimHits.CheckGeometry = True
 
 # Geant4 geometry check 
-process.g4SimHits.G4CheckOverlap.OutputBaseName = cms.string(baseName)
-process.g4SimHits.G4CheckOverlap.OverlapFlag = cms.bool(True)
-process.g4SimHits.G4CheckOverlap.Tolerance  = cms.double(options.tol)
-process.g4SimHits.G4CheckOverlap.Resolution = cms.int32(10000)
-process.g4SimHits.G4CheckOverlap.Depth      = cms.int32(-1)
+process.g4SimHits.G4CheckOverlap.NodeName = ""
+process.g4SimHits.G4CheckOverlap.OutputBaseName = baseName
+process.g4SimHits.G4CheckOverlap.OverlapFlag = True
+process.g4SimHits.G4CheckOverlap.Tolerance  = options.tol
+process.g4SimHits.G4CheckOverlap.Resolution = 10000
+process.g4SimHits.G4CheckOverlap.Depth      = -1
 # tells if NodeName is G4Region or G4PhysicalVolume
-process.g4SimHits.G4CheckOverlap.RegionFlag = cms.bool(False)
+process.g4SimHits.G4CheckOverlap.RegionFlag = False
 # list of names
-process.g4SimHits.G4CheckOverlap.NodeNames  = cms.vstring('cms:OCMS_1')
-# process.g4SimHits.G4CheckOverlap.NodeNames  = cms.vstring('DefaultRegionForTheWorld')
+process.g4SimHits.G4CheckOverlap.NodeNames  = ['cms:OCMS_1']
 # enable dump gdml file 
-process.g4SimHits.G4CheckOverlap.gdmlFlag   = cms.bool(False)
+process.g4SimHits.G4CheckOverlap.gdmlFlag   = False
 # if defined a G4PhysicsVolume info is printed
 process.g4SimHits.G4CheckOverlap.PVname     = ''
 # if defined a list of daughter volumes is printed

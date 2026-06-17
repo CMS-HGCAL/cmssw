@@ -5,13 +5,13 @@
 //--------------------------------------------
 
 #include "Mixing/Base/interface/BMixingModule.h"
-#include "FWCore/Utilities/interface/GetPassID.h"
 #include "FWCore/Version/interface/GetReleaseVersion.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/EventPrincipal.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "FWCore/Utilities/interface/ExceptionCollector.h"
 #include "DataFormats/Common/interface/Handle.h"
 
 #include "TFile.h"
@@ -42,7 +42,7 @@ namespace {
         //in case of DB access, do not try to load anything from the PSet, but wait for beginRun.
         edm::LogError("BMixingModule") << "Will read from DB: reset to a dummy PileUp object.";
         std::unique_ptr<TH1F> h;
-        pileupconfig.reset(new edm::PileUpConfig(sourceName, 0.0, h, playback));
+        pileupconfig = std::make_shared<edm::PileUpConfig>(sourceName, 0.0, h, playback);
         return pileupconfig;
       }
       if (type_ != "none") {
@@ -50,7 +50,7 @@ namespace {
           edm::ParameterSet psin_average = psin.getParameter<edm::ParameterSet>("nbPileupEvents");
           if (psin_average.exists("averageNumber")) {
             averageNumber = psin_average.getParameter<double>("averageNumber");
-            pileupconfig.reset(new edm::PileUpConfig(sourceName, averageNumber, h, playback));
+            pileupconfig = std::make_shared<edm::PileUpConfig>(sourceName, averageNumber, h, playback);
             edm::LogInfo("MixingModule") << " Created source " << sourceName << " with averageNumber " << averageNumber;
           } else if (psin_average.exists("fileName") && psin_average.exists("histoName")) {
             std::string histoFileName = psin_average.getUntrackedParameter<std::string>("fileName");
@@ -78,7 +78,7 @@ namespace {
             // Get the averageNumber from the histo
             averageNumber = h->GetMean();
 
-            pileupconfig.reset(new edm::PileUpConfig(sourceName, averageNumber, h, playback));
+            pileupconfig = std::make_shared<edm::PileUpConfig>(sourceName, averageNumber, h, playback);
             edm::LogInfo("MixingModule") << " Created source " << sourceName << " with averageNumber " << averageNumber;
 
           } else if (psin_average.exists("probFunctionVariable") && psin_average.exists("probValue") &&
@@ -148,20 +148,21 @@ namespace {
                 << " The histogram created from the x, P(x) values will be written into the root file "
                 << histoFileName;
 
-            TFile* outfile = new TFile(histoFileName.c_str(), "RECREATE");
-            hprob->Write();
-            outfile->Write();
-            outfile->Close();
-            outfile->Delete();
-
-            pileupconfig.reset(new edm::PileUpConfig(sourceName, averageNumber, hprob, playback));
+            {
+              TFile outfile(histoFileName.c_str(), "RECREATE");
+              hprob->SetDirectory(&outfile);
+              outfile.Write();  //this forces the histogram to be written
+              hprob->SetDirectory(nullptr);
+              outfile.Close();
+            }
+            pileupconfig = std::make_shared<edm::PileUpConfig>(sourceName, averageNumber, hprob, playback);
             edm::LogInfo("MixingModule") << " Created source " << sourceName << " with averageNumber " << averageNumber;
           }
           //special for pileup input
           else if (sourceName == "input" && psin_average.exists("Lumi") && psin_average.exists("sigmaInel")) {
             averageNumber = psin_average.getParameter<double>("Lumi") * psin_average.getParameter<double>("sigmaInel") *
                             ps.getParameter<int>("bunchspace") / 1000 * 3564. / 2808.;  //FIXME
-            pileupconfig.reset(new edm::PileUpConfig(sourceName, averageNumber, h, playback));
+            pileupconfig = std::make_shared<edm::PileUpConfig>(sourceName, averageNumber, h, playback);
             edm::LogInfo("MixingModule") << " Created source " << sourceName << " with minBunch,maxBunch " << minb
                                          << " " << maxb;
             edm::LogInfo("MixingModule") << " Luminosity configuration, average number used is " << averageNumber;
@@ -176,7 +177,9 @@ namespace {
 namespace edm {
 
   // Constructor
-  BMixingModule::BMixingModule(const edm::ParameterSet& pset, MixingCache::Config const* globalConf)
+  BMixingModule::BMixingModule(const edm::ParameterSet& pset,
+                               MixingCache::Config const* globalConf,
+                               SciTagCategoryForEmbeddedSources cat)
       : bunchSpace_(globalConf->bunchSpace_),
         vertexOffset_(0),
         minBunch_(globalConf->minBunch_),
@@ -190,7 +193,7 @@ namespace edm {
         const edm::ParameterSet& psin =
             pset.getParameter<edm::ParameterSet>(globalConf->inputConfigs_[makeIdx]->sourcename_);
         inputSources_.push_back(
-            std::make_shared<PileUp>(psin, globalConf->inputConfigs_[makeIdx], consumesCollector(), readDB_));
+            std::make_shared<PileUp>(psin, globalConf->inputConfigs_[makeIdx], consumesCollector(), readDB_, cat));
         inputSources_.back()->input(makeIdx);
       } else {
         inputSources_.push_back(nullptr);
@@ -318,17 +321,24 @@ namespace edm {
     }
   }
 
-  void BMixingModule::beginStream(edm::StreamID iID) {
+  void BMixingModule::beginStream(edm::StreamID streamID) {
     for (size_t endIdx = 0; endIdx < maxNbSources_; ++endIdx) {
       if (inputSources_[endIdx])
-        inputSources_[endIdx]->beginStream(iID);
+        inputSources_[endIdx]->beginStream(streamID);
     }
   }
 
   void BMixingModule::endStream() {
+    ExceptionCollector exceptionCollector(
+        "Multiple exceptions were thrown while executing endStream and endJob for mixing modules. "
+        "An exception message follows for each.\n");
+
     for (size_t endIdx = 0; endIdx < maxNbSources_; ++endIdx) {
       if (inputSources_[endIdx])
-        inputSources_[endIdx]->endStream();
+        inputSources_[endIdx]->endStream(exceptionCollector);
+    }
+    if (exceptionCollector.hasThrown()) {
+      exceptionCollector.rethrow();
     }
   }
 
