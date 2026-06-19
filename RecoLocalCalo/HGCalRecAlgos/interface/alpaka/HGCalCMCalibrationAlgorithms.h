@@ -1,0 +1,47 @@
+#ifndef RecoLocalCalo_HGCalRecAlgos_interface_alpaka_HGCalCMCalibrationAlgorithms_h
+#define RecoLocalCalo_HGCalRecAlgos_interface_alpaka_HGCalCMCalibrationAlgorithms_h
+
+#include <alpaka/alpaka.hpp>
+#include "HeterogeneousCore/AlpakaInterface/interface/config.h"
+
+#include "DataFormats/HGCalDigi/interface/HGCalDigiHost.h"
+#include "DataFormats/HGCalDigi/interface/alpaka/HGCalDigiDevice.h"
+#include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDevice.h"
+#include "RecoLocalCalo/HGCalRecAlgos/interface/HGCALSoACMML.h"
+#include "RecoLocalCalo/HGCalRecAlgos/interface/HGCALSoACMMLDeviceCollection.h"
+#include "RecoLocalCalo/HGCalRecAlgos/interface/alpaka/HGCalCMCorrectionDeviceCollection.h"
+
+namespace ALPAKA_ACCELERATOR_NAMESPACE {
+
+  class HGCalCMCalibrationAlgorithms {
+  public:
+    explicit HGCalCMCalibrationAlgorithms(int n_threads) : n_threads_(n_threads) {}
+
+    // Fill ML input SoA (21 floats per digi) from digi + cell mapping + dense index info.
+    // d_chDataOffsets[denseModIdx] = digi SoA offset of first channel for that module.
+    // d_enabledErx[denseModIdx]   = number of active eRx for that module.
+    // ntoa/ntot are computed host-side and broadcast to every SoA slot.
+    void fillCMInputs(Queue& queue,
+                      uint32_t ndigis,
+                      int ntoa,
+                      int ntot,
+                      hgcaldigi::HGCalDigiDevice const& device_digis,
+                      hgcal::HGCalDenseIndexInfoDevice const& device_index,
+                      hgcal::HGCalMappingCellParamDevice const& device_cellmap,
+                      uint32_t const* d_chDataOffsets,
+                      uint32_t const* d_enabledErx,
+                      HGCalSoACMMLDeviceCollection& device_mlsoa) const;
+
+    // Apply the per-channel subtractive correction (corrected = raw - prediction) in-place.
+    void applyCMCorrections(Queue& queue,
+                            uint32_t ndigis,
+                            HGCalCMCorrectionDeviceCollection const& device_corrections,
+                            hgcaldigi::HGCalDigiDevice& device_digis) const;
+
+  private:
+    int n_threads_;
+  };
+
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
+
+#endif  // RecoLocalCalo_HGCalRecAlgos_interface_alpaka_HGCalCMCalibrationAlgorithms_h

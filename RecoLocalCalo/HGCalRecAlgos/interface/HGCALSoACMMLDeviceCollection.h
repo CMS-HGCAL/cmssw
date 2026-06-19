@@ -1,11 +1,13 @@
-#ifndef DataFormats_PortableTestObjects_interface_alpaka_HGCalSoARecHitsDeviceCollection_h
-#define DataFormats_PortableTestObjects_interface_alpaka_HGCalSoARecHitsDeviceCollection_h
+#ifndef RecoLocalCalo_HGCalRecAlgos_interface_HGCALSoACMMLDeviceCollection_h
+#define RecoLocalCalo_HGCalRecAlgos_interface_HGCALSoACMMLDeviceCollection_h
 
 #include "DataFormats/Portable/interface/alpaka/PortableCollection.h"
-#include "DataFormats/HGCalReco/interface/HGCalSoACMML.h"
+#include "RecoLocalCalo/HGCalRecAlgos/interface/HGCALSoACMML.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
-  // SoA with 21 fields required for ML calibration.
-  using HGCalSoACMMLDeviceCollection = PortableCollection<HGCalSoARecHits>;
-}  
-#endif
+
+  using HGCalSoACMMLDeviceCollection = PortableCollection<hgcalcmml::HGCalCMMLSoA>;
+
+}  // namespace ALPAKA_ACCELERATOR_NAMESPACE
+
+#endif  // RecoLocalCalo_HGCalRecAlgos_interface_HGCALSoACMMLDeviceCollection_h

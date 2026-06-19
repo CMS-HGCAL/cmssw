@@ -35,6 +35,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
+
   // @short subtract pedestals, linearize ADC & TOT to charge (fC), and convert to energy (GeV)
   struct HGCalRecHitCalibrationKernel_adcToEnergy {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
