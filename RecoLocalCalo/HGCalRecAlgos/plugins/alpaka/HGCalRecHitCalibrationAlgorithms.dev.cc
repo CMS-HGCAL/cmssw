@@ -149,6 +149,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       };
 
       for (auto idx : uniform_elements(acc, digis.metadata().size())) {
+
+        auto cellIndex = index[idx].cellInfoIdx();
+
+        //only applies to Si
+        bool isSiPM(maps[cellIndex].isSiPM());
+        if(isSiPM) continue;
+        
         auto calib = calibs[idx];
         bool calibvalid = calib.valid();
         auto digi = digis[idx];
@@ -158,7 +165,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         bool isToAavailable((digiflags != ::hgcal::DIGI_FLAG::ZS_ToA) &&
                             (digiflags != ::hgcal::DIGI_FLAG::ZS_ToA_ADCm1));
 
-        auto cellIndex = index[idx].cellInfoIdx();
         bool isCalibCell(maps[cellIndex].iscalib());
         int offset = maps[cellIndex].caliboffset();  // calibration-to-surrounding cell offset
         bool is_surr_cell((offset != 0) && isAvailable && isCalibCell);
