@@ -72,4 +72,10 @@
     <field name="vmax_" mapping="blob"/>
   </class>
 
+
+  <!-- HGCal pedestal calibration constants -->
+  <class name="HGCalPedestalConditions" class_version="0">
+    <field name="modules_" mapping="blob"/>
+  </class>
+
 </lcgdict>
