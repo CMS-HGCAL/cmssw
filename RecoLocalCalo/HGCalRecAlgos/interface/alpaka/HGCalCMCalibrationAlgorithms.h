@@ -20,6 +20,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Fill ML input SoA (21 floats per digi) from digi + cell mapping + dense index info.
     // d_chDataOffsets[denseModIdx] = digi SoA offset of first channel for that module.
     // d_enabledErx[denseModIdx]   = number of active eRx for that module.
+    // d_sfLD/d_sfHD: per-channel area scale factors for LD (222 entries) and HD (444 entries),
+    //   indexed by chIdx (within-module channel number).
     // ntoa/ntot are computed host-side and broadcast to every SoA slot.
     void fillCMInputs(Queue& queue,
                       uint32_t ndigis,
@@ -30,6 +32,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                       hgcal::HGCalMappingCellParamDevice const& device_cellmap,
                       uint32_t const* d_chDataOffsets,
                       uint32_t const* d_enabledErx,
+                      float const* d_sfLD,
+                      float const* d_sfHD,
+                      float const* d_adcPed,
+                      float const* d_cmPed,
+                      uint64_t event_num,
+                      uint64_t debug_event,
+                      uint32_t debug_module,
+                      uint32_t debug_max_ch,
                       HGCalSoACMMLDeviceCollection& device_mlsoa) const;
 
     // Apply the per-channel subtractive correction (corrected = raw - prediction) in-place.

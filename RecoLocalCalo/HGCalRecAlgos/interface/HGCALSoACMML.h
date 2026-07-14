@@ -16,25 +16,25 @@ namespace hgcalcmml {
   // All 21 float columns must remain adjacent in this definition for TensorCollection
   // contiguity; do not reorder or insert non-float columns between them.
   GENERATE_SOA_LAYOUT(HGCalCMMLSoALayout,
-                      SOA_COLUMN(float, cm0),        // CM sum eRx 0
-                      SOA_COLUMN(float, cm1),        // CM sum eRx 1
-                      SOA_COLUMN(float, cm2),        // CM sum eRx 2
-                      SOA_COLUMN(float, cm3),        // CM sum eRx 3
-                      SOA_COLUMN(float, cm4),        // CM sum eRx 4
-                      SOA_COLUMN(float, cm5),        // CM sum eRx 5
-                      SOA_COLUMN(float, cm6),        // CM sum eRx 6
-                      SOA_COLUMN(float, cm7),        // CM sum eRx 7
-                      SOA_COLUMN(float, cm8),        // CM sum eRx 8
-                      SOA_COLUMN(float, cm9),        // CM sum eRx 9
-                      SOA_COLUMN(float, cm10),       // CM sum eRx 10
-                      SOA_COLUMN(float, cm11),       // CM sum eRx 11
-                      SOA_COLUMN(float, msubchidx),  // mean-subtracted channel index, unique per channel
-                      SOA_COLUMN(float, msuberxidx), // mean-subtracted ERX index, same within ERX
-                      SOA_COLUMN(float, cellfrac),   // cell area fraction (SF key in cell mapping)
-                      SOA_COLUMN(float, unconn0),    // ADC of unconnected channel at eRx pos 8
-                      SOA_COLUMN(float, unconn1),    // ADC of unconnected channel at eRx pos 17
-                      SOA_COLUMN(float, unconn2),    // ADC of unconnected channel at eRx pos 19
-                      SOA_COLUMN(float, unconn3),    // ADC of unconnected channel at eRx pos 28
+                      SOA_COLUMN(float, cm0),        // pedestal-subtracted CM average eRx 0:  0.5*digi.cm() - CM_ped
+                      SOA_COLUMN(float, cm1),        // pedestal-subtracted CM average eRx 1:  0.5*digi.cm() - CM_ped
+                      SOA_COLUMN(float, cm2),        // pedestal-subtracted CM average eRx 2:  0.5*digi.cm() - CM_ped
+                      SOA_COLUMN(float, cm3),        // pedestal-subtracted CM average eRx 3:  0.5*digi.cm() - CM_ped
+                      SOA_COLUMN(float, cm4),        // pedestal-subtracted CM average eRx 4:  0.5*digi.cm() - CM_ped
+                      SOA_COLUMN(float, cm5),        // pedestal-subtracted CM average eRx 5:  0.5*digi.cm() - CM_ped
+                      SOA_COLUMN(float, cm6),        // pedestal-subtracted CM average eRx 6:  0.0 if eRx inactive
+                      SOA_COLUMN(float, cm7),        // pedestal-subtracted CM average eRx 7:  0.0 if eRx inactive
+                      SOA_COLUMN(float, cm8),        // pedestal-subtracted CM average eRx 8:  0.0 if eRx inactive
+                      SOA_COLUMN(float, cm9),        // pedestal-subtracted CM average eRx 9:  0.0 if eRx inactive
+                      SOA_COLUMN(float, cm10),       // pedestal-subtracted CM average eRx 10: 0.0 if eRx inactive
+                      SOA_COLUMN(float, cm11),       // pedestal-subtracted CM average eRx 11: 0.0 if eRx inactive
+                      SOA_COLUMN(float, msubchidx),  // mean-subtracted channel index, unique per channel, float(chIdx) - (float(nErx) * 37.0f - 1.0f) / 2.0f;
+                      SOA_COLUMN(float, msuberxidx), // mean-subtracted ERX index, same within ERX,.float(erxIdx) - (float(nErx) - 1.0f) / 2.0f;
+                      SOA_COLUMN(float, cellfrac),   // cell area fraction: ML_F.SF or MH_F.SF from cellareas.json, indexed by chIdx
+                      SOA_COLUMN(float, unconn0),    // pedestal-subtracted ADC of unconnected channel at eRx pos 8
+                      SOA_COLUMN(float, unconn1),    // pedestal-subtracted ADC of unconnected channel at eRx pos 17
+                      SOA_COLUMN(float, unconn2),    // pedestal-subtracted ADC of unconnected channel at eRx pos 19
+                      SOA_COLUMN(float, unconn3),    // pedestal-subtracted ADC of unconnected channel at eRx pos 28
                       SOA_COLUMN(float, ntoa),       // event-level count of digis with TOA > 0
                       SOA_COLUMN(float, ntot))       // event-level count of digis with TOT > 0
 

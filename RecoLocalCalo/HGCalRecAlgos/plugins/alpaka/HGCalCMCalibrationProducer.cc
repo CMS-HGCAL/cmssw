@@ -13,6 +13,10 @@
 //   - Correction is an additive float offset to raw digi ADC (uint16_t, clamped).
 //   - cellfrac sourced from HGCalMappingCellParamSoA::trace().
 
+#include <fstream>
+#include <vector>
+#include <nlohmann/json.hpp>
+
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -30,11 +34,14 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 
 #include "DataFormats/HGCalDigi/interface/HGCalDigiHost.h"
+#include "DataFormats/HGCalDigi/interface/HGCalRawDataDefinitions.h"
 #include "DataFormats/HGCalDigi/interface/alpaka/HGCalDigiDevice.h"
 
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalDenseIndexInfoRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalModuleConfigurationRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCalibrationParameterHost.h"
 #include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDevice.h"
 
 #include "PhysicsTools/PyTorchAlpaka/interface/TensorCollection.h"
@@ -60,6 +67,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIndexerToken_;
     const device::ESGetToken<hgcal::HGCalDenseIndexInfoDevice, HGCalDenseIndexInfoRcd> indexingToken_;
     const device::ESGetToken<hgcal::HGCalMappingCellParamDevice, HGCalElectronicsMappingRcd> cellmapToken_;
+    const edm::ESGetToken<hgcalrechit::HGCalCalibParamHost, HGCalModuleConfigurationRcd> calibToken_;
 
     // --- per-event device buffers for flat module arrays (rebuilt if ES changes) ---
     // These are re-uploaded every event for simplicity; a watcher can be added later.
@@ -68,6 +76,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // --- algorithm and DNN model ---
     const HGCalCMCalibrationAlgorithms algo_;
     torch::AlpakaModel model_;
+
+    // --- cell area scale factors from cellareas.json, uploaded to device each event ---
+    std::vector<float> h_sfLD_;  // ML_F SF, indexed by chIdx (222 entries, 6 eRx × 37)
+    std::vector<float> h_sfHD_;  // MH_F SF, indexed by chIdx (444 entries, 12 eRx × 37)
+
+    // --- debug print filter (0 = disabled for event; UINT32_MAX = all modules) ---
+    // Module can be specified either as a dense index (debugModule) or by its
+    // hardware address (debugFedId + debugCaptureBlock + debugEcond).  If all
+    // three hardware fields are set (i.e. != UINT32_MAX), they take precedence.
+    uint64_t debug_event_;
+    uint32_t debug_module_;
+    uint32_t debug_max_ch_;
+    uint32_t debug_fed_id_;
+    uint32_t debug_capblock_;
+    uint32_t debug_econd_;
   };
 
   // ---------------------------------------------------------------------------
@@ -78,8 +101,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         moduleIndexerToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("moduleIndexerSource"))},
         indexingToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("indexingSource"))},
         cellmapToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("cellmapSource"))},
+        calibToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("calibSource"))},
         algo_{iConfig.getParameter<int>("n_threads")},
-        model_{iConfig.getParameter<edm::FileInPath>("model").fullPath()} {}
+        model_{iConfig.getParameter<edm::FileInPath>("model").fullPath()},
+        debug_event_{uint64_t(iConfig.getParameter<unsigned int>("debugEvent"))},
+        debug_module_{iConfig.getParameter<unsigned int>("debugModule")},
+        debug_max_ch_{iConfig.getParameter<unsigned int>("debugMaxChannels")},
+        debug_fed_id_{iConfig.getParameter<unsigned int>("debugFedId")},
+        debug_capblock_{iConfig.getParameter<unsigned int>("debugCaptureBlock")},
+        debug_econd_{iConfig.getParameter<unsigned int>("debugEcond")} {
+    // Load cell area scale factors from cellareas.json.
+    // JSON structure: { "ML_F": { "SF": [...222 floats...] }, "MH_F": { "SF": [...444 floats...] } }
+    std::string cellAreasPath = iConfig.getParameter<edm::FileInPath>("cellAreas").fullPath();
+    std::ifstream cellAreasFile(cellAreasPath);
+    if (!cellAreasFile.is_open())
+      throw cms::Exception("Configuration") << "Cannot open cellareas file: " << cellAreasPath;
+    nlohmann::json cellAreasJson;
+    cellAreasFile >> cellAreasJson;
+    h_sfLD_ = cellAreasJson.at("ML_F").at("SF").get<std::vector<float>>();
+    h_sfHD_ = cellAreasJson.at("MH_F").at("SF").get<std::vector<float>>();
+    LogDebug("HGCalCMCalibrationProducer")
+        << "Loaded cellareas: ML_F=" << h_sfLD_.size() << " SF entries, "
+        << "MH_F=" << h_sfHD_.size() << " SF entries";
+  }
 
   // ---------------------------------------------------------------------------
   void HGCalCMCalibrationProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -92,8 +136,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         ->setComment("HGCalDenseIndexInfoDevice for per-channel mapping");
     desc.add<edm::ESInputTag>("cellmapSource", edm::ESInputTag(""))
         ->setComment("HGCalMappingCellParamDevice for cell area fraction");
+    desc.add<edm::ESInputTag>("calibSource", edm::ESInputTag(""))
+        ->setComment("HGCalCalibParamHost for per-channel ADC_ped and CM_ped");
     desc.add<edm::FileInPath>("model")->setComment("Path to TorchScript DNN model (.pth)");
+    desc.add<edm::FileInPath>("cellAreas")->setComment("Path to cellareas.json with per-channel SF (ML_F/MH_F)");
     desc.add<int>("n_threads", 256)->setComment("Threads per alpaka block");
+    desc.add<unsigned int>("debugEvent", 0u)
+        ->setComment("Event number to print DNN inputs for (0 = disabled)");
+    desc.add<unsigned int>("debugModule", ~0u)
+        ->setComment("Dense module index to filter (UINT32_MAX = all); overridden by debugFedId/CaptureBlock/Econd");
+    desc.add<unsigned int>("debugMaxChannels", ~0u)
+        ->setComment("Max within-module chIdx to print (UINT32_MAX = all; set to e.g. 5 for first 5 channels)");
+    desc.add<unsigned int>("debugFedId", ~0u)
+        ->setComment("FED ID of module to debug (must set all three hardware params to take effect)");
+    desc.add<unsigned int>("debugCaptureBlock", ~0u)
+        ->setComment("Capture block index of module to debug");
+    desc.add<unsigned int>("debugEcond", ~0u)
+        ->setComment("ECON-D index of module to debug");
     descriptions.addWithDefaultLabel(desc);
   }
 
@@ -106,6 +165,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const auto& moduleIndexer = iSetup.getData(moduleIndexerToken_);
     const auto& deviceIndex = iSetup.getData(indexingToken_);
     const auto& deviceCellmap = iSetup.getData(cellmapToken_);
+    const auto& hostCalib = iSetup.getData(calibToken_);
 
     // maxModulesCount() = total physical modules; maxModuleSize() = distinct typecodes (often 1).
     // Module indices (modOffsets_) run 0..maxModulesCount()-1, so size the arrays by count.
@@ -132,6 +192,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::memcpy(queue, d_chDataOffsets, make_host_view(h_chDataOffsets.data(), nmodules));
     alpaka::memcpy(queue, d_enabledErx, make_host_view(h_enabledErx.data(), nmodules));
 
+    // Upload cell area SF tables to device.
+    auto d_sfLD = make_device_buffer<float[]>(queue, h_sfLD_.size());
+    auto d_sfHD = make_device_buffer<float[]>(queue, h_sfHD_.size());
+    alpaka::memcpy(queue, d_sfLD, make_host_view(h_sfLD_.data(), h_sfLD_.size()));
+    alpaka::memcpy(queue, d_sfHD, make_host_view(h_sfHD_.data(), h_sfHD_.size()));
+
+    // Upload per-channel pedestals (ADC_ped for unconn channels, CM_ped for CM sums).
+    const uint32_t ncalib = uint32_t(hostCalib.view().metadata().size());
+    std::vector<float> h_adcPed(ncalib), h_cmPed(ncalib);
+    for (uint32_t i = 0; i < ncalib; ++i) {
+      h_adcPed[i] = hostCalib.view()[i].ADC_ped();
+      h_cmPed[i]  = hostCalib.view()[i].CM_ped();
+    }
+    auto d_adcPed = make_device_buffer<float[]>(queue, ncalib);
+    auto d_cmPed  = make_device_buffer<float[]>(queue, ncalib);
+    alpaka::memcpy(queue, d_adcPed, make_host_view(h_adcPed.data(), ncalib));
+    alpaka::memcpy(queue, d_cmPed,  make_host_view(h_cmPed.data(),  ncalib));
+
     // ---- Retrieve and copy digis to device ----
     const auto& hostDigis = iEvent.get(digisToken_);
     const uint32_t ndigis = hostDigis.view().metadata().size();
@@ -139,13 +217,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::memcpy(queue, deviceDigis.buffer(), hostDigis.const_buffer());
 
     // ---- Compute event-level ntoa / ntot on the host ----
+    // Match the reference definition in DigiAnalysisUtils.py:
+    //   ntot: flags!=NotAvailable && tctp==3 && tot>0   (genuine TOT-mode hits only)
+    //   ntoa: flags!=NotAvailable && toa>0
+    // Without the tctp==3 gate, ADC-mode channels with stale tot fields inflate ntot.
     int ntoa = 0, ntot = 0;
     for (uint32_t i = 0; i < ndigis; ++i) {
+      if (hostDigis.view()[i].flags() == ::hgcal::DIGI_FLAG::NotAvailable)
+        continue;
       ntoa += (hostDigis.view()[i].toa() > 0) ? 1 : 0;
-      ntot += (hostDigis.view()[i].tot() > 0) ? 1 : 0;
+      ntot += (hostDigis.view()[i].tctp() == 3 && hostDigis.view()[i].tot() > 0) ? 1 : 0;
     }
     LogDebug("HGCalCMCalibrationProducer") << "ntoa=" << ntoa << " ntot=" << ntot
                                             << " ndigis=" << ndigis;
+
+    // Resolve hardware module address → dense index if all three fields are set.
+    uint32_t eff_debug_module = debug_module_;
+    if (debug_fed_id_ != ~0u && debug_capblock_ != ~0u && debug_econd_ != ~0u) {
+      eff_debug_module = moduleIndexer.getIndexForModule(
+          debug_fed_id_, uint16_t(debug_capblock_), uint16_t(debug_econd_));
+      LogDebug("HGCalCMCalibrationProducer")
+          << "debug: FED=" << debug_fed_id_ << " capblock=" << debug_capblock_
+          << " econd=" << debug_econd_ << " → denseModIdx=" << eff_debug_module;
+    }
 
     // ---- Allocate ML input SoA on device and fill (one slot per digi) ----
     HGCalSoACMMLDeviceCollection deviceMLSoA(queue, ndigis);
@@ -158,6 +252,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                        deviceCellmap,
                        d_chDataOffsets.data(),
                        d_enabledErx.data(),
+                       d_sfLD.data(),
+                       d_sfHD.data(),
+                       d_adcPed.data(),
+                       d_cmPed.data(),
+                       uint64_t(iEvent.id().event()),
+                       debug_event_,
+                       eff_debug_module,
+                       debug_max_ch_,
                        deviceMLSoA);
 
     // ---- DNN inference ----
