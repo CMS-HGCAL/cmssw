@@ -1,0 +1,12 @@
+<use name="CondCore/DBOutputService"/>
+<use name="CondFormats/HGCalObjects"/>
+<use name="FWCore/Framework"/>
+<use name="FWCore/MessageLogger"/>
+<use name="FWCore/ParameterSet"/>
+<use name="FWCore/ServiceRegistry"/>
+<use name="FWCore/Utilities"/>
+<use name="json"/>
+
+<library file="*.cc" name="CondToolsHGCalPlugins">
+  <flags EDM_PLUGIN="1"/>
+</library>
