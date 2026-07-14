@@ -2,6 +2,10 @@
 #include "CondFormats/HGCalObjects/src/headers.h"
 
 int main() {
+  // calibration conditions
+  testSerialization<HGCalCalibrationModulePayload>();
+  testSerialization<HGCalCalibrationPayload>();
+
   //dense indexers
   testSerialization<HGCalDenseIndexerBase>();
   testSerialization<HGCalMappingCellIndexer>();

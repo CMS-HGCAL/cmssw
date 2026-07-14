@@ -72,4 +72,32 @@
     <field name="vmax_" mapping="blob"/>
   </class>
 
+
+  <!-- HGCal channel calibration conditions -->
+  <class name="HGCalCalibrationModulePayload" class_version="0">
+    <field name="typecode" mapping="blob"/>
+    <field name="channel" mapping="blob"/>
+    <field name="adcPed" mapping="blob"/>
+    <field name="noise" mapping="blob"/>
+    <field name="cmPed" mapping="blob"/>
+    <field name="cmSlope" mapping="blob"/>
+    <field name="bxm1Slope" mapping="blob"/>
+    <field name="bxm1Ped" mapping="blob"/>
+    <field name="totToADC" mapping="blob"/>
+    <field name="totPed" mapping="blob"/>
+    <field name="totLin" mapping="blob"/>
+    <field name="totP0" mapping="blob"/>
+    <field name="totP1" mapping="blob"/>
+    <field name="totP2" mapping="blob"/>
+    <field name="toaCTDC" mapping="blob"/>
+    <field name="toaFTDC" mapping="blob"/>
+    <field name="toaTW" mapping="blob"/>
+    <field name="mipsScale" mapping="blob"/>
+    <field name="valid" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCalibrationPayload" class_version="0">
+    <field name="modules" mapping="blob"/>
+  </class>
+
 </lcgdict>
