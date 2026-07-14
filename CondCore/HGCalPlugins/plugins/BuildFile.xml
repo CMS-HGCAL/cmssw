@@ -1,0 +1,6 @@
+<library file="plugin.cc" name="CondCoreHGCalPlugins">
+  <use name="CondCore/ESSources"/>
+  <use name="CondFormats/DataRecord"/>
+  <use name="CondFormats/HGCalObjects"/>
+  <flags EDM_PLUGIN="1"/>
+</library>
