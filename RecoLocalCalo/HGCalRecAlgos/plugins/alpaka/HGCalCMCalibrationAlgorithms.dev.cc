@@ -136,13 +136,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   // ---------------------------------------------------------------------------
   // Kernel: apply subtractive DNN correction to digi ADC in-place.
   // corrected_adc = raw_adc - model_prediction  (model predicts the noise)
+  //
+  // Unconnected channels are left untouched: they carry no sensor cell, so their
+  // cell-area SF (cellfrac, from cellareas.json) is 0 and the DNN prediction is
+  // meaningless for them. CM channels are not part of the digi collection at all
+  // (37 entries/eRx = 36 data + 1 calib; CM lives in the per-digi .cm() field),
+  // so they are never iterated here.
   // ---------------------------------------------------------------------------
   struct HGCalCMCalibKernel_applyCorrections {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   hgcaldigi::HGCalDigiDevice::View digi_view,
                                   HGCalCMCorrectionDeviceCollection::ConstView corr_view,
+                                  HGCalSoACMMLDeviceCollection::ConstView mlsoa,
                                   uint32_t ndigis) const {
       for (auto idx : uniform_elements(acc, ndigis)) {
+        // Skip unconnected channels (cell-area SF == 0): leave the raw ADC as-is.
+        if (mlsoa[idx].cellfrac() == 0.0f)
+          continue;
         float corrected = float(digi_view[idx].adc()) - corr_view[idx].correction();
         digi_view[idx].adc() = uint16_t(std::clamp(corrected, 0.0f, 65535.0f));
       }
@@ -205,6 +215,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       Queue& queue,
       uint32_t ndigis,
       HGCalCMCorrectionDeviceCollection const& device_corrections,
+      HGCalSoACMMLDeviceCollection const& device_mlsoa,
       hgcaldigi::HGCalDigiDevice& device_digis) const {
     LogDebug("HGCalCMCalibrationAlgorithms") << "applyCMCorrections: ndigis=" << ndigis;
 
@@ -217,6 +228,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         HGCalCMCalibKernel_applyCorrections{},
                         device_digis.view(),
                         device_corrections.const_view(),
+                        device_mlsoa.const_view(),
                         ndigis);
   }
 

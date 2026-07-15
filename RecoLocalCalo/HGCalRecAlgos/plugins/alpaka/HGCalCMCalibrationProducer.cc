@@ -306,7 +306,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     model_.forward(queue, inputs, outputs);
 
     // ---- Subtract DNN prediction from digi ADC in-place ----
-    algo_.applyCMCorrections(queue, ndigis, deviceCorrections, deviceDigis);
+    // deviceMLSoA carries the per-digi cellfrac so unconnected channels (SF==0) are skipped.
+    algo_.applyCMCorrections(queue, ndigis, deviceCorrections, deviceMLSoA, deviceDigis);
 
     // ---- Copy corrected digis back to host and emplace into event ----
     // The host collection is allocated and the async memcpy is enqueued here.

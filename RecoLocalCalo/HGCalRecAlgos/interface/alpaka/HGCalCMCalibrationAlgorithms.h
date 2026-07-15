@@ -44,9 +44,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                       HGCalSoACMMLDeviceCollection& device_mlsoa) const;
 
     // Apply the per-channel subtractive correction (corrected = raw - prediction) in-place.
+    // device_mlsoa carries the per-digi cellfrac (cell-area SF); the correction is skipped
+    // for unconnected channels (cellfrac == 0). CM channels are not digi rows, so they are
+    // never iterated here in the first place.
     void applyCMCorrections(Queue& queue,
                             uint32_t ndigis,
                             HGCalCMCorrectionDeviceCollection const& device_corrections,
+                            HGCalSoACMMLDeviceCollection const& device_mlsoa,
                             hgcaldigi::HGCalDigiDevice& device_digis) const;
 
   private:
