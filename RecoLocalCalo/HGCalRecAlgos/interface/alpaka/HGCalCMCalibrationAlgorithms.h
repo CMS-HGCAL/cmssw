@@ -22,11 +22,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // d_enabledErx[denseModIdx]   = number of active eRx for that module.
     // d_sfLD/d_sfHD: per-channel area scale factors for LD (222 entries) and HD (444 entries),
     //   indexed by chIdx (within-module channel number).
-    // ntoa/ntot are computed host-side and broadcast to every SoA slot.
+    // d_ntoa/d_ntot: per-module (indexed by denseModIdx) counts of TOA>0 / TOT-mode hits,
+    //   computed host-side and broadcast to every SoA slot belonging to that module.
     void fillCMInputs(Queue& queue,
                       uint32_t ndigis,
-                      int ntoa,
-                      int ntot,
+                      int const* d_ntoa,
+                      int const* d_ntot,
                       hgcaldigi::HGCalDigiDevice const& device_digis,
                       hgcal::HGCalDenseIndexInfoDevice const& device_index,
                       hgcal::HGCalMappingCellParamDevice const& device_cellmap,

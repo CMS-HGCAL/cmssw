@@ -37,9 +37,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   float const* __restrict__ d_sfHD,
                                   float const* __restrict__ d_adcPed,
                                   float const* __restrict__ d_cmPed,
+                                  int const* __restrict__ d_ntoa,
+                                  int const* __restrict__ d_ntot,
                                   uint32_t ndigis,
-                                  float ntoa,
-                                  float ntot,
                                   uint64_t event_num,
                                   uint64_t debug_event,
                                   uint32_t debug_module,
@@ -70,9 +70,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         bool const isHD = cellmap_view[idxinfo.cellInfoIdx()].isHD();
         slot.cellfrac() = isHD ? d_sfHD[chIdx] : d_sfLD[chIdx];
 
-        // Event-level scalars, identical for every channel in the event.
-        slot.ntoa() = ntoa;
-        slot.ntot() = ntot;
+        // Per-module scalars, identical for every channel in the same module.
+        slot.ntoa() = float(d_ntoa[denseModIdx]);
+        slot.ntot() = float(d_ntot[denseModIdx]);
 
         // CM sum per eRx (cm0..cm11): pedestal-subtracted as 0.5*digi.cm() - CM_ped,
         // matching the analytic formula in HGCalRecHitCalibrationAlgorithms.
@@ -154,8 +154,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   // ---------------------------------------------------------------------------
   void HGCalCMCalibrationAlgorithms::fillCMInputs(Queue& queue,
                                                    uint32_t ndigis,
-                                                   int ntoa,
-                                                   int ntot,
+                                                   int const* d_ntoa,
+                                                   int const* d_ntot,
                                                    hgcaldigi::HGCalDigiDevice const& device_digis,
                                                    hgcal::HGCalDenseIndexInfoDevice const& device_index,
                                                    hgcal::HGCalMappingCellParamDevice const& device_cellmap,
@@ -170,8 +170,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                    uint32_t debug_module,
                                                    uint32_t debug_max_ch,
                                                    HGCalSoACMMLDeviceCollection& device_mlsoa) const {
-    LogDebug("HGCalCMCalibrationAlgorithms") << "fillCMInputs: ndigis=" << ndigis
-                                              << " ntoa=" << ntoa << " ntot=" << ntot;
+    LogDebug("HGCalCMCalibrationAlgorithms") << "fillCMInputs: ndigis=" << ndigis;
 
     uint32_t items = uint32_t(n_threads_);
     uint32_t groups = divide_up_by(ndigis, items);
@@ -190,9 +189,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         d_sfHD,
                         d_adcPed,
                         d_cmPed,
+                        d_ntoa,
+                        d_ntot,
                         ndigis,
-                        float(ntoa),
-                        float(ntot),
                         event_num,
                         debug_event,
                         debug_module,

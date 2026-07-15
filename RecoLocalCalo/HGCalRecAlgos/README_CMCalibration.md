@@ -12,7 +12,7 @@ model file live in `HGCalCommissioning/`.
 HGCal HGCROC ASICs read out a common-mode (CM) voltage per eRx that correlates with pedestal
 noise on ordinary channels. This implementation runs a per-channel DNN correction that takes
 pedestal-subtracted CM sums, channel geometry, pedestal-subtracted unconnected-channel ADCs,
-and event-level timing occupancy as input, then **subtracts** the predicted noise from the raw
+and per-module timing occupancy as input, then **subtracts** the predicted noise from the raw
 digi ADC before the RecHit step.
 
 Correction convention (confirmed with model author Arne Reimers):
@@ -58,8 +58,8 @@ the other at config time via `useCMML`; there is no `_old` suffix or renaming of
 | 13 | `msuberxidx` | eRx index within module, mean-subtracted: `erxIdx - (nErx - 1)/2` |
 | 14 | `cellfrac` | Cell area fraction (SF) from `cellareas.json`, indexed by `chIdx`. `isHD()` from `HGCalMappingCellParamSoA` selects the `MH_F` (444-entry) or `ML_F` (222-entry) table. |
 | 15–18 | `unconn0`..`unconn3` | Pedestal-subtracted ADC of the 4 unconnected channels in this digi's eRx: `digi.adc() - ADC_ped`. Within-eRx positions 8, 17, 19, 28. `ADC_ped` from `HGCalCalibParamHost` at each channel's global index. |
-| 19 | `ntoa` | Event-level count of digis with TOA > 0 |
-| 20 | `ntot` | Event-level count of digis with TOT > 0 |
+| 19 | `ntoa` | Per-module count of digis with TOA > 0 (`flags != NotAvailable && toa > 0`), broadcast to every channel of that module |
+| 20 | `ntot` | Per-module count of genuine TOT-mode digis (`flags != NotAvailable && tctp == 3 && tot > 0`), broadcast to every channel of that module |
 
 All 21 columns are `SOA_COLUMN(float, ...)` and declared adjacent in the layout so that
 `TensorCollection::add()` can wrap them into a single contiguous `[ndigis, 21]` tensor
@@ -263,7 +263,8 @@ The `.dev.cc` extension causes the build system to compile this for every alpaka
 6. Fills `msubchidx`, `msuberxidx`, `cellfrac` (SF from `cellareas.json` via `d_sfLD`/`d_sfHD`,
    selected by `cellmap_view[idx.cellInfoIdx()].isHD()`).
 7. Fills `unconn0`..`unconn3` as `digi.adc() - d_adcPed[...]` at within-eRx positions 8, 17, 19, 28.
-8. Broadcasts event-level `ntoa`, `ntot` to every slot.
+8. Broadcasts per-module `ntoa`, `ntot` to every slot via `d_ntoa[denseModIdx]` /
+   `d_ntot[denseModIdx]` (computed host-side; see producer step 3).
 
 **`HGCalCMCalibKernel_applyCorrections`** — one thread per digi:
 ```cpp
@@ -296,7 +297,9 @@ backend). Consumes `HGCalDigiHost` from `hgcalDigis` and produces a corrected
    on the host from `fedReadoutSequences()`. Size must be `maxModulesCount()` (total physical
    modules, e.g. 10), not `maxModuleSize()` (distinct typecodes, e.g. 1).
 2. Upload to device via `make_device_buffer` + `make_host_view` + `alpaka::memcpy`.
-3. Copy `hostDigis` to a `HGCalDigiDevice`; compute `ntoa`/`ntot` with a host loop.
+3. Copy `hostDigis` to a `HGCalDigiDevice`; compute **per-module** `ntoa`/`ntot` with a host
+   loop (each module's channels are contiguous: `chDataOffsets[m]` .. `+ popcount(enabledErx[m])*37`),
+   then upload the two `[nmodules]` arrays to device (`d_ntoa`/`d_ntot`).
 4. Allocate `HGCalSoACMMLDeviceCollection(queue, ndigis)` and call `algo_.fillCMInputs()`.
 5. Run TorchScript inference via `AlpakaModel::forward()`:
    ```cpp
@@ -610,12 +613,31 @@ correction would have been (without applying it), and fills five DQM histograms 
 | `analyticCorrection` | Distribution of `cm_slope × (0.5 × CM − cm_ped)` — the analytic term that `HGCalRecHitCalibrationKernel_adcToEnergy` would subtract |
 | `mlCorrection` | Distribution of `raw_adc − ml_corrected_adc` — the actual ADC change made by the DNN |
 | `residual` | ML correction minus analytic correction per channel/event — non-zero means the DNN learned something beyond the linear term |
-| `analytic_vs_ml` | 2D scatter of analytic (x) vs ML (y) corrections — diagonal = perfect agreement, off-diagonal = DNN adds non-linear component |
+| `analytic_vs_ml` | 2D scatter of analytic (x) vs ML (y) corrections — diagonal = perfect agreement, off-diagonal = DNN adds non-linear component. The Pearson correlation of the two corrections is written into the plot title (to 3 dp) by `HGCalCMCorrectionCompareHarvester`. |
 | `ml_vs_cmsum` | Profile of ML correction vs pedestal-subtracted CM sum — shows whether the DNN's primary response is the same linear trend as the analytic formula |
 
 The analytic correction is **reconstructed from calibration parameters** inside the analyzer;
 it is not applied to the digis in this mode. This lets you see what both corrections would
 predict on the same event population.
+
+#### `HGCalCMCorrectionCompareHarvester`
+
+**Plugin:** `HGCalCommissioning/DQM/plugins/HGCalCMCorrectionCompareHarvester.cc`  
+**cfi:** `HGCalCommissioning/DQM/python/hgcalCMCorrectionCompareHarvester_cfi.py`  
+**Wired by:** `step_RECONANODQM.py` when `addCMComparison=True` (scheduled before the DQM saver)
+
+A `DQMEDHarvester` that, at end-of-lumi / end-of-job, reads the merged `analytic_vs_ml`
+histogram and writes the **Pearson correlation** between the analytic and ML corrections
+into its title, to 3 dp:
+
+```
+Analytic vs ML CM correction (Pearson r = 0.987); Analytic correction [ADC counts]; ML correction [ADC counts]
+```
+
+The value is `TH2F::GetCorrelationFactor()` — the Pearson r of the binned distribution shown
+on the heatmap. Running as a harvester means it acts on the fully-merged, run-scoped histogram,
+so the number is correct regardless of the number of streams. An empty histogram shows
+`r = N/A` rather than a spurious `0.000`.
 
 To open the ML DQM file and browse the comparison plots:
 ```bash
@@ -668,7 +690,9 @@ event without needing to know its run-level event number. Each printed line look
 [CMCalib ev=<N> mod=<M> ch=0] cm0=x.x cm1=x.x ... cm11=x.x | msubchidx=x.xx msuberxidx=x.xx cellfrac=x.xxxx | unconn0=x.x unconn1=x.x unconn2=x.x unconn3=x.x | ntoa=x.x ntot=x.x
 ```
 
-The `mod=<M>` value confirms the resolved dense module index.
+The `mod=<M>` value confirms the resolved dense module index. Note that `ntoa`/`ntot` are
+**module-level** counts: every channel printed for the same `mod=<M>` shows the same
+`ntoa`/`ntot` (the count over that module's digis), not an event-wide total.
 
 ---
 

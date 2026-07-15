@@ -35,8 +35,8 @@ namespace hgcalcmml {
                       SOA_COLUMN(float, unconn1),    // pedestal-subtracted ADC of unconnected channel at eRx pos 17
                       SOA_COLUMN(float, unconn2),    // pedestal-subtracted ADC of unconnected channel at eRx pos 19
                       SOA_COLUMN(float, unconn3),    // pedestal-subtracted ADC of unconnected channel at eRx pos 28
-                      SOA_COLUMN(float, ntoa),       // event-level count of digis with TOA > 0
-                      SOA_COLUMN(float, ntot))       // event-level count of digis with TOT > 0
+                      SOA_COLUMN(float, ntoa),       // module-level count of digis with TOA > 0
+                      SOA_COLUMN(float, ntot))       // module-level count of digis with TOT > 0
 
   using HGCalCMMLSoA = HGCalCMMLSoALayout<>;
 

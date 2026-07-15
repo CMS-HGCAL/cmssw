@@ -2,7 +2,7 @@
 //
 // Per-event workflow:
 //   1. Consume host digis and copy to device.
-//   2. Compute event-level ntoa/ntot on the host (cheap loop over digis).
+//   2. Compute per-module ntoa/ntot on the host (cheap loop over digis).
 //   3. Fill the ML input SoA on the device (one slot per global channel).
 //   4. Run DNN inference:  inputs  → [cmsum tensor, features tensor]
 //                          outputs → [correction tensor]
@@ -216,20 +216,35 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     hgcaldigi::HGCalDigiDevice deviceDigis(queue, ndigis);
     alpaka::memcpy(queue, deviceDigis.buffer(), hostDigis.const_buffer());
 
-    // ---- Compute event-level ntoa / ntot on the host ----
+    // ---- Compute per-module ntoa / ntot on the host ----
     // Match the reference definition in DigiAnalysisUtils.py:
     //   ntot: flags!=NotAvailable && tctp==3 && tot>0   (genuine TOT-mode hits only)
     //   ntoa: flags!=NotAvailable && toa>0
     // Without the tctp==3 gate, ADC-mode channels with stale tot fields inflate ntot.
-    int ntoa = 0, ntot = 0;
-    for (uint32_t i = 0; i < ndigis; ++i) {
-      if (hostDigis.view()[i].flags() == ::hgcal::DIGI_FLAG::NotAvailable)
-        continue;
-      ntoa += (hostDigis.view()[i].toa() > 0) ? 1 : 0;
-      ntot += (hostDigis.view()[i].tctp() == 3 && hostDigis.view()[i].tot() > 0) ? 1 : 0;
+    //
+    // Counts are accumulated per module (indexed by denseModIdx) rather than over the whole
+    // event: each module's channels are contiguous in the digi SoA, starting at
+    // chDataOffsets[m] and spanning popcount(enabledErx[m])*37 channels (nErx eRx × 37 ch).
+    // The kernel then broadcasts d_ntoa[denseModIdx]/d_ntot[denseModIdx] to every slot of
+    // that module.  This reuses the host arrays already built above; no digi→module lookup
+    // or device atomics are needed.
+    std::vector<int> h_ntoa(nmodules, 0), h_ntot(nmodules, 0);
+    for (uint32_t m = 0; m < nmodules; ++m) {
+      const uint32_t base = h_chDataOffsets[m];
+      const uint32_t nch = uint32_t(__builtin_popcount(h_enabledErx[m])) * 37u;
+      for (uint32_t i = base; i < base + nch && i < ndigis; ++i) {
+        if (hostDigis.view()[i].flags() == ::hgcal::DIGI_FLAG::NotAvailable)
+          continue;
+        h_ntoa[m] += (hostDigis.view()[i].toa() > 0) ? 1 : 0;
+        h_ntot[m] += (hostDigis.view()[i].tctp() == 3 && hostDigis.view()[i].tot() > 0) ? 1 : 0;
+      }
     }
-    LogDebug("HGCalCMCalibrationProducer") << "ntoa=" << ntoa << " ntot=" << ntot
-                                            << " ndigis=" << ndigis;
+    auto d_ntoa = make_device_buffer<int[]>(queue, nmodules);
+    auto d_ntot = make_device_buffer<int[]>(queue, nmodules);
+    alpaka::memcpy(queue, d_ntoa, make_host_view(h_ntoa.data(), nmodules));
+    alpaka::memcpy(queue, d_ntot, make_host_view(h_ntot.data(), nmodules));
+    LogDebug("HGCalCMCalibrationProducer") << "computed per-module ntoa/ntot for "
+                                           << nmodules << " modules, ndigis=" << ndigis;
 
     // Resolve hardware module address → dense index if all three fields are set.
     uint32_t eff_debug_module = debug_module_;
@@ -245,8 +260,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     HGCalSoACMMLDeviceCollection deviceMLSoA(queue, ndigis);
     algo_.fillCMInputs(queue,
                        ndigis,
-                       ntoa,
-                       ntot,
+                       d_ntoa.data(),
+                       d_ntot.data(),
                        deviceDigis,
                        deviceIndex,
                        deviceCellmap,
