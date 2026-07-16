@@ -82,10 +82,24 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
   std::cout << "--------------------  Ciao, I am dummy emulator ! -------------------------------- " << std::endl;
 
   HGCalTriggerFedConfig fedConfig = config.feds[ifed];
+
+  TPGFEConfiguration::Configuration cfgs;
+  // Load channel mappings
+  cfgs.setSiChMapFile("/data/fcetorel/work/tpgEmulator/CMSSW_16_1_0/src/HGCalCommissioning/Calibrations/P5/maps/WaferCellMapTraces.txt");
+  //cfgs.setSciChMapFile("cfgmap/channels_sipmontile_HDtypes.hgcal.txt");
+  cfgs.initId();
+  cfgs.readSiChMapping();
+  //cfgs.readSciChMapping();
+  cfgs.loadMuxMapping();
+
+
   
   // FIXME read adc from max digis, here hardcoded for TB 2026 scenario
-  uint32_t iec = 0;
-  std::vector<uint32_t> maxinputDaq = {125, 131, 137, 143, 149, 155, 161, 173, 167, 333, 777, 179, 185}; 
+  uint32_t globalEcontIdx = 0;
+  uint32_t globalhROCIdx = 0;
+  std::vector<uint32_t> maxinputDaq = {120, 126, 132, 138, 144, 150, 156, 168, 162, 333, 777, 174, 180}; 
+  std::map<uint32_t, TPGFEDataformat::HalfHgcrocData> rocData;
+  uint16_t bx = 0;
 
   for (std::size_t itdaq = 0; itdaq < fedConfig.tdaqs.size(); itdaq++) {
     HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[itdaq];
@@ -97,50 +111,64 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
     }
     
     //std::cout << " with " << std::dec << tdaqConfig.econts.size() << " active ECON-Ts" << std::endl;
-    
     for(unsigned int iecont=0; iecont<tdaqConfig.econts.size(); iecont++){
-      std::cout << "-------------------- iecont " << iec << "--------------------------------"<<std::endl;
-
+      std::cout << "-------------------- iecont " << globalEcontIdx << "--------------------------------"<<std::endl;
+      std::string typecode = "ML-F";  // FIXME read type code from CFG
+      uint32_t nhfrocs = cfgs.getSiModNhroc(typecode);
       
       HGCalECONTConfig econtConfig = tdaqConfig.econts[iecont];
-      TPGFEConfiguration::ConfigEconT cfgecont;
-      cfgecont.setSelect(econtConfig.select); // need this to get the type algo later
 
-      uint32_t calib =  0x800; // FIXME correct values and read from cfg (they should be in hexa 0x800, corresponding to 1)
+      cfgs.setEconTConfig(globalEcontIdx, econtConfig);
+      uint32_t fixedADC = maxinputDaq[globalEcontIdx];
 
-      //dummy daq input
-      uint32_t fixed_adc = maxinputDaq[iec];
+      std::cout << "\n--- Preapera hgroc cfg and Initializing Mock ADC Data ---" << std::endl;
+      const std::map<std::pair<std::string,uint32_t>,uint32_t> RocPinToAbs = cfgs.getSiRocpinToAbsSeq();
+      for (uint32_t ihroc = 0; ihroc < nhfrocs; ++ihroc) {
 
-      // dummy emulate roc
-      uint16_t hgrocComp = TPGFEModuleEmulation::CompressHgroc(fixed_adc*4, econtConfig.density);
+    
 
-      // dummy emulate ECONT
-      uint64_t decompressed = TPGFEModuleEmulation::DecompressEcont(hgrocComp, !(econtConfig.density)); 
-      uint64_t decomp64bit = decompressed * calib; //overflows for 12bit TOT
-      decompressed =  decomp64bit >> 11;
+        cfgs.setRocConfig(globalhROCIdx, econtConfig);
+        TPGFEDataformat::HalfHgcrocData hData;
+        hData.setBx(bx);
 
-      TPGFEDataformat::Type algo = cfgecont.getOutType();
-      uint16_t compressed = 0;
-      if (algo == TPGFEDataformat::BestC) compressed = TPGFEModuleEmulation::CompressEcontBc(decompressed, econtConfig.dropLSB);  // FIXME implement other algos
-      else{
-        std::cout << "algo not recognized, skipping econt ..." << std::endl;
-        continue;
+        std::cout << "ROC ID: " << globalhROCIdx << " | Setting ADC to " << fixedADC << " for channels." << std::endl;
+        uint32_t half = (ihroc%2 == 0 ? 1 : 0 );
+        for (uint32_t ch = 0; ch < 36; ++ch)  {
+          
+          if (RocPinToAbs.find(std::make_pair(typecode, ch )) == RocPinToAbs.end())
+          {
+            std::cout << "Emulator::SettingMockADC:: ROC " << ihroc/2 << " Half " << half << " << Ch: " << ch << " is unconnected: " << "Skipping!" << std::endl;
+            continue;
+          }
+          //std::cout << "ROC " << ihroc/2 << " Half " << half << " Ch " << ch << " adc "<< fixedADC <<std::endl;
+
+          hData.getChannelData(ch).setAdc(fixedADC, 0);    
+
+
+
+        }
+        rocData[ihroc] = hData;
+
+        fixedADC++; // one adc more for every hfroc
+        globalhROCIdx++;
       }
-      // dummy "unpacking"
-      uint64_t tc_energy = TPGFEModuleEmulation::decodeEmulatedE(algo, compressed) << econtConfig.dropLSB;  
 
+   
+      std::cout << "\n--- Running HGCROC Emulation ---" << std::endl;
+      TPGFEModuleEmulation::HGCROCTPGEmulation rocEmul(cfgs);
+      std::map<uint32_t, TPGFEDataformat::ModuleTcData> allModTcData;
+      rocEmul.Emulate(false, globalEcontIdx, rocData, allModTcData);
 
-      std::cout << "input value DAQ: " << fixed_adc
-                <<  ", Expected TC energy: " << tc_energy
-                << std::endl;
+      
+      std::cout << "\n--- Running ECON-T Emulation ---" << std::endl;
+      TPGFEModuleEmulation::ECONTEmulation econtEmul(cfgs);
+      econtEmul.disableTcSafety = true;
+      TPGFEDataformat::TcModulePacket econtOutput;
 
-      // std::cout << "input value Daq : " << fixed_adc
-      //           << " hgroc compressed : " << hgrocComp 
-      //           << " decompressed from ECONT: " << decompressed
-      //           << " compressed by ECONT: " << compressed_bc            
-      //           << std::endl;
+      econtEmul.Emulate(false, globalEcontIdx, allModTcData, econtOutput);
+      econtOutput.second.print();
 
-      iec++; // counter for total econts
+      globalEcontIdx++; // counter for total econts
     }
   }
 std::cout << "--------------------  Dummy emulator end -------------------------------- " << std::endl;
