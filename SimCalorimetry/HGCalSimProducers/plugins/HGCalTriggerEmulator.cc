@@ -20,7 +20,12 @@
 
 #include "CondFormats/DataRecord/interface/HGCalDenseIndexInfoRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalModuleConfigurationRcd.h"
+#include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
+
 #include "CondFormats/HGCalObjects/interface/HGCalTriggerConfiguration.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexerTrigger.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexerTrigger.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHost.h"
 
 
@@ -46,6 +51,8 @@ private:
   const edm::EDGetTokenT<hgcaldigi::HGCalDigiHost> digisToken_;
   const edm::EDPutTokenT<hgcaldigi::HGCalDigiTriggerHost> digisTriggerToken_;
   edm::ESGetToken<HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexInfoToken_;
+  edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIdxToken_;
+  edm::ESGetToken<HGCalMappingModuleIndexerTrigger, HGCalElectronicsMappingRcd> moduleTriggerIdxToken_;
   edm::ESGetToken<HGCalTriggerConfiguration, HGCalModuleConfigurationRcd> configToken_;
 };
 
@@ -63,9 +70,10 @@ private:
 HGCalTriggerEmulator::HGCalTriggerEmulator(const edm::ParameterSet& iConfig) 
     : digisToken_(consumes<hgcaldigi::HGCalDigiHost>(iConfig.getParameter<edm::InputTag>("src"))),
       denseIndexInfoToken_(esConsumes()),
+      moduleIdxToken_(esConsumes()),
+      moduleTriggerIdxToken_(esConsumes()),
       configToken_(esConsumes()) {}
-      //digisEmulatorTrigToken_(produces<hgcaldigi::HGCalDigiTrigEmulatorHost>()) {} // FIXME create a class to save the emulated digis
-      
+     // FIXME save the output of emulator in a collection 
 
 HGCalTriggerEmulator::~HGCalTriggerEmulator() {}
 //
@@ -79,8 +87,6 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
   uint32_t ifed = 1600; // FIXME read fed id from cfg
 
-  std::cout << "--------------------  Ciao, I am dummy emulator ! -------------------------------- " << std::endl;
-
   HGCalTriggerFedConfig fedConfig = config.feds[ifed];
 
   TPGFEConfiguration::Configuration cfgs;
@@ -91,15 +97,27 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
   cfgs.readSiChMapping();
   //cfgs.readSciChMapping();
   cfgs.loadMuxMapping();
+  const HGCalMappingModuleIndexer& moduleIndexer = iSetup.getData(moduleIdxToken_);
+  const HGCalMappingModuleIndexerTrigger& moduleTriggerIndexer = iSetup.getData(moduleTriggerIdxToken_);
+
+  //Try to read from DIGIs: read digis and dense index info
+  const auto& digis = iEvent.getHandle(digisToken_);
+  const auto& digis_view = digis->const_view();
+  int32_t ndigis = digis_view.metadata().size();
+  const auto& denseIndexInfo = iSetup.getData(denseIndexInfoToken_);
+  const auto& denseIndexInfo_view = denseIndexInfo.const_view();
+  int32_t ndii = denseIndexInfo_view.metadata().size();
 
 
-  
-  // FIXME read adc from max digis, here hardcoded for TB 2026 scenario
-  uint32_t globalEcontIdx = 0;
-  uint32_t globalhROCIdx = 0;
-  std::vector<uint32_t> maxinputDaq = {120, 126, 132, 138, 144, 150, 156, 168, 162, 333, 777, 174, 180}; 
   std::map<uint32_t, TPGFEDataformat::HalfHgcrocData> rocData;
-  uint16_t bx = 0;
+
+  assert( ndigis == ndii );
+
+   
+  std::map<std::string, std::pair<uint32_t, uint32_t>> typecodeMap = moduleTriggerIndexer.typecodeMap();
+  uint32_t globalEcontIdx = 0;
+  
+  uint16_t bx = 0; // FIXME implement extended reading
 
   for (std::size_t itdaq = 0; itdaq < fedConfig.tdaqs.size(); itdaq++) {
     HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[itdaq];
@@ -109,69 +127,101 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
       //std::cout << "with no active ECON-Ts, skipped" << std::endl;
       continue;
     }
-    
+  
     //std::cout << " with " << std::dec << tdaqConfig.econts.size() << " active ECON-Ts" << std::endl;
     for(unsigned int iecont=0; iecont<tdaqConfig.econts.size(); iecont++){
-      std::cout << "-------------------- iecont " << globalEcontIdx << "--------------------------------"<<std::endl;
-      std::string typecode = "ML-F";  // FIXME read type code from CFG
-      uint32_t nhfrocs = cfgs.getSiModNhroc(typecode);
+
+      // getting typecode of econt by inverting the typecode map 
+      std::string typecode;
+
+      for (const auto& it : typecodeMap){
+        if (it.second == std::make_pair(ifed, globalEcontIdx)) typecode = it.first;
       
+      }
+      if (typecode.substr(0,1) == "T"){
+        std::cout << "Typecode : " << typecode << " Tiles NOT yet implemented, skipping!" << std::endl;
+        globalEcontIdx++; // counter for total econts
+	continue;
+      }
+
+      std::string short_typecode = typecode.substr(0,4); 
+ 
+      //std::cout << "typecode " << typecode << " and short " << short_typecode <<  std::endl;
+      
+     
+      std::cout << "-------------------- iecont " << globalEcontIdx << " typecode " << typecode << "--------------------------------"<<std::endl;
+      std::cout << "\n--- Preapera hgroc cfg and read ADC from DAQ DIGIs ---" << std::endl;
+
+
+      // getting the first idx of DAQ ADC data
+      uint32_t digi_idx =  moduleIndexer.getIndexForModuleData(typecode);
+ 
+      uint32_t nhfrocs = cfgs.getSiModNhroc(short_typecode);
+
+
+      std::cout << "Number of half rocs " << nhfrocs << std::endl;
+
       HGCalECONTConfig econtConfig = tdaqConfig.econts[iecont];
-
       cfgs.setEconTConfig(globalEcontIdx, econtConfig);
-      uint32_t fixedADC = maxinputDaq[globalEcontIdx];
 
-      std::cout << "\n--- Preapera hgroc cfg and Initializing Mock ADC Data ---" << std::endl;
+
       const std::map<std::pair<std::string,uint32_t>,uint32_t> RocPinToAbs = cfgs.getSiRocpinToAbsSeq();
+
       for (uint32_t ihroc = 0; ihroc < nhfrocs; ++ihroc) {
 
-    
-
-        cfgs.setRocConfig(globalhROCIdx, econtConfig);
+        cfgs.setRocConfig(ihroc, econtConfig);
         TPGFEDataformat::HalfHgcrocData hData;
         hData.setBx(bx);
 
-        std::cout << "ROC ID: " << globalhROCIdx << " | Setting ADC to " << fixedADC << " for channels." << std::endl;
+        std::cout << "ihroc : " << ihroc << " | Setting ADC for HGROC channels." << std::endl;
         uint32_t half = (ihroc%2 == 0 ? 1 : 0 );
-        for (uint32_t ch = 0; ch < 36; ++ch)  {
-          
-          if (RocPinToAbs.find(std::make_pair(typecode, ch )) == RocPinToAbs.end())
+
+
+        for (uint32_t ch = 0; ch < 37; ++ch)  {
+          auto indexinfo = denseIndexInfo_view[digi_idx];
+          auto digidaq = digis_view[digi_idx];
+
+          uint32_t fedreadoutseq = indexinfo.fedReadoutSeq();
+          uint32_t chidx = indexinfo.chNumber();
+          uint32_t modidx = indexinfo.modInfoIdx();
+          uint32_t adc = digidaq.adc();
+          uint32_t nhroc = chidx/37;
+          uint32_t rocpin = chidx%37;
+               
+          digi_idx++;
+
+          if (RocPinToAbs.find(std::make_pair(short_typecode, ch )) == RocPinToAbs.end())
           {
-            std::cout << "Emulator::SettingMockADC:: ROC " << ihroc/2 << " Half " << half << " << Ch: " << ch << " is unconnected: " << "Skipping!" << std::endl;
+            std::cout << " \t Emulator::SettingADC:: half ROC " << nhroc  << " ch: " << ch << " is unconnected: " << "Skipping!" << std::endl;
             continue;
           }
-          //std::cout << "ROC " << ihroc/2 << " Half " << half << " Ch " << ch << " adc "<< fixedADC <<std::endl;
-
-          hData.getChannelData(ch).setAdc(fixedADC, 0);    
-
-
+          std::cout << "\t half ROC " << nhroc << " Ch " << ch << "rocpin "<<  rocpin <<" adc "<< adc <<std::endl;
+          if (rocpin != ch) std::cout << " \t Warning! : ch is " << ch << " while roc pin is " << rocpin << std::endl;
+          hData.getChannelData(rocpin).setAdc(adc, 0);    
 
         }
         rocData[ihroc] = hData;
 
-        fixedADC++; // one adc more for every hfroc
-        globalhROCIdx++;
       }
 
-   
+
       std::cout << "\n--- Running HGCROC Emulation ---" << std::endl;
       TPGFEModuleEmulation::HGCROCTPGEmulation rocEmul(cfgs);
       std::map<uint32_t, TPGFEDataformat::ModuleTcData> allModTcData;
-      rocEmul.Emulate(false, globalEcontIdx, rocData, allModTcData);
+      rocEmul.Emulate(false, short_typecode, globalEcontIdx, rocData, allModTcData);
 
-      
+   
       std::cout << "\n--- Running ECON-T Emulation ---" << std::endl;
       TPGFEModuleEmulation::ECONTEmulation econtEmul(cfgs);
       econtEmul.disableTcSafety = true;
       TPGFEDataformat::TcModulePacket econtOutput;
 
-      econtEmul.Emulate(false, globalEcontIdx, allModTcData, econtOutput);
+      econtEmul.Emulate(false, short_typecode, globalEcontIdx, allModTcData, econtOutput);
       econtOutput.second.print();
 
       globalEcontIdx++; // counter for total econts
     }
   }
-std::cout << "--------------------  Dummy emulator end -------------------------------- " << std::endl;
 
 
 }

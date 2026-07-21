@@ -18,7 +18,7 @@ namespace TPGFEModuleEmulation{
   public:
     HGCROCTPGEmulation( TPGFEConfiguration::Configuration& cfgs) : configs(cfgs) {}
     //The following emulation function performs 1) pedestal subtraction, 2) linearization, 3) compression
-    void Emulate(bool isSim, uint32_t& moduleId, std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>&, std::map<uint32_t,TPGFEDataformat::ModuleTcData>&);
+    void Emulate(bool isSim,  const std::string& typecode, uint32_t& moduleId, std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>&, std::map<uint32_t,TPGFEDataformat::ModuleTcData>&);
     
     uint16_t CompressHgroc(uint32_t val, bool isldm){ // isldm stand for "is low density mode". It is determined by the SelTC4 parameter of HGCROC.
       
@@ -64,9 +64,8 @@ namespace TPGFEModuleEmulation{
     TPGFEConfiguration::Configuration& configs;
   };
   
-  void HGCROCTPGEmulation::Emulate(bool isSim, uint32_t& moduleId, std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>& rocdata, std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata){
+  void HGCROCTPGEmulation::Emulate(bool isSim, const std::string& typecode,  uint32_t& moduleId, std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>& rocdata, std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata){
   
-    const std::string& typecode = "ML-F"; // FIXME read from CFG
     const std::map<std::tuple<uint32_t,uint32_t,uint32_t>,std::string>& modNameMap = configs.getModIdxToName();
 
 
@@ -173,7 +172,7 @@ namespace TPGFEModuleEmulation{
     ~ECONTEmulation() {}
     
     //The following emulation function performs 1) decompression, 2) calibration, 3) compression
-    void Emulate(bool isSim, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&, TPGFEDataformat::TcModulePacket& );
+    void Emulate(bool isSim, const std::string& typecode, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&, TPGFEDataformat::TcModulePacket& );
 
 
 
@@ -181,10 +180,10 @@ namespace TPGFEModuleEmulation{
       bool isSim,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&
     );
     void EmulateBC(
-      bool isSim,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&
+      bool isSim, const std::string& typecode,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&
     );
     void Emulate(
-      bool isSim,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&
+      bool isSim, const std::string& typecode, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&
     );
 
     
@@ -425,16 +424,16 @@ namespace TPGFEModuleEmulation{
   };
 
   void ECONTEmulation::Emulate(
-    bool isSim,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata, TPGFEDataformat::TcModulePacket& econtOut
+    bool isSim,  const std::string& typecode, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata, TPGFEDataformat::TcModulePacket& econtOut
   )
   {
-    Emulate(isSim,  moduleId, moddata);
+    Emulate(isSim,  typecode, moduleId, moddata);
     econtOut=emulOut;
   }
 
 
   void ECONTEmulation::Emulate(
-    bool isSim,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata
+    bool isSim,  const std::string& typecode,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata
   )
   {
 
@@ -445,7 +444,7 @@ namespace TPGFEModuleEmulation{
     const TPGFEDataformat::Type& outputType = configs.getEconTPara().at(moduleId).getOutType();
 
     if(outputType==TPGFEDataformat::BestC) 
-      EmulateBC(isSim, moduleId, moddata);
+      EmulateBC(isSim, typecode,  moduleId, moddata);
     else if(outputType==TPGFEDataformat::STC4A or outputType==TPGFEDataformat::STC4B or outputType==TPGFEDataformat::STC16 or TPGFEDataformat::CTC4A or TPGFEDataformat::CTC4B)
       EmulateSTC(isSim,  moduleId, moddata);
   }
@@ -621,12 +620,11 @@ namespace TPGFEModuleEmulation{
 
 
   
-  void ECONTEmulation::EmulateBC(bool isSim, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata) 
+  void ECONTEmulation::EmulateBC(bool isSim, const std::string& typecode, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata) 
   {
     isVerbose = true;
     const std::map<std::tuple<uint32_t,uint32_t,uint32_t>,std::string>& modNameMap = configs.getModIdxToName();
     const std::map<uint32_t,uint32_t>& refMuxMap = configs.getMuxMapping() ;
-    const std::string& typecode = "ML-F";
     uint32_t dropLSB = configs.getEconTPara().at(moduleId).getDropLSB() ;
     const std::map<std::string,std::vector<uint32_t>>& modTClist = configs.getSiModTClist();
     const std::vector<uint32_t>& tclist = modTClist.at(typecode) ;
