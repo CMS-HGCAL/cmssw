@@ -352,14 +352,9 @@ namespace TPGFEConfiguration{
    }
 
 
-  //void Configuration::readRocConfigYaml(const std::string& modName)
   void Configuration::setRocConfig( uint32_t hrocidx, HGCalECONTConfig econtCfg)
   {
 
-    //const uint32_t nhfrocs = (pck.getDetType()==0)?getSiModNhroc(modName):getSciModNhroc(modName);
-    const uint32_t nhfrocs = 6; // FIXME read it from econd cfg, dummy value at 6
-
-    const uint32_t nrocs = TMath::CeilNint(nhfrocs/2);
     //const uint32_t nchs = 2*TPGFEDataformat::HalfHgcrocData::NumberOfChannels;
 
     // FIXME read from cfg, atm dummy values
@@ -368,9 +363,7 @@ namespace TPGFEConfiguration{
     uint32_t multfactor = 1;
     uint32_t dummy_tot_th = 0;
     uint32_t dummy_tot_p = 0;
-    //uint32_t hrocid = hroccfg.size();
 
-    //for(uint32_t ihroc=0;ihroc<nhfrocs;ihroc++){
       TPGFEConfiguration::ConfigHfROC hroc;
       hroc.setSelTC4(!econtCfg.density);
       hroc.setAdcTH(th);
@@ -398,7 +391,6 @@ namespace TPGFEConfiguration{
       //     hrocchcfg[pck.packChId(rocid_1,chnl)] = ch_1;
       //   }
       // }//channel loop
-    //}//roc loop
     //std::cout<<"============"<<std::endl;  
   }//end of read ped class
 
@@ -413,17 +405,15 @@ namespace TPGFEConfiguration{
   {
     // FIXME fix config and read from
     uint32_t dummyCalib = 0x800; //this corresponds to the default value of unit gain
-    //bool isFirst = true;
-    //if(auto search_it = econTcfg.find(idx) ;  search_it != econTcfg.end()) isFirst = false;
-    
+   
     TPGFEConfiguration::ConfigEconT econt;
-    //if (!isFirst) econt = econTcfg[idx];
     econt.setSelect(econtCfg.select);
     econt.setDensity(uint32_t(econtCfg.density));
     econt.setDropLSB(econtCfg.dropLSB);
     econt.setSTCType(econtCfg.stcType);
     econt.setNElinks(econtCfg.eportTxNumen);
     econt.setMSSumType(econtCfg.sumType);
+    
     for(uint32_t itc=0;itc<48;itc++) {
       econt.setInputMux(itc,econtCfg.tcMux[itc]); // Use identity mapping as default
       econt.setCalibration(itc,dummyCalib);
