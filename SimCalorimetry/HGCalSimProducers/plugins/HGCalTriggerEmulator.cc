@@ -51,6 +51,7 @@ private:
   const edm::EDGetTokenT<hgcaldigi::HGCalDigiHost> digisToken_;
   const edm::EDPutTokenT<hgcaldigi::HGCalDigiTriggerHost> digisTriggerToken_;
   edm::ESGetToken<HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexInfoToken_;
+  edm::ESGetToken<hgcal::HGCalMappingCellParamHost, HGCalElectronicsMappingRcd> cellToken_;
   edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIdxToken_;
   edm::ESGetToken<HGCalMappingModuleIndexerTrigger, HGCalElectronicsMappingRcd> moduleTriggerIdxToken_;
   edm::ESGetToken<HGCalTriggerConfiguration, HGCalModuleConfigurationRcd> configToken_;
@@ -70,6 +71,7 @@ private:
 HGCalTriggerEmulator::HGCalTriggerEmulator(const edm::ParameterSet& iConfig) 
     : digisToken_(consumes<hgcaldigi::HGCalDigiHost>(iConfig.getParameter<edm::InputTag>("src"))),
       denseIndexInfoToken_(esConsumes()),
+      cellToken_(esConsumes()),
       moduleIdxToken_(esConsumes()),
       moduleTriggerIdxToken_(esConsumes()),
       configToken_(esConsumes()) {}
@@ -90,6 +92,9 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
   const auto& digis = iEvent.getHandle(digisToken_);
   const auto& digis_view = digis->const_view();
   int32_t ndigis = digis_view.metadata().size();
+
+  auto const& cellInfo = iSetup.getData(cellToken_);
+  auto const& cellInfo_view = cellInfo.const_view();
   const auto& denseIndexInfo = iSetup.getData(denseIndexInfoToken_);
   const auto& denseIndexInfo_view = denseIndexInfo.const_view();
   int32_t ndii = denseIndexInfo_view.metadata().size();
@@ -107,7 +112,6 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
   //cfgs.readSciChMapping();
   cfgs.loadMuxMapping();
 
-  std::map<uint32_t, TPGFEDataformat::HalfHgcrocData> rocData;
    
   std::map<std::string, std::pair<uint32_t, uint32_t>> typecodeMap = moduleTriggerIndexer.typecodeMap();
   uint32_t globalEcontIdx = 0;  
@@ -122,7 +126,12 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
     std::cout << "Emulator:: starts emulation of Fed Id: " << ifed << std::endl;
     HGCalTriggerFedConfig fedConfig = config.feds[ifed];
 
+    const std::map<std::pair<std::string,uint32_t>,uint32_t> RocPinToAbs = cfgs.getSiRocpinToAbsSeq();
 
+    //const std::map<std::pair<std::string,uint32_t>,uint32_t> SiTCToROCpin = cfgs.getSiTCToROCpin();
+    // for (const auto& [key, value] : SiTCToROCpin) {
+    //           std::cout << key.first << " TC" <<  key.second << " : rocpin " << value << '\n';
+    // }  
     for (std::size_t itdaq = 0; itdaq < fedConfig.tdaqs.size(); itdaq++) {
       HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[itdaq];
       //std::cout << "fed[" << std::dec << ifed << "].tdaq[" << itdaq 
@@ -134,6 +143,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
     
       //std::cout << " with " << std::dec << tdaqConfig.econts.size() << " active ECON-Ts" << std::endl;
       for(unsigned int iecont=0; iecont<tdaqConfig.econts.size(); iecont++){
+        std::map<uint32_t, TPGFEDataformat::HalfHgcrocData> rocData;
 
         // getting typecode of econt by inverting the typecode map 
         std::string typecode;
@@ -153,7 +163,10 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         //std::cout << "typecode " << typecode << " and short " << short_typecode <<  std::endl;
         
       
-        std::cout << "-------------------- iecont " << globalEcontIdx << " typecode " << typecode << "--------------------------------"<<std::endl;
+        std::cout << "----------------- iecont " << globalEcontIdx 
+                  << " typecode " << typecode 
+                  << " module type " << moduleTriggerIndexer.getTypeForModule(ifed,globalEcontIdx) 
+                  << "-------------------"<<std::endl;
         std::cout << "\n--- Preapera hgroc cfg and read ADC from DAQ DIGIs ---" << std::endl;
 
 
@@ -168,9 +181,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         HGCalECONTConfig econtConfig = tdaqConfig.econts[iecont];
         cfgs.setEconTConfig(globalEcontIdx, econtConfig);
 
-
-        const std::map<std::pair<std::string,uint32_t>,uint32_t> RocPinToAbs = cfgs.getSiRocpinToAbsSeq();
-
+   
         for (uint32_t ihroc = 0; ihroc < nhfrocs; ++ihroc) {
 
           cfgs.setRocConfig(ihroc, econtConfig);
@@ -178,30 +189,41 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           hData.setBx(bx);
 
           std::cout << "ihroc : " << ihroc << " | Setting ADC for HGROC channels." << std::endl;
-          uint32_t half = (ihroc%2 == 0 ? 1 : 0 );
 
 
           for (uint32_t ch = 0; ch < 37; ++ch)  {
+
+            uint32_t cellInfoIdx(denseIndexInfo_view.cellInfoIdx()[digi_idx]);
+            if (cellInfo_view.iscalib()[cellInfoIdx]) {
+              std::cout << " \t Emulator::SettingADC:: ch " << ch << " is calibration, " << " skipping!" << std::endl;
+              digi_idx++;
+              continue;
+
+            } 
+
             auto indexinfo = denseIndexInfo_view[digi_idx];
             auto digidaq = digis_view[digi_idx];
 
-            uint32_t fedreadoutseq = indexinfo.fedReadoutSeq();
             uint32_t chidx = indexinfo.chNumber();
-            uint32_t modidx = indexinfo.modInfoIdx();
             uint32_t adc = digidaq.adc();
             uint32_t nhroc = chidx/37;
-            uint32_t rocpin = chidx%37;
-                
-            digi_idx++;
+            uint32_t hrocch = chidx%37;
 
-            if (RocPinToAbs.find(std::make_pair(short_typecode, ch )) == RocPinToAbs.end())
-            {
-              std::cout << " \t Emulator::SettingADC:: half ROC " << nhroc  << " ch: " << ch << " is unconnected: " << "Skipping!" << std::endl;
-              continue;
-            }
-            std::cout << "\t half ROC " << nhroc << " Ch " << ch << "rocpin "<<  rocpin <<" adc "<< adc <<std::endl;
-            if (rocpin != ch) std::cout << " \t Warning! : ch is " << ch << " while roc pin is " << rocpin << std::endl;
-            hData.getChannelData(rocpin).setAdc(adc, 0);    
+            uint32_t nroc = chidx/72;
+
+
+            // if (RocPinToAbs.find(std::make_pair(short_typecode, rocpin )) == RocPinToAbs.end())
+            // {
+            //   std::cout << " \t Emulator::SettingADC:: half ROC " << nhroc  << " ch: " << ch << " is unconnected: " << "Skipping!" << std::endl;
+            //   digi_idx++;
+
+            //   continue;
+            // }
+            std::cout << "\t half ROC " << nhroc << " Ch " << hrocch << " adc "<< adc <<std::endl;
+            if (hrocch > 37) std::cout << " \t Warning! : half roc ch is " << hrocch << " > 37 " << std::endl;
+            hData.getChannelData(hrocch).setAdc(adc, 0);    
+            
+            digi_idx++;
 
           }
           rocData[ihroc] = hData;

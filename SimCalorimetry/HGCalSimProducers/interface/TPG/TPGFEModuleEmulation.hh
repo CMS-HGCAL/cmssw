@@ -66,9 +66,6 @@ namespace TPGFEModuleEmulation{
   
   void HGCROCTPGEmulation::Emulate(bool isSim, const std::string& typecode,  uint32_t& moduleId, std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>& rocdata, std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata){
   
-    const std::map<std::tuple<uint32_t,uint32_t,uint32_t>,std::string>& modNameMap = configs.getModIdxToName();
-
-
     const std::map<std::string,std::vector<uint32_t>>& modTClist = configs.getSiModTClist(); // FIXME read the type of module
     const std::vector<uint32_t>& tclist = modTClist.at(typecode);
     const std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>& tcPinMap = configs.getSiTCToROCpin(); // FIXME read the type of module
@@ -95,7 +92,6 @@ namespace TPGFEModuleEmulation{
         uint32_t rocpin = tcch%36 ; // the pin number of the channel within the ROC, which is needed for retrieving the channel data and parameters of the corresponding half-ROC.
         uint32_t rocn = TMath::Floor(tcch/72); // the ROC number
         uint32_t half = (int(TMath::Floor(tcch/36))%2==0)?0:1; // the half-ROC number
-        //uint32_t rocid = moduleId | (rocn<<1 | half);
         uint32_t rocid = 2*rocn + half;
 
         if(rocdata.find(rocid)==rocdata.end()){ // if the half-ROC data is not found in the input data, skip the channel and print warning
@@ -623,7 +619,6 @@ namespace TPGFEModuleEmulation{
   void ECONTEmulation::EmulateBC(bool isSim, const std::string& typecode, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata) 
   {
     isVerbose = true;
-    const std::map<std::tuple<uint32_t,uint32_t,uint32_t>,std::string>& modNameMap = configs.getModIdxToName();
     const std::map<uint32_t,uint32_t>& refMuxMap = configs.getMuxMapping() ;
     uint32_t dropLSB = configs.getEconTPara().at(moduleId).getDropLSB() ;
     const std::map<std::string,std::vector<uint32_t>>& modTClist = configs.getSiModTClist();
