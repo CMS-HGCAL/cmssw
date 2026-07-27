@@ -128,10 +128,6 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
     const std::map<std::pair<std::string,uint32_t>,uint32_t> RocPinToAbs = cfgs.getSiRocpinToAbsSeq();
 
-    //const std::map<std::pair<std::string,uint32_t>,uint32_t> SiTCToROCpin = cfgs.getSiTCToROCpin();
-    // for (const auto& [key, value] : SiTCToROCpin) {
-    //           std::cout << key.first << " TC" <<  key.second << " : rocpin " << value << '\n';
-    // }  
     for (std::size_t itdaq = 0; itdaq < fedConfig.tdaqs.size(); itdaq++) {
       HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[itdaq];
       //std::cout << "fed[" << std::dec << ifed << "].tdaq[" << itdaq 
@@ -159,13 +155,10 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         }
 
         std::string short_typecode = typecode.substr(0,4); 
-  
         //std::cout << "typecode " << typecode << " and short " << short_typecode <<  std::endl;
-        
-      
+              
         std::cout << "----------------- iecont " << globalEcontIdx 
                   << " typecode " << typecode 
-                  << " module type " << moduleTriggerIndexer.getTypeForModule(ifed,globalEcontIdx) 
                   << "-------------------"<<std::endl;
         std::cout << "\n--- Preapera hgroc cfg and read ADC from DAQ DIGIs ---" << std::endl;
 
@@ -174,8 +167,6 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         uint32_t digi_idx =  moduleIndexer.getIndexForModuleData(typecode);
   
         uint32_t nhfrocs = cfgs.getSiModNhroc(short_typecode);
-
-
         std::cout << "Number of half rocs " << nhfrocs << std::endl;
 
         HGCalECONTConfig econtConfig = tdaqConfig.econts[iecont];
