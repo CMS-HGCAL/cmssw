@@ -126,8 +126,6 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
     std::cout << "Emulator:: starts emulation of Fed Id: " << ifed << std::endl;
     HGCalTriggerFedConfig fedConfig = config.feds[ifed];
 
-    const std::map<std::pair<std::string,uint32_t>,uint32_t> RocPinToAbs = cfgs.getSiRocpinToAbsSeq();
-
     for (std::size_t itdaq = 0; itdaq < fedConfig.tdaqs.size(); itdaq++) {
       HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[itdaq];
       //std::cout << "fed[" << std::dec << ifed << "].tdaq[" << itdaq 
@@ -202,14 +200,6 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
             uint32_t nroc = chidx/72;
 
-
-            // if (RocPinToAbs.find(std::make_pair(short_typecode, rocpin )) == RocPinToAbs.end())
-            // {
-            //   std::cout << " \t Emulator::SettingADC:: half ROC " << nhroc  << " ch: " << ch << " is unconnected: " << "Skipping!" << std::endl;
-            //   digi_idx++;
-
-            //   continue;
-            // }
             std::cout << "\t half ROC " << nhroc << " Ch " << hrocch << " adc "<< adc <<std::endl;
             if (hrocch > 37) std::cout << " \t Warning! : half roc ch is " << hrocch << " > 37 " << std::endl;
             hData.getChannelData(hrocch).setAdc(adc, 0);    
