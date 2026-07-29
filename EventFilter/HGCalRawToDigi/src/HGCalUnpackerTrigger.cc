@@ -135,7 +135,10 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                     uint8_t prevSubpacketSize =   tsh->subpacketSize();
                     tsh = tsh->nextSubpacketHeader(); // going to next subpacket
                     
-                    std::unique_ptr<uint16_t[]> S1Tcs(new uint16_t[15]); // allocate 15 to handle tiles as well (6 + 9 TCs), to read stage I output
+                    // Allocate 15 entries to handle tiles as well (6 + 9 TCs).
+                    // Not every subpacket layout supplies all Stage-1 TX words,
+                    // so value-initialize the buffer before reading from it.
+                    std::unique_ptr<uint16_t[]> S1Tcs(new uint16_t[15]());
 
                     //std::cout << "So its a " << tsh->channelId()%2 << std::endl; 
                     if (tsh->channelId()%2 == 0){ // is a RX subpacket, reading toghether the next tpg subpacket (second tdaq)
@@ -255,6 +258,15 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                         
                         uint32_t econTId = iecon + econTOffset; //unique per fedId
                         uint32_t econtDenseIdx = moduleIndexer.getIndexForModule(fedId, econTId);
+                        bool isSiPM = false;
+                        for (const auto& [typecode, fedAndModule] : moduleIndexer.typecodeMap()) {
+                            if (fedAndModule.first == fedId &&
+                                moduleIndexer.getIndexForModule(typecode) == econtDenseIdx) {
+                                isSiPM = HGCalMappingModuleIndexerTrigger::getCellType(typecode).first;
+                                break;
+                            }
+                        }
+                        const bool isSecondTile = isSiPM && econTId == 10;
                         //std::cout <<  "ECONT dense "<< econtDenseIdx << " econtid " << econTId << std::endl;
                         if (bx == 0) {
                             econtPacketInfo.view()[econtDenseIdx].exception() = (1 << hgcaldigi::ECONTUnpackingFlags::NormalUnpacking);
@@ -331,8 +343,11 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                             if (bx == 3 ) {
 
                                 econtPacketInfo.view()[econtDenseIdx].nTCs() = uint8_t(cfgecont.getNofTCs());
-                                if (econTId!= 10) econtPacketInfo.view()[econtDenseIdx].TCEnergy_Stage1()(0,itc) = uint16_t((( S1Tcs[itc] >> 6) & (0x1ff))) ; // getting the decoded energy
-                                else econtPacketInfo.view()[econtDenseIdx].TCEnergy_Stage1()(0,itc) = uint16_t((( S1Tcs[itc + 9] >> 6) & (0x1ff))) ; //for the special case of the second tile
+                                const uint32_t stage1TC = isSecondTile ? itc + 9 : itc;
+                                if (stage1TC < 15) {
+                                    econtPacketInfo.view()[econtDenseIdx].TCEnergy_Stage1()(0,itc) =
+                                        uint16_t((S1Tcs[stage1TC] >> 6) & 0x1ff);
+                                }
 
                                 // std::cout   << "Econt idx " << econTId
                                 //             << " MS encoded " <<  digisTrigger.view()[denseIdx].encodedTotE()(bx,0) 
