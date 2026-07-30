@@ -66,24 +66,25 @@ namespace TPGFEModuleEmulation{
   
   void HGCROCTPGEmulation::Emulate(bool isSim, const std::string& typecode,  uint32_t& moduleId, std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>& rocdata, std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata){
   
-    const std::map<std::string,std::vector<uint32_t>>& modTClist = configs.getSiModTClist(); // FIXME read the type of module
-    const std::vector<uint32_t>& tclist = modTClist.at(typecode);
-    const std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>& tcPinMap = configs.getSiTCToROCpin(); // FIXME read the type of module
+    const std::map<uint32_t,std::vector<uint32_t>>& tcPinMap = configs.getSiTCToChModule(); // FIXME read the type of module
 
     uint16_t bx = 0xFFFF;
-    const uint32_t nTCs = tclist.size(); //read it from cfg econt
+    const uint32_t nTCs = tcPinMap.size(); //read it from cfg econt
     bool selTC4 = 0;
     TPGFEDataformat::ModuleTcData mdata;
     mdata.setNofTCs(nTCs);
-    for(const auto& itc : tclist)
+    //for (const auto& [itc, pinlist] : tcPinMap) {
+    for (auto it = tcPinMap.begin(); it != tcPinMap.end(); ++it)	    
     { // loop over TCs of the module
+      auto itc = it->first;
       std::cout << "TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: tclist["<<itc<<"] " << std::endl;
-      const std::vector<uint32_t>& pinlist = tcPinMap.at(std::make_pair(typecode,itc)) ; //the sensor channels corresponding to the TC
       uint32_t totadc = 0; // accumulated charge of the TC, which will be compressed and stored in the output TcData. For simulation, it is either accumulated ADC or TOT depending on the signal type; for beam-test data, it is the accumulated ADC after pedestal subtraction and threshold cut, or the accumulated TOT after threshold cut and pedestal correction, depending on the signal type.
       bool isTot = false; // stand for whether the TC is triggered by TOT signal
       bool isTcTp1 = false; // stand for whether the TC is triggered by a channel with TC/Tp flag = 1
       bool isTcTp2 = false; // TC means trigger cell, and Tp means pass through. The TC/Tp flag information is provided in the input data for each channel, and is used to keep track of the signal type of the channels corresponding to the TC, which will be stored in the output TcData.
       bool isTcTp3 = false; // ...
+
+      std::vector<uint32_t> pinlist = it->second;
       for(const auto& tcch : pinlist) 
       { // loop over sensor channels corresponding to the TC
 
@@ -141,6 +142,7 @@ namespace TPGFEModuleEmulation{
             totadc += chdata.getTot(); 
         } //isCMSSW simulation of beam-test analysis
       } //loop of sensor channels
+      
       mdata.setCharge(itc, totadc);
       mdata.getTC(itc).setTot(isTot); //stand for tctp==3
       mdata.getTC(itc).setTcTp1(isTcTp1);
@@ -621,18 +623,17 @@ namespace TPGFEModuleEmulation{
     isVerbose = true;
     const std::map<uint32_t,uint32_t>& refMuxMap = configs.getMuxMapping() ;
     uint32_t dropLSB = configs.getEconTPara().at(moduleId).getDropLSB() ;
-    const std::map<std::string,std::vector<uint32_t>>& modTClist = configs.getSiModTClist();
-    const std::vector<uint32_t>& tclist = modTClist.at(typecode) ;
-
+ 
     const TPGFEDataformat::Type& outputType = configs.getEconTPara().at(moduleId).getOutType();
     const TPGFEDataformat::ModuleTcData& mdata = moddata.at(moduleId);
 
+    uint32_t nTCs =  mdata.getNofTCs();
     uint16_t bx = (mdata.getBx()==3564) ? 0xF : mdata.getBx() & 0x7 ; //make 8 modulo
     uint64_t decompressedMS = 0;
     std::vector<TPGFEDataformat::TcRawData> tcrawdatalist;
     TPGFEDataformat::TcRawData tcdata;
 
-    for(const auto& econtc : tclist)
+    for(uint32_t econtc = 0; econtc < nTCs;  econtc++)
     {
       uint32_t hgctc = configs.getEconTPara().at(moduleId).getInputMux(econtc) ;
       bool hasFound = false;

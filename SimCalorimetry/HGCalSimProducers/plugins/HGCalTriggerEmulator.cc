@@ -103,13 +103,10 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
   const HGCalMappingModuleIndexer& moduleIndexer = iSetup.getData(moduleIdxToken_);
   const HGCalMappingModuleIndexerTrigger& moduleTriggerIndexer = iSetup.getData(moduleTriggerIdxToken_);
 
+
   TPGFEConfiguration::Configuration cfgs;
   // Load channel mappings
-  cfgs.setSiChMapFile("/data/fcetorel/work/tpgEmulator/CMSSW_16_1_0/src/HGCalCommissioning/Calibrations/P5/maps/WaferCellMapTraces.txt");
-  //cfgs.setSciChMapFile("cfgmap/channels_sipmontile_HDtypes.hgcal.txt");
   cfgs.initId();
-  cfgs.readSiChMapping();
-  //cfgs.readSciChMapping();
   cfgs.loadMuxMapping();
 
    
@@ -163,12 +160,15 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
         // getting the first idx of DAQ ADC data
         uint32_t digi_idx =  moduleIndexer.getIndexForModuleData(typecode);
-  
-        uint32_t nhfrocs = cfgs.getSiModNhroc(short_typecode);
+
+        uint32_t nhfrocs = 6;
+        if (typecode.substr(1,1) == "H") nhfrocs = 12; // FIXME adding partials
         std::cout << "Number of half rocs " << nhfrocs << std::endl;
 
         HGCalECONTConfig econtConfig = tdaqConfig.econts[iecont];
         cfgs.setEconTConfig(globalEcontIdx, econtConfig);
+        
+        std::map< uint32_t, std::vector<uint32_t> >  SiTCToROCpin;
 
    
         for (uint32_t ihroc = 0; ihroc < nhfrocs; ++ihroc) {
@@ -177,33 +177,38 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           TPGFEDataformat::HalfHgcrocData hData;
           hData.setBx(bx);
 
-          std::cout << "ihroc : " << ihroc << " | Setting ADC for HGROC channels." << std::endl;
+          std::cout << "ihroc : " << ihroc << " | Setting ADC for half HGROC channels." << std::endl;
 
 
           for (uint32_t ch = 0; ch < 37; ++ch)  {
 
             uint32_t cellInfoIdx(denseIndexInfo_view.cellInfoIdx()[digi_idx]);
-            if (cellInfo_view.iscalib()[cellInfoIdx]) {
-              std::cout << " \t Emulator::SettingADC:: ch " << ch << " is calibration, " << " skipping!" << std::endl;
+
+
+            //auto indexinfo = denseIndexInfo_view[digi_idx];
+            auto digidaq = digis_view[digi_idx];
+            uint16_t rocpin = cellInfo_view.rocpin()[cellInfoIdx];
+            uint16_t roc = cellInfo_view.chip()[cellInfoIdx];
+            uint16_t half = cellInfo_view.half()[cellInfoIdx];
+            uint16_t TrLink = cellInfo_view.triglink()[cellInfoIdx];
+            uint16_t TrCell = cellInfo_view.trigcell()[cellInfoIdx];
+            //uint32_t chidx = indexinfo.chNumber(); //
+
+
+            if (cellInfo_view.t()[cellInfoIdx] < 1) { // calibration 0, unconnected -1, normal 1
+              std::cout << " \t Emulator::SettingADC:: ch " << ch << " rocpin " << rocpin << " is calibration or unconnected  " << cellInfo_view.t()[cellInfoIdx]  << " skipping!" << std::endl;
               digi_idx++;
               continue;
 
             } 
-
-            auto indexinfo = denseIndexInfo_view[digi_idx];
-            auto digidaq = digis_view[digi_idx];
-
-            uint32_t chidx = indexinfo.chNumber();
+            uint32_t absTC = (cellInfo_view.isHD()[cellInfoIdx]==0) ? (roc*16 + TrLink*4 + TrCell) : (roc*8 + TrLink*2 + TrCell) ;
             uint32_t adc = digidaq.adc();
-            uint32_t nhroc = chidx/37;
-            uint32_t hrocch = chidx%37;
+            //uint32_t rocid = 2*roc + half;
+            std::cout << "\t rocpin " << rocpin << " chip " << roc << " TrLink " << TrLink << " TrCell " << TrCell << " TC " << absTC << std::endl;          
+            std::cout << "\t ihROC " << ihroc << " ROC" << roc << " Half " << half << " rocpin " << rocpin << " ch " << roc*72 + rocpin << " adc "<< adc <<std::endl;
 
-            uint32_t nroc = chidx/72;
-
-            std::cout << "\t half ROC " << nhroc << " Ch " << hrocch << " adc "<< adc <<std::endl;
-            if (hrocch > 37) std::cout << " \t Warning! : half roc ch is " << hrocch << " > 37 " << std::endl;
-            hData.getChannelData(hrocch).setAdc(adc, 0);    
-            
+            hData.getChannelData(rocpin%36).setAdc(adc, 0);    
+            SiTCToROCpin [absTC].push_back(roc*72 + rocpin);
             digi_idx++;
 
           }
@@ -211,6 +216,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
         }
 
+        cfgs.setSiTCToChModule(SiTCToROCpin);
 
         std::cout << "\n--- Running HGCROC Emulation ---" << std::endl;
         TPGFEModuleEmulation::HGCROCTPGEmulation rocEmul(cfgs);

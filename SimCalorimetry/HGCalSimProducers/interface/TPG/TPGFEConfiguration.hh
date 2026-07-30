@@ -120,8 +120,6 @@ namespace TPGFEConfiguration{
       Configuration() {initId(); setTrainEWIndices(0,'w',0);}
     
       //setters
-      void setSiChMapFile(std::string mapfile) {SiMapfname = mapfile;}
-      void setSciChMapFile(std::string mapfile) {SciMapfname = mapfile;}
       void loadMuxMapping();
       void setRocPara(const std::map<uint32_t,TPGFEConfiguration::ConfigHfROC>& cfghroc){
         for(auto const& hroc : cfghroc) hroccfg[hroc.first] = cfghroc.at(hroc.first);
@@ -146,8 +144,8 @@ namespace TPGFEConfiguration{
       }
     
       //Read the channel <--> pin mapping from text file
-      void readSiChMapping();
-      void readSciChMapping();
+      void setSiTCToChModule(std::map<uint32_t,std::vector<uint32_t>> TctoCh ) { SiTCToCh = TctoCh ;}
+      // FIXME implement similar thing for tiles
     
       //set the ROC ECONT configs from cmssw data formats
       void setRocConfig(uint32_t hrocidx, HGCalECONTConfig econtCfg);
@@ -155,27 +153,12 @@ namespace TPGFEConfiguration{
 
       void setPedThZero(); //set the pedestal and thresholds to zero
       void setPedZero(); //set only the ped values to zero keep the other roc config values as loaded from config
-      
+
+
+
       //getters
-      const uint32_t getSiModNhroc(std::string typecode) { return  SiModNhroc[typecode];}
-      const uint32_t getSciModNhroc(std::string typecode) { return  SciModNhroc[typecode];}
-      const std::map<std::string,std::vector<uint32_t>>& getSiModTClist() { return  SiModTClst;}
-      const std::map<std::string,std::vector<uint32_t>>& getSiModSTClist() { return  SiModSTClst;}
-      const std::map<std::string,std::vector<uint32_t>>& getSiModSTC16list() { return  SiModSTC16lst;}
-      const std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>& getSiTCToROCpin() {return  SiTCToROCpin;}
-      const std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>& getSiSTCToTC() {return  SiSTCToTC;}
-      const std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>& getSiSTC16ToTC() {return  SiSTC16ToTC;}
-      const std::map<std::pair<std::string,std::tuple<uint32_t,uint32_t,uint32_t>>,uint32_t>& getSiSeqToROCpin() {return SiSeqToRocpin;}
-      const std::map<std::pair<std::string,uint32_t>,uint32_t>& getSiRocpinToAbsSeq() {return SiRocpinToAbsSeq;}
-      
-      const std::map<std::string,std::vector<uint32_t>>& getSciModTClist() { return  SciModTClst;}
-      const std::map<std::string,std::vector<uint32_t>>& getSciModSTClist() { return  SciModSTClst;}
-      const std::map<std::string,std::vector<uint32_t>>& getSciModSTC16list() { return  SciModSTC16lst;}
-      const std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>& getSciTCToROCpin() {return  SciTCToROCpin;}
-      const std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>& getSciSTCToTC() {return  SciSTCToTC;}
-      const std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>& getSciSTC16ToTC() {return  SciSTC16ToTC;}
-      const std::map<std::pair<std::string,std::tuple<uint32_t,uint32_t,uint32_t>>,uint32_t>& getSciSeqToROCpin() {return SciSeqToRocpin;}
-      const std::map<std::pair<std::string,uint32_t>,uint32_t>& getSciRocpinToAbsSeq() {return SciRocpinToAbsSeq;}
+      std::map<uint32_t,std::vector<uint32_t>>& getSiTCToChModule(){return SiTCToCh;};
+      // FIXME implement same for tiles
       
       const std::map<std::tuple<uint32_t,uint32_t,uint32_t>,std::string>& getModIdxToName() {return modIdxToName;}
       const std::map<uint32_t,uint32_t>& getMuxMapping() {return refMuxMap;}
@@ -189,26 +172,9 @@ namespace TPGFEConfiguration{
     private:
 
       //channel <--> pin mapping and related variables
-      std::string SiMapfname ;
-      std::map<std::string,std::vector<uint32_t>>  SiModTClst ; std::map<std::string,std::vector<uint32_t>>  SiModSTClst; std::map<std::string,std::vector<uint32_t>>  SiModSTC16lst;
-      std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>  SiTCToROCpin; std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>  SiTCToIJ;
-      //std::map<std::pair<std::string,uint32_t>,uint32_t>  SiROCpinToTC; std::map<std::pair<std::string,uint32_t>,uint32_t>  SiIJToTC;
-      //std::map<std::pair<std::string,uint32_t>,uint32_t>  SiTCToSTC;
-      std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>  SiSTCToTC; std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>  SiSTC16ToTC;
-      std::map<std::string,uint32_t> SiModNhroc;
-      std::map<std::pair<std::string,std::tuple<uint32_t,uint32_t,uint32_t>>,uint32_t>  SiSeqToRocpin;
-      std::map<std::pair<std::string,uint32_t>,uint32_t>  SiRocpinToAbsSeq;
+      std::map<uint32_t,std::vector<uint32_t>> SiTCToCh;
       
-      std::string SciMapfname ;
-      std::map<std::string,std::vector<uint32_t>>  SciModTClst ; std::map<std::string,std::vector<uint32_t>>  SciModSTClst; std::map<std::string,std::vector<uint32_t>>  SciModSTC16lst;
-      std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>  SciTCToROCpin; std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>  SciTCToIJ;
-      //std::map<std::pair<std::string,uint32_t>,uint32_t>  SciROCpinToTC; std::map<std::pair<std::string,uint32_t>,uint32_t>  SciIJToTC;
-      //std::map<std::pair<std::string,uint32_t>,uint32_t>  SciTCToSTC;
-      std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>  SciSTCToTC; std::map<std::pair<std::string,uint32_t>,std::vector<uint32_t>>  SciSTC16ToTC;
-      std::map<std::string,uint32_t> SciModNhroc;
-      std::map<std::pair<std::string,std::tuple<uint32_t,uint32_t,uint32_t>>,uint32_t>  SciSeqToRocpin;
-      std::map<std::pair<std::string,uint32_t>,uint32_t>  SciRocpinToAbsSeq;
-      
+            
       std::map<std::tuple<uint32_t,uint32_t,uint32_t>,std::string>  modIdxToName; //detType, LD/HD, modindex
 
       //id definition
@@ -230,127 +196,6 @@ namespace TPGFEConfiguration{
 
     
   };
-  void Configuration::readSiChMapping(){
-  
-    std::string Typecode;
-    uint32_t ROC, HalfROC, Seq;
-    std::string ROCpin;
-    uint32_t ROCCH;
-    int SiCell, TrLink, TrCell, iu, iv;
-    float trace;
-    int t;
-    //Typecode ROC HalfROC Seq ROCpin SiCell TrLink TrCell iu iv trace t
-    std::ifstream inwafermap(SiMapfname);
-    std::string s;
-    
-    int isLD = -1;
-
-    uint32_t prevHalfROC = 999;
-    std::string prevTypecode = "";
-    while(getline(inwafermap,s)){
-      //std::cout << s.size() << std::endl;
-      if(s.find("ML")!=std::string::npos or s.find("MH")!=std::string::npos){
-        //std::cout << s << std::endl;
-        std::stringstream ss(s);
-        ss >> Typecode >> ROC >> HalfROC >> Seq >> ROCpin >> SiCell  >> TrLink  >> TrCell  >> iu  >> iv  >> trace  >> t ;
-        if(ROCpin.find("CALIB")==std::string::npos and TrLink!=-1 and TrCell!=-1){
-          //std::cout << s ;//<< std::endl;
-          ROCCH = stoi(ROCpin);
-          isLD = (Typecode.find("MH-")==std::string::npos)?1:0;
-          uint32_t absTC = (isLD==1) ? (ROC*16 + TrLink*4 + TrCell) : (ROC*8 + TrLink*2 + TrCell) ;
-          uint32_t absSTC = uint32_t(TMath::FloorNint(absTC/4));
-          uint32_t absSTC16 = uint32_t(TMath::FloorNint(absTC/16));
-          uint32_t rocpin = ROC*72 + ROCCH;
-          //uint32_t iUiV = pck.packij(uint32_t(iu),uint32_t(iv)) ;
-          std::tuple<uint32_t,uint32_t,uint32_t> seqch = std::make_tuple( ROC, HalfROC, Seq);
-          uint32_t absSeq = (2*ROC+HalfROC)*37 + Seq ;
-          
-          SiTCToROCpin[std::make_pair(Typecode,absTC)].push_back( rocpin );
-          //SiTCToIJ[std::make_pair(Typecode,absTC)].push_back( iUiV );
-          // SiROCpinToTC[std::make_pair(Typecode,rocpin)] = absTC;
-          // SiIJToTC[std::make_pair(Typecode,iUiV)] = absTC;
-          SiSeqToRocpin[std::make_pair(Typecode,seqch)] = rocpin;
-          SiRocpinToAbsSeq[std::make_pair(Typecode,rocpin)] = absSeq;
-          
-          if(prevHalfROC!=HalfROC or prevTypecode.compare(Typecode)!=0){
-            if(prevTypecode.compare(Typecode)!=0){
-              SiModNhroc[Typecode] = 1;
-            }else{
-              SiModNhroc[Typecode]++;
-            }
-            prevHalfROC = HalfROC;
-            prevTypecode = Typecode ; 
-          }
-          if (std::find(SiModTClst[Typecode].begin(), SiModTClst[Typecode].end(), absTC) == SiModTClst[Typecode].end()) {
-            SiModTClst[Typecode].push_back(absTC);
-          }
-          if (std::find(SiModSTClst[Typecode].begin(), SiModSTClst[Typecode].end(), absSTC) == SiModSTClst[Typecode].end()) {
-            SiModSTClst[Typecode].push_back(absSTC);
-          }
-          if (std::find(SiModSTC16lst[Typecode].begin(), SiModSTC16lst[Typecode].end(), absSTC16) == SiModSTC16lst[Typecode].end()) {
-            SiModSTC16lst[Typecode].push_back(absSTC16);
-          }
-          // SiTCToSTC[std::make_pair(Typecode,absTC)] = absSTC;
-          if (std::find(SiSTCToTC[std::make_pair(Typecode,absSTC)].begin(), SiSTCToTC[std::make_pair(Typecode,absSTC)].end(), absTC) == SiSTCToTC[std::make_pair(Typecode,absSTC)].end()) {
-            SiSTCToTC[std::make_pair(Typecode,absSTC)].push_back( absTC );
-          }
-          if (std::find(SiSTC16ToTC[std::make_pair(Typecode,absSTC16)].begin(), SiSTC16ToTC[std::make_pair(Typecode,absSTC16)].end(), absTC) == SiSTC16ToTC[std::make_pair(Typecode,absSTC16)].end()) {
-            SiSTC16ToTC[std::make_pair(Typecode,absSTC16)].push_back( absTC );
-          }
-
-	        //std::cout <<"\t"<< absSTC << "\t" << absTC  <<"\t"<< rocpin <<"\t"<< iu <<"\t"<< iv << std::endl;
-	      }//skip unconnected or calibration cells
-      }//check type 
-    }//loop over files
-  
-    // Alias symmetric wafers:
-    // ML-B does not exist in WaferCellMapTraces.txt, but it is symmetric to ML-T.
-    // MH-T does not exist in WaferCellMapTraces.txt, but it is symmetric to MH-B.
-    auto aliasWafers = [&](const std::string& from, const std::string& to) {
-      if (SiModNhroc.count(from)) SiModNhroc[to] = SiModNhroc[from];
-      if (SiModTClst.count(from)) SiModTClst[to] = SiModTClst[from];
-      if (SiModSTClst.count(from)) SiModSTClst[to] = SiModSTClst[from];
-      if (SiModSTC16lst.count(from)) SiModSTC16lst[to] = SiModSTC16lst[from];
-      
-      for (const auto& pair : SiTCToROCpin) {
-        if (pair.first.first == from) {
-          SiTCToROCpin[std::make_pair(to, pair.first.second)] = pair.second;
-        }
-      }
-      for (const auto& pair : SiTCToIJ) {
-        if (pair.first.first == from) {
-          SiTCToIJ[std::make_pair(to, pair.first.second)] = pair.second;
-        }
-      }
-      for (const auto& pair : SiSeqToRocpin) {
-        if (pair.first.first == from) {
-          SiSeqToRocpin[std::make_pair(to, pair.first.second)] = pair.second;
-        }
-      }
-      for (const auto& pair : SiRocpinToAbsSeq) {
-        if (pair.first.first == from) {
-          SiRocpinToAbsSeq[std::make_pair(to, pair.first.second)] = pair.second;
-        }
-      }
-      for (const auto& pair : SiSTCToTC) {
-        if (pair.first.first == from) {
-          SiSTCToTC[std::make_pair(to, pair.first.second)] = pair.second;
-        }
-      }
-      for (const auto& pair : SiSTC16ToTC) {
-        if (pair.first.first == from) {
-          SiSTC16ToTC[std::make_pair(to, pair.first.second)] = pair.second;
-        }
-      }
-    };
-    aliasWafers("ML-T", "ML-B");
-    aliasWafers("MH-B", "MH-T");
-  }
-
-  void Configuration::readSciChMapping(){
-    std::cout << "Yet to be implemented " << std::endl;
-   }
-
 
   void Configuration::setRocConfig( uint32_t hrocidx, HGCalECONTConfig econtCfg)
   {
