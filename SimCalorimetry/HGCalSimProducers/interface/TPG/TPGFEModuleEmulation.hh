@@ -18,7 +18,7 @@ namespace TPGFEModuleEmulation{
   public:
     HGCROCTPGEmulation( TPGFEConfiguration::Configuration& cfgs) : configs(cfgs) {}
     //The following emulation function performs 1) pedestal subtraction, 2) linearization, 3) compression
-    void Emulate(bool isSim,  const std::string& typecode, uint32_t& moduleId, std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>&, std::map<uint32_t,TPGFEDataformat::ModuleTcData>&);
+    void Emulate(bool isSim,  const std::string& typecode, uint32_t& moduleId, std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>&, TPGFEDataformat::ModuleTcData&);
     
     uint16_t CompressHgroc(uint32_t val, bool isldm){ // isldm stand for "is low density mode". It is determined by the SelTC4 parameter of HGCROC.
       
@@ -64,14 +64,13 @@ namespace TPGFEModuleEmulation{
     TPGFEConfiguration::Configuration& configs;
   };
   
-  void HGCROCTPGEmulation::Emulate(bool isSim, const std::string& typecode,  uint32_t& moduleId, std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>& rocdata, std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata){
+  void HGCROCTPGEmulation::Emulate(bool isSim, const std::string& typecode,  uint32_t& moduleId, std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>& rocdata, TPGFEDataformat::ModuleTcData& mdata){
   
     const std::map<uint32_t,std::vector<uint32_t>>& tcPinMap = configs.getSiTCToChModule(); // FIXME read the type of module
 
     uint16_t bx = 0xFFFF;
     const uint32_t nTCs = tcPinMap.size(); //read it from cfg econt
     bool selTC4 = 0;
-    TPGFEDataformat::ModuleTcData mdata;
     mdata.setNofTCs(nTCs);
     //for (const auto& [itc, pinlist] : tcPinMap) {
     for (auto it = tcPinMap.begin(); it != tcPinMap.end(); ++it)	    
@@ -155,8 +154,6 @@ namespace TPGFEModuleEmulation{
     std::cout << "\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: " << std::endl;
     mdata.print();
 
-    //moddata = std::make_pair(moduleId,mdata);
-    moddata[moduleId] = mdata;
   }
 
   
@@ -166,24 +163,19 @@ namespace TPGFEModuleEmulation{
     ECONTEmulation(TPGFEConfiguration::Configuration& cfgs) : configs(cfgs) {}
     //ECONTEmulation(TPGFEConfiguration::Configuration& cfgs) : configs(cfgs), isVerbose(false), disableTcSafety(false) {}
 
-    //~ECONTEmulation() {tcrawlist.clear();} Not needed
     ~ECONTEmulation() {}
     
     //The following emulation function performs 1) decompression, 2) calibration, 3) compression
-    void Emulate(bool isSim, const std::string& typecode, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&, TPGFEDataformat::TcModulePacket& );
+    void Emulate(bool isSim, const std::string& typecode, uint32_t& moduleId, const TPGFEDataformat::ModuleTcData&, TPGFEDataformat::TcRawDataPacket& );
 
 
 
     void EmulateSTC(
-      bool isSim,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&
+      bool isSim,  uint32_t& moduleId, const TPGFEDataformat::ModuleTcData&
     );
     void EmulateBC(
-      bool isSim, const std::string& typecode,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&
+      bool isSim, const std::string& typecode,  uint32_t& moduleId, const TPGFEDataformat::ModuleTcData&, TPGFEDataformat::TcRawDataPacket&
     );
-    void Emulate(
-      bool isSim, const std::string& typecode, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>&
-    );
-
     
     const TPGFEDataformat::TcModulePacket& getTcRawDataPacket() const {return emulOut;}
     TPGFEDataformat::TcModulePacket& accessTcRawDataPacket() {return emulOut;}
@@ -422,34 +414,22 @@ namespace TPGFEModuleEmulation{
   };
 
   void ECONTEmulation::Emulate(
-    bool isSim,  const std::string& typecode, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata, TPGFEDataformat::TcModulePacket& econtOut
-  )
-  {
-    Emulate(isSim,  typecode, moduleId, moddata);
-    econtOut=emulOut;
-  }
-
-
-  void ECONTEmulation::Emulate(
-    bool isSim,  const std::string& typecode,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata
+    bool isSim,  const std::string& typecode,  uint32_t& moduleId, const TPGFEDataformat::ModuleTcData& mdata, TPGFEDataformat::TcRawDataPacket& rdp
   )
   {
 
-    emulOut.first=moduleId;
-    emulOut.second.reset();
-    std::cout << "module ID " << moduleId << std::endl;
-
+    //std::cout << "ECONT module ID " << moduleId << std::endl;
     const TPGFEDataformat::Type& outputType = configs.getEconTPara().at(moduleId).getOutType();
 
     if(outputType==TPGFEDataformat::BestC) 
-      EmulateBC(isSim, typecode,  moduleId, moddata);
+      EmulateBC(isSim, typecode,  moduleId, mdata, rdp);
     else if(outputType==TPGFEDataformat::STC4A or outputType==TPGFEDataformat::STC4B or outputType==TPGFEDataformat::STC16 or TPGFEDataformat::CTC4A or TPGFEDataformat::CTC4B)
-      EmulateSTC(isSim,  moduleId, moddata);
+      EmulateSTC(isSim,  moduleId, mdata); // FIXME to be implemented, follow BC
   }
 
   
   void ECONTEmulation::EmulateSTC(
-    bool isSim,  uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata
+    bool isSim,  uint32_t& moduleId, const TPGFEDataformat::ModuleTcData& mdata
   )
   {  
     // const std::map<std::tuple<uint32_t,uint32_t,uint32_t>,std::string>& modNameMap = configs.getModIdxToName();
@@ -477,7 +457,6 @@ namespace TPGFEModuleEmulation{
     //     if(istc>=nofSTCs) continue;
 
     //     const std::vector<uint32_t>& tclist = stcTcMap.at(std::make_pair(typecode,istc));
-    //     const TPGFEDataformat::ModuleTcData& mdata = moddata.at(moduleId);
     //     bx = (mdata.getBx()==3564) ? 0xF : mdata.getBx() & 0x7 ; 
     //     uint64_t decompressedSTC = 0;
     //     std::vector<TPGFEDataformat::TcRawData> tcrawdatalist;
@@ -563,7 +542,6 @@ namespace TPGFEModuleEmulation{
     //     bool isTcTp3 = false;
     //     if(istc16>=nofSTCs) continue;
     //     const std::vector<uint32_t>& tclist = stc16TcMap.at(std::make_pair(typecode,istc16));
-    //     const TPGFEDataformat::ModuleTcData& mdata = moddata.at(moduleId);
     //     bx = (mdata.getBx()==3564) ? 0xF : mdata.getBx() & 0x7 ; 
     //     uint64_t decompressedSTC16 = 0;
     //     std::vector<TPGFEDataformat::TcRawData> tcrawdatalist;
@@ -618,14 +596,15 @@ namespace TPGFEModuleEmulation{
 
 
   
-  void ECONTEmulation::EmulateBC(bool isSim, const std::string& typecode, uint32_t& moduleId, const std::map<uint32_t,TPGFEDataformat::ModuleTcData>& moddata) 
+  void ECONTEmulation::EmulateBC(
+      bool isSim, const std::string& typecode, uint32_t& moduleId, const TPGFEDataformat::ModuleTcData& mdata, TPGFEDataformat::TcRawDataPacket& rdp
+  ) 
   {
     isVerbose = true;
     const std::map<uint32_t,uint32_t>& refMuxMap = configs.getMuxMapping() ;
     uint32_t dropLSB = configs.getEconTPara().at(moduleId).getDropLSB() ;
  
     const TPGFEDataformat::Type& outputType = configs.getEconTPara().at(moduleId).getOutType();
-    const TPGFEDataformat::ModuleTcData& mdata = moddata.at(moduleId);
 
     uint32_t nTCs =  mdata.getNofTCs();
     uint16_t bx = (mdata.getBx()==3564) ? 0xF : mdata.getBx() & 0x7 ; //make 8 modulo
@@ -666,8 +645,8 @@ namespace TPGFEModuleEmulation{
     if(isVerbose) for(int itc=0;itc<48;itc++) tcrawdatalist[itc].print();
     
     uint16_t compressed_modsum = CompressEcontModsum(decompressedMS,dropLSB);
-    emulOut.second.reset();
-    emulOut.second.setTBM(outputType, bx, compressed_modsum, decompressedMS>>dropLSB); 
+    rdp.reset();
+    rdp.setTBM(outputType, bx, compressed_modsum, decompressedMS>>dropLSB); 
     uint32_t realTcSize = tcrawdatalist.size();
     if (realTcSize > 0 && tcrawdatalist.back().address() == 0x3f) {
       realTcSize--;
@@ -680,8 +659,7 @@ namespace TPGFEModuleEmulation{
       nofBCTcs = realTcSize;
     }
     for(uint32_t itc = 0 ; itc<nofBCTcs ; itc++)
-      emulOut.second.setTcData(outputType, tcrawdatalist[itc].address(), tcrawdatalist[itc].energy(), tcrawdatalist[itc].rawE(),tcrawdatalist[itc].isTcTp1(),tcrawdatalist[itc].isTcTp2(),tcrawdatalist[itc].isTcTp3());
-    
+      rdp.setTcData(outputType, tcrawdatalist[itc].address(), tcrawdatalist[itc].energy(), tcrawdatalist[itc].rawE(),tcrawdatalist[itc].isTcTp1(),tcrawdatalist[itc].isTcTp2(),tcrawdatalist[itc].isTcTp3());
   }//Emulate BC
   
   void ECONTEmulation::convertToElinkData(

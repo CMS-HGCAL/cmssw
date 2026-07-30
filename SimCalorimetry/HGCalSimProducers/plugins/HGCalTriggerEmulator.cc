@@ -161,8 +161,8 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         // getting the first idx of DAQ ADC data
         uint32_t digi_idx =  moduleIndexer.getIndexForModuleData(typecode);
 
-        uint32_t nhfrocs = 6;
-        if (typecode.substr(1,1) == "H") nhfrocs = 12; // FIXME adding partials
+        uint32_t nhfrocs = moduleIndexer.getNumERxs(typecode);
+        //if (typecode.substr(1,1) == "H") nhfrocs = 12; // FIXME adding partials
         std::cout << "Number of half rocs " << nhfrocs << std::endl;
 
         HGCalECONTConfig econtConfig = tdaqConfig.econts[iecont];
@@ -220,17 +220,16 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
         std::cout << "\n--- Running HGCROC Emulation ---" << std::endl;
         TPGFEModuleEmulation::HGCROCTPGEmulation rocEmul(cfgs);
-        std::map<uint32_t, TPGFEDataformat::ModuleTcData> allModTcData;
-        rocEmul.Emulate(false, short_typecode, globalEcontIdx, rocData, allModTcData);
+        TPGFEDataformat::ModuleTcData modTcData;
+        rocEmul.Emulate(false, short_typecode, globalEcontIdx, rocData, modTcData);
 
     
         std::cout << "\n--- Running ECON-T Emulation ---" << std::endl;
         TPGFEModuleEmulation::ECONTEmulation econtEmul(cfgs);
         econtEmul.disableTcSafety = true;
-        TPGFEDataformat::TcModulePacket econtOutput;
-
-        econtEmul.Emulate(false, short_typecode, globalEcontIdx, allModTcData, econtOutput);
-        econtOutput.second.print();
+        TPGFEDataformat::TcRawDataPacket rdp;
+        econtEmul.Emulate(false, short_typecode, globalEcontIdx, modTcData, rdp);
+        rdp.print();
 
         globalEcontIdx++; // counter for total econts
       }
