@@ -157,12 +157,10 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
                   << "-------------------"<<std::endl;
         std::cout << "\n--- Preapera hgroc cfg and read ADC from DAQ DIGIs ---" << std::endl;
 
-
         // getting the first idx of DAQ ADC data
         uint32_t digi_idx =  moduleIndexer.getIndexForModuleData(typecode);
 
         uint32_t nhfrocs = moduleIndexer.getNumERxs(typecode);
-        //if (typecode.substr(1,1) == "H") nhfrocs = 12; // FIXME adding partials
         std::cout << "Number of half rocs " << nhfrocs << std::endl;
 
         HGCalECONTConfig econtConfig = tdaqConfig.econts[iecont];
@@ -184,7 +182,6 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
             uint32_t cellInfoIdx(denseIndexInfo_view.cellInfoIdx()[digi_idx]);
 
-
             //auto indexinfo = denseIndexInfo_view[digi_idx];
             auto digidaq = digis_view[digi_idx];
             uint16_t rocpin = cellInfo_view.rocpin()[cellInfoIdx];
@@ -202,8 +199,14 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
             } 
             uint32_t absTC = (cellInfo_view.isHD()[cellInfoIdx]==0) ? (roc*16 + TrLink*4 + TrCell) : (roc*8 + TrLink*2 + TrCell) ;
+            if (absTC > 47) {
+              std::cout << " \t Emulator::SettingADC:: TC address " << absTC << " > 47, skipping!" << std::endl;
+              digi_idx++;
+              continue;
+            }
+
             uint32_t adc = digidaq.adc();
-            //uint32_t rocid = 2*roc + half;
+
             std::cout << "\t rocpin " << rocpin << " chip " << roc << " TrLink " << TrLink << " TrCell " << TrCell << " TC " << absTC << std::endl;          
             std::cout << "\t ihROC " << ihroc << " ROC" << roc << " Half " << half << " rocpin " << rocpin << " ch " << roc*72 + rocpin << " adc "<< adc <<std::endl;
 
@@ -215,8 +218,9 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           rocData[ihroc] = hData;
 
         }
-
+        std::cout << "Size of the TC to ROCpin map: " << SiTCToROCpin.size() << std::endl;
         cfgs.setSiTCToChModule(SiTCToROCpin);
+
 
         std::cout << "\n--- Running HGCROC Emulation ---" << std::endl;
         TPGFEModuleEmulation::HGCROCTPGEmulation rocEmul(cfgs);

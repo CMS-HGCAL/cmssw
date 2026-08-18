@@ -86,9 +86,7 @@ namespace TPGFEModuleEmulation{
       std::vector<uint32_t> pinlist = it->second;
       for(const auto& tcch : pinlist) 
       { // loop over sensor channels corresponding to the TC
-
-
-        
+       
         uint32_t rocpin = tcch%36 ; // the pin number of the channel within the ROC, which is needed for retrieving the channel data and parameters of the corresponding half-ROC.
         uint32_t rocn = TMath::Floor(tcch/72); // the ROC number
         uint32_t half = (int(TMath::Floor(tcch/36))%2==0)?0:1; // the half-ROC number
@@ -390,6 +388,8 @@ namespace TPGFEModuleEmulation{
 	      }
 	      p = floor(p/2);
       }
+      tc.pop_back(); 
+
     }
 
     uint32_t findLastMax(std::vector<TPGFEDataformat::TcRawData>& tc) {
@@ -614,6 +614,7 @@ namespace TPGFEModuleEmulation{
 
     for(uint32_t econtc = 0; econtc < nTCs;  econtc++)
     {
+      // FIXME mux implementation to be checked
       uint32_t hgctc = configs.getEconTPara().at(moduleId).getInputMux(econtc) ;
       bool hasFound = false;
       uint32_t emultc = 0xffff;
@@ -642,7 +643,7 @@ namespace TPGFEModuleEmulation{
       tcrawdatalist.push_back(tcdata);
     }
     batcherOEMSort(tcrawdatalist);
-    if(isVerbose) for(int itc=0;itc<48;itc++) tcrawdatalist[itc].print();
+    if(isVerbose) for(int itc=0;itc<int(tcrawdatalist.size());itc++) tcrawdatalist[itc].print();
     
     uint16_t compressed_modsum = CompressEcontModsum(decompressedMS,dropLSB);
     rdp.reset();

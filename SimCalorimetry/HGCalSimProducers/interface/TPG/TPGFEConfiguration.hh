@@ -240,7 +240,6 @@ namespace TPGFEConfiguration{
   }//end of read ped class
 
   void Configuration::loadMuxMapping(){
-    //uint32_t type_F_muxmap[48] = {3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12, 19, 18, 17, 16, 23, 22, 21, 20, 27, 26, 25, 24, 31, 30, 29, 28, 35, 34, 33, 32, 39, 38, 37, 36, 43, 42, 41, 40, 47, 46, 45, 44};
     uint32_t type_F_muxmap[48] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47};
     for(uint32_t itc=0;itc<48;itc++) refMuxMap[itc] = type_F_muxmap[itc];
       
@@ -258,8 +257,7 @@ namespace TPGFEConfiguration{
     econt.setSTCType(econtCfg.stcType);
     econt.setNElinks(econtCfg.eportTxNumen);
     econt.setMSSumType(econtCfg.sumType);
-    
-    for(uint32_t itc=0;itc<48;itc++) {
+    for (size_t itc = 0; itc < econtCfg.tcMux.size(); ++itc) {
       econt.setInputMux(itc,econtCfg.tcMux[itc]); // Use identity mapping as default
       econt.setCalibration(itc,dummyCalib);
     }
