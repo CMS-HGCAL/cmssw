@@ -192,19 +192,13 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
             //uint32_t chidx = indexinfo.chNumber(); //
 
 
-            if (cellInfo_view.t()[cellInfoIdx] < 1) { // calibration 0, unconnected -1, normal 1
-              std::cout << " \t Emulator::SettingADC:: ch " << ch << " rocpin " << rocpin << " is calibration or unconnected  " << cellInfo_view.t()[cellInfoIdx]  << " skipping!" << std::endl;
+            if (TrLink == uint16_t(-1) || TrCell == uint16_t(-1)) { 
+              std::cout << " \t Emulator::SettingADC:: ch " << ch << " rocpin " << rocpin << " is calibration (0), unconnected (-1), or not used in trigger sum (1): " << cellInfo_view.t()[cellInfoIdx]  << ", skipping!" << std::endl;
               digi_idx++;
               continue;
 
             } 
             uint32_t absTC = (cellInfo_view.isHD()[cellInfoIdx]==0) ? (roc*16 + TrLink*4 + TrCell) : (roc*8 + TrLink*2 + TrCell) ;
-            if (absTC > 47) {
-              std::cout << " \t Emulator::SettingADC:: TC address " << absTC << " > 47, skipping!" << std::endl;
-              digi_idx++;
-              continue;
-            }
-
             uint32_t adc = digidaq.adc();
 
             std::cout << "\t rocpin " << rocpin << " chip " << roc << " TrLink " << TrLink << " TrCell " << TrCell << " TC " << absTC << std::endl;          
