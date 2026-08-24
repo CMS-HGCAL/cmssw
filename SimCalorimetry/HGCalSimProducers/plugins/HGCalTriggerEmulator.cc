@@ -49,12 +49,13 @@ private:
 
   // ----------member data ---------------------------
   const edm::EDGetTokenT<hgcaldigi::HGCalDigiHost> digisToken_;
-  const edm::EDPutTokenT<hgcaldigi::HGCalDigiTriggerHost> digisTriggerToken_;
   edm::ESGetToken<HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexInfoToken_;
   edm::ESGetToken<hgcal::HGCalMappingCellParamHost, HGCalElectronicsMappingRcd> cellToken_;
   edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIdxToken_;
   edm::ESGetToken<HGCalMappingModuleIndexerTrigger, HGCalElectronicsMappingRcd> moduleTriggerIdxToken_;
   edm::ESGetToken<HGCalTriggerConfiguration, HGCalModuleConfigurationRcd> configToken_;
+
+  const edm::EDPutTokenT<hgcaldigi::HGCalDigiTriggerHost> emuldigisTriggerToken_;
 };
 
 //
@@ -74,8 +75,8 @@ HGCalTriggerEmulator::HGCalTriggerEmulator(const edm::ParameterSet& iConfig)
       cellToken_(esConsumes()),
       moduleIdxToken_(esConsumes()),
       moduleTriggerIdxToken_(esConsumes()),
-      configToken_(esConsumes()) {}
-     // FIXME save the output of emulator in a collection 
+      configToken_(esConsumes()),
+      emuldigisTriggerToken_(produces<hgcaldigi::HGCalDigiTriggerHost>()){}
 
 HGCalTriggerEmulator::~HGCalTriggerEmulator() {}
 //
@@ -102,30 +103,34 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
   const HGCalMappingModuleIndexer& moduleIndexer = iSetup.getData(moduleIdxToken_);
   const HGCalMappingModuleIndexerTrigger& moduleTriggerIndexer = iSetup.getData(moduleTriggerIdxToken_);
+  hgcaldigi::HGCalDigiTriggerHost emuldigisTrigger(cms::alpakatools::host(), moduleIndexer.maxDataSize());
 
+  for (int32_t i = 0; i < emuldigisTrigger.view().metadata().size(); i++) {
+    for (int32_t ibx = 0; ibx < 7; ibx++) emuldigisTrigger.view()[i].valid()(ibx,0) = false;
+    emuldigisTrigger.view()[i].algo() = 0;
+  }
 
   TPGFEConfiguration::Configuration cfgs;
-  // Load channel mappings
   cfgs.initId();
   cfgs.loadMuxMapping();
 
-   
   std::map<std::string, std::pair<uint32_t, uint32_t>> typecodeMap = moduleTriggerIndexer.typecodeMap();
-  uint32_t globalEcontIdx = 0;  
   uint16_t bx = 0; // FIXME implement extended reading
 
   for(const auto& frs :  moduleTriggerIndexer.fedReadoutSequences() ) {
     if (frs.readoutTypes_.empty()) {
       continue;
     }
-    auto ifed = frs.id;
+    auto fedId = frs.id;
+    uint32_t globalEcontIdx = 0;  
 
-    std::cout << "Emulator:: starts emulation of Fed Id: " << ifed << std::endl;
-    HGCalTriggerFedConfig fedConfig = config.feds[ifed];
+
+    std::cout << "Emulator:: starts emulation of Fed Id: " << fedId << std::endl;
+    HGCalTriggerFedConfig fedConfig = config.feds[fedId];
 
     for (std::size_t itdaq = 0; itdaq < fedConfig.tdaqs.size(); itdaq++) {
       HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[itdaq];
-      //std::cout << "fed[" << std::dec << ifed << "].tdaq[" << itdaq 
+      //std::cout << "fed[" << std::dec << fedId << "].tdaq[" << itdaq 
       //      << "], headerMarker = 0x" << std::hex << std::setfill('0') << std::setw(8) << tdaqConfig.tdaqBlockHeaderMarker << std::endl;
       if (tdaqConfig.econts.size()==0) {
         //std::cout << "with no active ECON-Ts, skipped" << std::endl;
@@ -140,7 +145,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         std::string typecode;
 
         for (const auto& it : typecodeMap){
-          if (it.second == std::make_pair(ifed, globalEcontIdx)) typecode = it.first;
+          if (it.second == std::make_pair(fedId, globalEcontIdx)) typecode = it.first;
         
         }
         if (typecode.substr(0,1) == "T"){
@@ -167,7 +172,6 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         cfgs.setEconTConfig(globalEcontIdx, econtConfig);
         
         std::map< uint32_t, std::vector<uint32_t> >  SiTCToROCpin;
-
    
         for (uint32_t ihroc = 0; ihroc < nhfrocs; ++ihroc) {
 
@@ -228,12 +232,80 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         TPGFEDataformat::TcRawDataPacket rdp;
         econtEmul.Emulate(false, short_typecode, globalEcontIdx, modTcData, rdp);
         rdp.print();
+        
+        
+        uint32_t totE = 0; // module sum, for BC is over all the 48 TCs 
+        for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type()) >> cfgs.getEconTPara().at(globalEcontIdx).getDropLSB();
+        
+        for(unsigned itc(0) ; itc < rdp.size() ; itc++){
 
-        globalEcontIdx++; // counter for total econts
-      }
+          uint32_t tcidx = uint32_t(rdp.getTc(itc).address()); 
+          //uint32_t tcidx = itc;
+
+          uint32_t denseIdxRaw = moduleTriggerIndexer.getIndexForModuleData(fedId, globalEcontIdx, tcidx) ; // before any swapping
+          
+          // FIXME decide how to handle mux and econt swap
+          // offset in 2 steps, first mux then econts 
+          // int32_t tcMuxSwapOffset = econt_conf.tcMux[tcidx] - tcidx;
+          // int32_t econtSwapOffset = fedConfig.econtSwapOffset[iecon];
+          // int32_t denseIdxOffset =  tcMuxSwapOffset + econtSwapOffset; 
+
+          // get offset directly from config file
+          //int32_t denseIdxOffset =  econt_conf.offset[tcidx]; 
+          int32_t denseIdxOffset =  0; 
+
+
+          uint32_t denseIdx = denseIdxRaw + denseIdxOffset; // applying offset accounting for TCs and econts swapping
+
+          emuldigisTrigger.view()[denseIdx].algo() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).getOutType());
+          emuldigisTrigger.view()[denseIdx].sumType() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).getMSSumType());
+          emuldigisTrigger.view()[denseIdx].valid()(bx,0) = true;
+          emuldigisTrigger.view()[denseIdx].nBxs() = uint8_t(1);
+          emuldigisTrigger.view()[denseIdx].econTId() = globalEcontIdx;
+          emuldigisTrigger.view()[denseIdx].nTCs() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).getNofTCs());
+          emuldigisTrigger.view()[denseIdx].econtHeader()(bx,0) = uint8_t(rdp.bx());
+          emuldigisTrigger.view()[denseIdx].expEcontHeader()(bx,0) = uint8_t(0);
+          emuldigisTrigger.view()[denseIdx].encodedTotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(rdp.moduleSum()) : totE ;
+          emuldigisTrigger.view()[denseIdx].TotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(TPGFEDataformat::TcRawData::Decode5E3M(rdp.moduleSum())) : totE ;
+          emuldigisTrigger.view()[denseIdx].TCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).decodedE(rdp.type()) << cfgs.getEconTPara().at(globalEcontIdx).getDropLSB());
+          emuldigisTrigger.view()[denseIdx].encodedTCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).energy());
+          emuldigisTrigger.view()[denseIdx].TCAddress()(bx,0) = uint8_t(rdp.getTc(itc).address());
+
+          LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData fedId : " << fedId
+                  << ", globalEcontIdx: " << globalEcontIdx
+                  << ", tcidx: " << tcidx
+                  << ", denseIdxRaw: " << denseIdxRaw
+                  // << ", tcMuxSwapOffset: " << tcMuxSwapOffset
+                  // << ", econtSwapOffset: " << econtSwapOffset
+                  << ", denseIdxOffset: " << denseIdxOffset
+                  << ", denseIdx: " << denseIdx
+                  << std::endl;
+          LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData "
+                  << " algo = " << uint16_t(emuldigisTrigger.view()[denseIdx].algo())
+                  << " sumType = " << uint16_t(emuldigisTrigger.view()[denseIdx].sumType())
+                  << ", valid = " << uint16_t(emuldigisTrigger.view()[denseIdx].valid()(bx,0))
+                  << ", nBxs = " << uint16_t(emuldigisTrigger.view()[denseIdx].nBxs())
+                  << ", nTCs = " << uint16_t(emuldigisTrigger.view()[denseIdx].nTCs())
+                  << ", ieconTId = " << uint32_t(emuldigisTrigger.view()[denseIdx].econTId())
+                  << std::endl;
+          LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData ibx : " << bx
+                  << ", econt header : " << uint16_t(emuldigisTrigger.view()[denseIdx].econtHeader()(bx,0))
+                  << ", expected econt header from Slink : " << uint16_t(emuldigisTrigger.view()[denseIdx].expEcontHeader()(bx,0))
+                  << ", MS/totE : " << uint32_t(emuldigisTrigger.view()[denseIdx].TotE()(bx,0))
+                  << std::endl;
+          LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData itc : " << itc
+                  << ", Address: " << uint16_t(emuldigisTrigger.view()[denseIdx].TCAddress()(bx,0))
+                  << ", Encoded Energy: " << uint32_t(emuldigisTrigger.view()[denseIdx].encodedTCEnergy()(bx,0))
+                  << ", Unpacked Energy: " << uint32_t(emuldigisTrigger.view()[denseIdx].TCEnergy()(bx,0))
+                  << ", Encoded MS: " << uint32_t(emuldigisTrigger.view()[denseIdx].encodedTotE()(bx,0))
+                  << ", Unpacked MS: " << uint32_t(emuldigisTrigger.view()[denseIdx].TotE()(bx,0))
+                  << std::endl;
+        }
+        globalEcontIdx++; // counter for total econts in fed
+      } 
     }
   }
-
+  iEvent.emplace(emuldigisTriggerToken_, std::move(emuldigisTrigger));
 
 }
 
@@ -251,8 +323,8 @@ void HGCalTriggerEmulator::endStream() {
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
 void HGCalTriggerEmulator::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
-  desc.setUnknown();
-  descriptions.addDefault(desc);
+  desc.add<edm::InputTag>("src", edm::InputTag("hgcalDigi"));
+  descriptions.add("hgcalEmulDigisTrigger", desc);
 }
 
 //define this as a plug-in
