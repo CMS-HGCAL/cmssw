@@ -601,7 +601,6 @@ namespace TPGFEModuleEmulation{
   ) 
   {
     isVerbose = true;
-    const std::map<uint32_t,uint32_t>& refMuxMap = configs.getMuxMapping() ;
     uint32_t dropLSB = configs.getEconTPara().at(moduleId).getDropLSB() ;
  
     const TPGFEDataformat::Type& outputType = configs.getEconTPara().at(moduleId).getOutType();
@@ -614,32 +613,15 @@ namespace TPGFEModuleEmulation{
 
     for(uint32_t econtc = 0; econtc < nTCs;  econtc++)
     {
-      // FIXME mux implementation to be checked
-      uint32_t hgctc = configs.getEconTPara().at(moduleId).getInputMux(econtc) ;
-      bool hasFound = false;
-      uint32_t emultc = 0xffff;
-      for (const auto& it : refMuxMap)
-      {
-        if (it.second == hgctc)  
-        {
-          hasFound = true;
-          emultc = it.first;
-        }
-      }
-      if(!hasFound)
-      {
-        std::cerr << "TPGFEModuleEmulation::ECONTEmulation::EmulateBC (moduleid="<<moduleId<<") : Mux not set for TC " << econtc << std::endl;
-        continue;
-      }
 
-      uint64_t decompressed = DecompressEcont(mdata.getTC(emultc).getCdata(), configs.getEconTPara().at(moduleId).getDensity()); //funny that return needs to defined as 64-bit
+      uint64_t decompressed = DecompressEcont(mdata.getTC(econtc).getCdata(), configs.getEconTPara().at(moduleId).getDensity()); //funny that return needs to defined as 64-bit
       uint64_t decomp64bit = decompressed * configs.getEconTPara().at(moduleId).getCalibration(econtc); //overflows for 12bit TOT
       if(isVerbose) std::cout << "TPGFEModuleEmulation::ECONTEmulation::EmulateBC (moduleid="<<moduleId<<", TC="<<econtc<<") decompressed: " << decompressed << ", decompressed*calib: " << decomp64bit << std::endl; 
       decompressed =  decomp64bit >> 11;
       decompressedMS += (decompressed >> dropLSB) ;
       if(isVerbose) std::cout << "TPGFEModuleEmulation::ECONTEmulation::EmulateBC (moduleid="<<moduleId<<", TC="<<econtc<<") decompressed*calib>>11: " << decompressed << ", decompressedMS: " << decompressedMS << std::endl; 
       uint16_t compressed_bc = CompressEcontBc(decompressed,dropLSB);
-      tcdata.setTriggerCell(outputType, econtc, compressed_bc, decompressed>>dropLSB, mdata.getTC(emultc).isTcTp1(), mdata.getTC(emultc).isTcTp2(), mdata.getTC(emultc).isTcTp3()) ;
+      tcdata.setTriggerCell(outputType, econtc, compressed_bc, decompressed>>dropLSB, mdata.getTC(econtc).isTcTp1(), mdata.getTC(econtc).isTcTp2(), mdata.getTC(econtc).isTcTp3()) ;
       tcrawdatalist.push_back(tcdata);
     }
     batcherOEMSort(tcrawdatalist);

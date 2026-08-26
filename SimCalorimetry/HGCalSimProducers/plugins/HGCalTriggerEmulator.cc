@@ -112,7 +112,6 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
   TPGFEConfiguration::Configuration cfgs;
   cfgs.initId();
-  cfgs.loadMuxMapping();
 
   std::map<std::string, std::pair<uint32_t, uint32_t>> typecodeMap = moduleTriggerIndexer.typecodeMap();
   uint16_t bx = 0; // FIXME implement extended reading
@@ -240,23 +239,9 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         for(unsigned itc(0) ; itc < rdp.size() ; itc++){
 
           uint32_t tcidx = uint32_t(rdp.getTc(itc).address()); 
-          //uint32_t tcidx = itc;
 
-          uint32_t denseIdxRaw = moduleTriggerIndexer.getIndexForModuleData(fedId, globalEcontIdx, tcidx) ; // before any swapping
+          uint32_t denseIdx = moduleTriggerIndexer.getIndexForModuleData(fedId, globalEcontIdx, tcidx) ; // before any swapping
           
-          // FIXME decide how to handle mux and econt swap
-          // offset in 2 steps, first mux then econts 
-          // int32_t tcMuxSwapOffset = econt_conf.tcMux[tcidx] - tcidx;
-          // int32_t econtSwapOffset = fedConfig.econtSwapOffset[iecon];
-          // int32_t denseIdxOffset =  tcMuxSwapOffset + econtSwapOffset; 
-
-          // get offset directly from config file
-          //int32_t denseIdxOffset =  econt_conf.offset[tcidx]; 
-          int32_t denseIdxOffset =  0; 
-
-
-          uint32_t denseIdx = denseIdxRaw + denseIdxOffset; // applying offset accounting for TCs and econts swapping
-
           emuldigisTrigger.view()[denseIdx].algo() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).getOutType());
           emuldigisTrigger.view()[denseIdx].sumType() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).getMSSumType());
           emuldigisTrigger.view()[denseIdx].valid()(bx,0) = true;
@@ -274,10 +259,6 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData fedId : " << fedId
                   << ", globalEcontIdx: " << globalEcontIdx
                   << ", tcidx: " << tcidx
-                  << ", denseIdxRaw: " << denseIdxRaw
-                  // << ", tcMuxSwapOffset: " << tcMuxSwapOffset
-                  // << ", econtSwapOffset: " << econtSwapOffset
-                  << ", denseIdxOffset: " << denseIdxOffset
                   << ", denseIdx: " << denseIdx
                   << std::endl;
           LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData "
