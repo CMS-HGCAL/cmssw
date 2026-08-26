@@ -24,6 +24,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     //   indexed by chIdx (within-module channel number).
     // d_ntoa/d_ntot: per-module (indexed by denseModIdx) counts of TOA>0 / TOT-mode hits,
     //   computed host-side and broadcast to every SoA slot belonging to that module.
+    // d_valid: per-channel calibration validity flag (HGCalCalibParamHost .valid()). Channels
+    //   with valid==0 carry no fitted pedestal (ADC_ped/CM_ped are 0), so any cm*/unconn*
+    //   feature sourced from them is zeroed instead of leaking a raw, unsubtracted ADC/CM.
     void fillCMInputs(Queue& queue,
                       uint32_t ndigis,
                       int const* d_ntoa,
@@ -37,10 +40,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                       float const* d_sfHD,
                       float const* d_adcPed,
                       float const* d_cmPed,
-                      uint64_t event_num,
-                      uint64_t debug_event,
-                      uint32_t debug_module,
-                      uint32_t debug_max_ch,
+                      unsigned char const* d_valid,
                       HGCalSoACMMLDeviceCollection& device_mlsoa) const;
 
     // Apply the per-channel subtractive correction (corrected = raw - prediction) in-place.
