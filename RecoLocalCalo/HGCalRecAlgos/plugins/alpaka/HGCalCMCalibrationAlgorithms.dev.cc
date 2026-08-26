@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <algorithm>  // for std::clamp
+#include <cmath>      // for std::round
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
@@ -138,7 +139,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         if (mlsoa[idx].cellfrac() == 0.0f)
           continue;
         float corrected = float(digi_view[idx].adc()) - corr_view[idx].correction();
-        digi_view[idx].adc() = uint16_t(std::clamp(corrected, 0.0f, 65535.0f));
+        // Round, don't truncate. A C-style uint16_t conversion truncates toward zero, which for
+        // the (non-negative) corrected ADC is a floor: it biases every corrected channel low by
+        // ~0.5 counts. That bias is not removed by the RecHit pedestal subtraction downstream --
+        // it survives into a systematic negative energy offset on every corrected channel.
+        // Rounding leaves only the unavoidable +-0.5 quantization spread, with zero mean.
+        digi_view[idx].adc() = uint16_t(std::clamp(std::round(corrected), 0.0f, 65535.0f));
       }
     }
   };

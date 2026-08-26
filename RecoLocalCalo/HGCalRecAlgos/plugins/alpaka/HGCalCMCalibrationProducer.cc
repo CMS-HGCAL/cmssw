@@ -123,6 +123,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // integer ADC difference). Off by default; forces a queue sync, so avoid in production.
     bool emit_correction_;
     edm::EDPutTokenT<std::vector<float>> correctionToken_;  // valid only when emit_correction_
+    // Emitted alongside it: the per-digi cell-area SF the kernels used. cellfrac == 0 marks an
+    // unconnected channel, which applyCorrections deliberately skips -- the analyzer needs the
+    // same flag to reproduce that treatment instead of re-deriving it from the cell mapping.
+    edm::EDPutTokenT<std::vector<float>> cellfracToken_;  // valid only when emit_correction_
 
     // --- optional per-module CM pedestal override (empty path = disabled) ---
     // Arne Reimers pedestal subtractions are used in instead when we override, they can be different by an adc of around ~0.5 e.g. 191 versus 191.5
@@ -168,8 +172,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // Register the float-correction product only when requested. Use the alpaka adaptor form
     // (produces("label").produces<T>()) — the plain produces<T>("label") can't deduce the
     // Transition template parameter here.
-    if (emit_correction_)
+    if (emit_correction_) {
       correctionToken_ = produces("correction").produces<std::vector<float>>();
+      cellfracToken_ = produces("cellfrac").produces<std::vector<float>>();
+    }
     // Load cell area scale factors from cellareas.json.
     // JSON structure: { "ML_F": { "SF": [...222 floats...] }, "MH_F": { "SF": [...444 floats...] } }
     std::string cellAreasPath = iConfig.getParameter<edm::FileInPath>("cellAreas").fullPath();
@@ -537,13 +543,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // when emitCorrection is set (i.e. in comparison mode), leaving normal running async.
     if (emit_correction_) {
       PortableHostCollection<hgcalcmml::HGCalCMCorrectionSoA> hostCorr(queue, ndigis);
+      PortableHostCollection<hgcalcmml::HGCalCMMLSoA> hostMLOut(queue, ndigis);
       alpaka::memcpy(queue, hostCorr.buffer(), deviceCorrections.const_buffer());
+      alpaka::memcpy(queue, hostMLOut.buffer(), deviceMLSoA.const_buffer());
       alpaka::wait(queue);
-      std::vector<float> corrOut(ndigis);
+      std::vector<float> corrOut(ndigis), cellfracOut(ndigis);
       auto hcv = hostCorr.const_view();
-      for (uint32_t i = 0; i < ndigis; ++i)
+      auto hmv = hostMLOut.const_view();
+      for (uint32_t i = 0; i < ndigis; ++i) {
         corrOut[i] = hcv[i].correction();
+        cellfracOut[i] = hmv[i].cellfrac();
+      }
       iEvent.emplace(correctionToken_, std::move(corrOut));
+      iEvent.emplace(cellfracToken_, std::move(cellfracOut));
     }
   }
 
