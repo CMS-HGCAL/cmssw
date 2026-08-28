@@ -28,7 +28,9 @@ public:
   explicit HGCalTriggerConfigurationESProducer(const edm::ParameterSet& iConfig)
       :  //edm::ESProducer(iConfig),
         fedjson_(iConfig.getParameter<edm::FileInPath>("fedjson")),
-        modjson_(iConfig.getParameter<edm::FileInPath>("modjson")) {
+        modjson_(iConfig.getParameter<edm::FileInPath>("modjson")),
+        emuljson_(iConfig.getParameter<edm::FileInPath>("emuljson")) {
+
     auto cc = setWhatProduced(this);
     indexToken_ = cc.consumes(iConfig.getParameter<edm::ESInputTag>("indexSource"));
   }
@@ -39,6 +41,8 @@ public:
         ->setComment("Label for module indexer to set SoA size");
     desc.add<edm::FileInPath>("fedjson")->setComment("JSON file with FED configuration parameters");
     desc.add<edm::FileInPath>("modjson")->setComment("JSON file with ECONT configuration parameters");
+    desc.add<edm::FileInPath>("emuljson")->setComment("JSON file with emulator configuration parameters");
+
     descriptions.addWithDefaultLabel(desc);
   }
 
@@ -56,22 +60,29 @@ public:
   std::unique_ptr<HGCalTriggerConfiguration> produce(const HGCalModuleConfigurationRcd& iRecord) {
     auto const& moduleMap = iRecord.get(indexToken_);
     edm::LogInfo("HGCalTriggerConfigurationESProducer")
-        << "produce: fedjson_=" << fedjson_ << ",\n         modjson_=" << modjson_;
+        << "produce: fedjson_=" << fedjson_ << ",\n         modjson_=" << modjson_ << ",\n         emuljson_=" << emuljson_;
 
     // retrieve values from custom JSON format (see HGCalCalibrationESProducer)
     std::string fedjsonurl(fedjson_.fullPath());
     std::string modjsonurl(modjson_.fullPath());
+    std::string emuljsonurl(emuljson_.fullPath());
+
     std::ifstream fedfile(fedjsonurl);
     std::ifstream modfile(modjsonurl);
+    std::ifstream emulfile(emuljsonurl);
+
     const json fed_config_data = json::parse(fedfile, nullptr, true, /*ignore_comments*/ true);
     const json mod_config_data = json::parse(modfile, nullptr, true, /*ignore_comments*/ true);
+    const json emul_config_data = json::parse(emulfile, nullptr, true, /*ignore_comments*/ true);
+
 
     // consistency check
     uint32_t nfeds = moduleMap.numFEDs();
     //const std::vector<std::string> fedkeys = {"tdaqHeaderMarker", "neconts", "econtSwapOffset", "elinksMap"};
     const std::vector<std::string> fedkeys = {"tdaqHeaderMarker", "neconts", "econtSwapOffset"};
     const std::vector<std::string> modkeys = {
-        "density", "dropLSB", "select", "stc_type", "eporttx_numen", "use_sum", "calv", "mux"};
+        "dropLSB", "select", "stc_type", "eporttx_numen", "use_sum", "mux"};
+    const std::vector<std::string> emulkeys = {"density", "adc_th", "calv"};
     if (nfeds != fed_config_data.size())
       edm::LogWarning("HGCalTriggerConfigurationESProducer")
           << "Total number of FEDs found in JSON file " << fedjsonurl << " (" << fed_config_data.size()
@@ -120,7 +131,6 @@ public:
       }
       // fill elinksMap (only if present in cfg)
       if(hgcal::check_keys(fed_config_data, fedkey, {"elinksMap"}, fedjsonurl)) { 
-     
         for (auto itdaq = fed_config_data[fedkey]["elinksMap"].begin(); itdaq!=fed_config_data[fedkey]["elinksMap"].end(); ++itdaq) {
           fedConfig.elinksMap[(uint8_t)stoi(itdaq.key())].resize(itdaq.value().size());
           for (std::size_t ielink = 0; ielink < itdaq.value().size(); ielink++) {   
@@ -143,7 +153,8 @@ public:
           if ((fedid_ != fedid) || !(totalECONTs <= imod && imod < totalECONTs + nECONT)) {
             continue;
           }
-          const auto modkey = hgcal::search_modkey(typecode, mod_config_data, modjsonurl);  // search matching key
+          const auto modkey = hgcal::search_modkey(typecode, mod_config_data, modjsonurl);  // search matching key in unpacker cfg, use same key for emulator cfg
+
 	  bool isSiPM = std::regex_match(typecode, std::regex(R"(T[LH]-.*)"));
           if (isSiPM) {
              if (nECONT != 2){
@@ -159,9 +170,13 @@ public:
           if (!isSiPM) {
 
           hgcal::check_keys(
-              mod_config_data, modkey, modkeys, modjsonurl);  // check required keys are in the JSON, warn otherwise
+              mod_config_data, modkey, modkeys, modjsonurl);  // check required unpacker keys are in the JSON, warn otherwise
+
+          hgcal::check_keys(
+              emul_config_data, modkey, emulkeys, emuljsonurl);  // check required emulator keys are in the JSON, warn otherwise
+
           //sanity check
-          size_t nTC_calv = mod_config_data[modkey]["calv"].size();
+          size_t nTC_calv = emul_config_data[modkey]["calv"].size();
           size_t nTC_mux = mod_config_data[modkey]["mux"].size();
           //size_t nTC = moduleMap.getNumChannels(typecode);
           size_t nTC = mod_config_data[modkey]["mux"].size();
@@ -170,7 +185,7 @@ public:
           }
           HGCalECONTConfig econtConfig;
           
-          econtConfig.density = uint8_t(mod_config_data[modkey]["density"]);
+          econtConfig.density = uint8_t(emul_config_data[modkey]["density"]);
           econtConfig.dropLSB = uint8_t(mod_config_data[modkey]["dropLSB"]);
           econtConfig.select = uint8_t(mod_config_data[modkey]["select"]);
           econtConfig.stcType = uint8_t(mod_config_data[modkey]["stc_type"]);
@@ -181,14 +196,26 @@ public:
           econtConfig.tcMux.resize(nTC);
           econtConfig.offset.resize(nTC);
           for (std::size_t iTC = 0; iTC < nTC; iTC++) {
-            econtConfig.calv[iTC] = mod_config_data[modkey]["calv"][iTC];
+            econtConfig.calv[iTC] = emul_config_data[modkey]["calv"][iTC];
             econtConfig.tcMux[iTC] = mod_config_data[modkey]["mux"][iTC];
             econtConfig.offset[iTC] = calculateCellOffset();  //TODO: change this when we know how to calcualte
           }
+
+          size_t nhgcroc = emul_config_data[modkey]["adc_th"].size(); // number of hgrocs per econt
+          econtConfig.hgcrocs.resize(nhgcroc);
+          for (std::size_t ihgcroc = 0; ihgcroc < nhgcroc; ihgcroc++){
+            HGCalROCTrigConfig hgcrocConfig;
+            hgcrocConfig.adc_th = emul_config_data[modkey]["adc_th"][ihgcroc];
+            econtConfig.hgcrocs[ihgcroc] = hgcrocConfig;
+
+          }
+          
           // Caculate module number in the TDAQ
           uint32_t iecont = imod - totalECONTs;
           tdaqConfig.econts.resize(nECONT);  //resize so length is the number of econTs
           tdaqConfig.econts[iecont] = econtConfig;
+
+
         }
         else { //SiPM
             for (int econtIdx = 0; econtIdx < 2; ++econtIdx) {
@@ -246,6 +273,8 @@ private:
   edm::ESGetToken<HGCalMappingModuleIndexerTrigger, HGCalElectronicsMappingRcd> indexToken_;
   const edm::FileInPath fedjson_;  // JSON file
   const edm::FileInPath modjson_;  // JSON file
+  const edm::FileInPath emuljson_;  // JSON file
+
 };
 
 DEFINE_FWK_EVENTSETUP_SOURCE(HGCalTriggerConfigurationESProducer);

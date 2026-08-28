@@ -196,52 +196,50 @@ namespace TPGFEConfiguration{
 
   void Configuration::setRocConfig( uint32_t hrocidx, HGCalECONTConfig econtCfg)
   {
-
-    //const uint32_t nchs = 2*TPGFEDataformat::HalfHgcrocData::NumberOfChannels;
-
+    // FIXME check if it makes more sense to have half roc or entire roc
+    HGCalROCTrigConfig hgcrocConfig = econtCfg.hgcrocs[int(hrocidx/2)]; // is defined per ROC 
+    
     // FIXME read from cfg, atm dummy values
-    uint32_t th = 0; 
     uint64_t chmask = 0;
     uint32_t multfactor = 1;
     uint32_t dummy_tot_th = 0;
     uint32_t dummy_tot_p = 0;
 
-      TPGFEConfiguration::ConfigHfROC hroc;
-      hroc.setSelTC4(!econtCfg.density);
-      hroc.setAdcTH(th);
-      hroc.setClrAdcTottrig(chmask);
-      hroc.setMultFactor(multfactor);
-      for(int itot=0;itot<4;itot++){
-	      hroc.setTotTH(itot, dummy_tot_th);
-	      hroc.setTotP(itot, dummy_tot_p);
-      }
+    TPGFEConfiguration::ConfigHfROC hroc;
+    hroc.setSelTC4(!econtCfg.density);
+    hroc.setAdcTH(hgcrocConfig.adc_th);
+    hroc.setClrAdcTottrig(chmask);
+    hroc.setMultFactor(multfactor);
+    for(int itot=0;itot<4;itot++){
+      hroc.setTotTH(itot, dummy_tot_th);
+      hroc.setTotP(itot, dummy_tot_p);
+    }
 
-      hroccfg[hrocidx] = hroc;
+    hroccfg[hrocidx] = hroc;
 
-      // FIXME pedestals
-      // for(uint32_t ich=0;ich<nchs;ich++){
-      //   uint32_t ihalf = (ich<TPGFEDataformat::HalfHgcrocData::NumberOfChannels)?0:1;
-      //   uint32_t chnl = ich%TPGFEDataformat::HalfHgcrocData::NumberOfChannels;
-      //   uint32_t ped = 0; // FIXME dummy ped
-      //   if(ihalf==0){
-      //     TPGFEConfiguration::ConfigCh ch_0;
-      //     ch_0.setAdcpedestal(ped);
-      //     hrocchcfg[pck.packChId(rocid_0,chnl)] = ch_0;
-      //   }else{
-      //     TPGFEConfiguration::ConfigCh ch_1;
-      //     ch_1.setAdcpedestal(ped);
-      //     hrocchcfg[pck.packChId(rocid_1,chnl)] = ch_1;
-      //   }
-      // }//channel loop
-    //std::cout<<"============"<<std::endl;  
+    // FIXME pedestals
+    // for(uint32_t ich=0;ich<nchs;ich++){
+    //   uint32_t ihalf = (ich<TPGFEDataformat::HalfHgcrocData::NumberOfChannels)?0:1;
+    //   uint32_t chnl = ich%TPGFEDataformat::HalfHgcrocData::NumberOfChannels;
+    //   uint32_t ped = 0; // FIXME dummy ped
+    //   if(ihalf==0){
+    //     TPGFEConfiguration::ConfigCh ch_0;
+    //     ch_0.setAdcpedestal(ped);
+    //     hrocchcfg[pck.packChId(rocid_0,chnl)] = ch_0;
+    //   }else{
+    //     TPGFEConfiguration::ConfigCh ch_1;
+    //     ch_1.setAdcpedestal(ped);
+    //     hrocchcfg[pck.packChId(rocid_1,chnl)] = ch_1;
+    //   }
+    // }//channel loop
+   //std::cout<<"============"<<std::endl;  
   }//end of read ped class
 
 
   void Configuration::setEconTConfig(uint32_t idx, HGCalECONTConfig econtCfg)
   {
-    // FIXME fix config and read from
-    uint32_t dummyCalib = 0x800; //this corresponds to the default value of unit gain
-   
+
+  
     TPGFEConfiguration::ConfigEconT econt;
     econt.setSelect(econtCfg.select);
     econt.setDensity(uint32_t(econtCfg.density));
@@ -250,8 +248,9 @@ namespace TPGFEConfiguration{
     econt.setNElinks(econtCfg.eportTxNumen);
     econt.setMSSumType(econtCfg.sumType);
     for (size_t itc = 0; itc < econtCfg.calv.size(); ++itc) {
-      econt.setCalibration(itc,dummyCalib);
+      econt.setCalibration(itc,econtCfg.calv[itc]);
     }
+
 
     econTcfg[idx] = econt;
 
