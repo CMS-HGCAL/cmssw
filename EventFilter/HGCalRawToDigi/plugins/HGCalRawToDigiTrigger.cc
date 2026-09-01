@@ -16,7 +16,7 @@
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexerTrigger.h"
 
 
-class HGCalRawToDigiTrigger : public edm::stream::EDProducer<> {
+class HGCalRawToDigiTrigger : public edm::stream::EDProducer<edm::stream::WatchRuns> {
 
 public:
   explicit HGCalRawToDigiTrigger(const edm::ParameterSet&);
@@ -36,8 +36,8 @@ private:
   const edm::EDPutTokenT<hgcaldigi::HGCalFEDTriggerPacketInfoHost> fedTriggerPacketInfoToken_;
 
   // config tokens and objects
-  edm::ESGetToken<HGCalMappingModuleIndexerTrigger, HGCalElectronicsMappingRcd> moduleIndexToken_;
-  edm::ESGetToken<HGCalTriggerConfiguration, HGCalModuleConfigurationRcd> configToken_;
+  const edm::ESGetToken<HGCalMappingModuleIndexerTrigger, HGCalElectronicsMappingRcd> moduleIndexToken_;
+  const edm::ESGetToken<HGCalTriggerConfiguration, HGCalModuleConfigurationRcd> configToken_;
   HGCalUnpackerTrigger unpacker_trigger_;
 };
 
