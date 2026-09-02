@@ -29,8 +29,10 @@ public:
       :  //edm::ESProducer(iConfig),
         fedjson_(iConfig.getParameter<edm::FileInPath>("fedjson")),
         modjson_(iConfig.getParameter<edm::FileInPath>("modjson")),
-        emuljson_(iConfig.getParameter<edm::FileInPath>("emuljson")),
         emulatorOn_(iConfig.getParameter<bool>("emulatorOn")) {
+
+    if (iConfig.exists("emuljson")) 
+      emuljson_ = iConfig.getParameter<edm::FileInPath>("emuljson");
 
     auto cc = setWhatProduced(this);
     indexToken_ = cc.consumes(iConfig.getParameter<edm::ESInputTag>("indexSource"));
@@ -42,8 +44,9 @@ public:
         ->setComment("Label for module indexer to set SoA size");
     desc.add<edm::FileInPath>("fedjson")->setComment("JSON file with FED configuration parameters");
     desc.add<edm::FileInPath>("modjson")->setComment("JSON file with ECONT configuration parameters");
-    desc.add<edm::FileInPath>("emuljson")->setComment("JSON file with emulator configuration parameters");
     desc.add<bool>("emulatorOn", false)->setComment("if true parse the emulator configuration parameters");
+    desc.addOptional<edm::FileInPath>("emuljson")->setComment("JSON file with emulator configuration parameters");
+
 
     descriptions.addWithDefaultLabel(desc);
   }
@@ -292,7 +295,7 @@ private:
   edm::ESGetToken<HGCalMappingModuleIndexerTrigger, HGCalElectronicsMappingRcd> indexToken_;
   const edm::FileInPath fedjson_;  // JSON file
   const edm::FileInPath modjson_;  // JSON file
-  const edm::FileInPath emuljson_;  // JSON file
+  edm::FileInPath emuljson_;  // JSON file
   bool emulatorOn_ = false;
 
 };
