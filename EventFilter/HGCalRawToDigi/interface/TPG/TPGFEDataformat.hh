@@ -617,7 +617,17 @@ namespace TPGFEDataformat{
     ModuleTcData() {
       setZero();
     }
-  
+    void setCharge(uint32_t i, uint32_t a) {
+      //assert(a<0x1000000); //assuming 21bit for HD module, then bit shift of 3, then +1
+      // if(a<0x1000000)
+      // 	_data=a;
+      // else
+      _data[i].setCharge(a);
+    }
+
+    void setCdata(uint32_t i, uint16_t a) {
+      _data[i].setCdata(a);
+    }
     void setZero() {
       std::memset((void *)_data,0,sizeof(HgcrocTcData)*MaxNumberOfTCs);
       NumberOfTCs=0;
@@ -633,6 +643,11 @@ namespace TPGFEDataformat{
     const HgcrocTcData& getTC(uint32_t i) const {
       return _data[i];
     }
+
+    HgcrocTcData getTC(uint32_t i) {
+      return _data[i];
+    }
+    
     
     bool isTcTp1() const {
       for(uint16_t i(0);i<NumberOfTCs;i++)
@@ -653,7 +668,7 @@ namespace TPGFEDataformat{
     }
 
     void setNofTCs(const unsigned nofTCs) {NumberOfTCs = nofTCs;}
-    void setTCs(const HgcrocTcData* data) {
+    void setTCs(HgcrocTcData* data) {
       for(uint16_t i(0);i<NumberOfTCs;i++)
 	_data[i] = data[i];
     }
@@ -687,120 +702,7 @@ namespace TPGFEDataformat{
 }
 
 namespace TPGFEConfiguration{
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //////The configuration of half of ROC based on HGCROC3a [doc. no. v2.0] (See Table@Page-43)
-  //////EDMS ROCv3a: https://edms.cern.ch/ui/#!master/navigator/document?D:100570166:100570166:subDocs
-  //////EDMS ROCv3b(recent): https://edms.cern.ch/ui/#!master/navigator/document?D:101362066:101362066:subDocs
-  class ConfigHfROC {    
-  public:
-    ConfigHfROC() {}
-    uint32_t getAdcTH() const { return uint32_t(Adc_TH);}
-    uint64_t getClrAdcTottrig() const { return ClrAdcTot_trig;}
-    bool isChMasked(uint32_t ich) const {
-      int chnl = ich%36;
-      return (getClrAdcTottrig()>>chnl) & 0x1 ;
-    }
-    uint32_t getTotTH(uint32_t ich) const {
-      uint32_t chnl = ich%36;
-      uint32_t  tot_idx = TMath::FloorNint(chnl/9);
-      return uint32_t(Tot_TH[tot_idx]);
-    }
-    uint32_t getTotP(uint32_t ich) const {
-      uint32_t chnl = ich%36;
-      uint32_t tot_idx = TMath::FloorNint(chnl/9);
-      return uint32_t(Tot_P[tot_idx]);
-    }
-    uint32_t getMultFactor() const { return uint32_t(MultFactor);}    
-    void setAdcTH(uint32_t  adcth) { Adc_TH = adcth & 0x1F;}
-    void setClrAdcTottrig(uint64_t clradctottrig) { ClrAdcTot_trig = clradctottrig & 0xFFFFFFFF;}
-    void setMultFactor(uint32_t multfactor) { MultFactor = multfactor & 0x1F;}
-    void setTotTH(uint32_t tot_idx, uint32_t tot_th) { Tot_TH[tot_idx] = tot_th & 0xFF;}
-    void setTotP(uint32_t tot_idx, uint32_t tot_p) { Tot_P[tot_idx] = tot_p & 0x7F;}
-    void print() const {
-      std::cout << std::dec << ::std::setfill(' ')
-		<< "ConfigHfROC(" << this << ")::print(): "
-		<<"Adc_TH = "<< std::setw(4) << getAdcTH()
-		<<", MultFactor = "<< std::setw(3) << getMultFactor()
-		<< std::endl;
-      
-      std::cout << std::dec << ::std::setfill(' ')
-		<< "ConfigHfROC(" << this << ")::print(): "
-		<<"ClrAdcTot_trig = ";
-      for(uint32_t ich=0;ich<36;ich++)
-	std::cout << std::setw(2) << "("<< ich <<": " << isChMasked(ich) <<") ";
-      std::cout << std::endl;
-      
-      std::cout << std::dec << ::std::setfill(' ')
-		<< "ConfigHfROC(" << this << ")::print(): "
-		<<"Tot_P = ";
-      for(uint32_t itotch=0;itotch<4;itotch++)
-	std::cout << std::setw(4) << "("<< itotch <<": " << uint32_t(Tot_P[itotch]) <<") ";
-      std::cout << std::endl;
-      
-      std::cout << std::dec << ::std::setfill(' ')
-		<< "ConfigHfROC(" << this << ")::print(): "
-		<<"Tot_TH = ";
-      for(uint32_t itotch=0;itotch<4;itotch++)
-	std::cout << std::setw(4) << "("<< itotch <<": " << uint32_t(Tot_TH[itotch]) <<") ";
-      std::cout << std::endl;
-
-    }
-
-  private:    
-    //Digital Info
-    uint8_t Adc_TH; //5-bits
-    uint64_t ClrAdcTot_trig;  //36-bits
-    uint8_t MultFactor; //5-bits
-    uint8_t Tot_P[4];  //one per 9 channel (each with 7-bits):not present in 2023 beam test
-    uint8_t Tot_TH[4]; //one per 9 channel (each with 8 bits):not present in 2023 beam test    
-  };
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //The configuration of channel corresponding to ADC per module
-  class ConfigCh {
-  public:
-    ConfigCh() {}
-    uint32_t getAdcpedestal() const { return uint32_t(Adc_pedestal);}
-    void setAdcpedestal(uint32_t ped) { Adc_pedestal = ped & 0xFF;}
-    void print() {
-      std::cout << std::dec << ::std::setfill(' ')
-		<< "ConfigCh(" << this << ")::print(): "
-		<<"Adc_pedestal = "<< std::setw(4)<< getAdcpedestal()
-		<< std::endl;
-    }
-    void print(uint32_t ich) {
-      std::cout << std::dec << ::std::setfill(' ')
-		<< "ConfigCh(" << this << ")::print(): "
-		<<"ich: "<< ich <<", Adc_pedestal = "<< std::setw(4)<< getAdcpedestal()
-		<< std::endl;
-    }
-    
-  private:
-    uint8_t Adc_pedestal; //8-bits 
-  };
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //////ECON-D [doc. no: v1.1]
-  //////https://edms.cern.ch/ui/#!master/navigator/document?P:100053490:100904542:subDocs
-  class ConfigEconD {
-  public:
-    ConfigEconD() : isPassThrough(false), neRx(0) {}
-    bool passThrough() const { return isPassThrough;}
-    uint32_t getNeRx() const { assert(neRx!=0); return uint32_t(neRx);}
-    void setPassThrough(bool isPT) { isPassThrough = isPT;}
-    void setNeRx(uint32_t nofeRx) { assert(nofeRx!=0); neRx = nofeRx;}
-    void print() {
-      std::cout << std::dec << ::std::setfill(' ')
-		<< "ConfigEconD(" << this << ")::print(): "
-		<<"isPassThrough mode = "
-		<< std::setw(2) << passThrough()
-		<<", \tnof eRx = "
-		<< std::setw(2) << getNeRx()
-		<< std::endl;
-    }
-    
-  private:    
-    bool isPassThrough; //1-bit
-    uint8_t neRx; 
-  };
+  
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //////ECON-T [doc. no: v10]
   //////https://edms.cern.ch/ui/#!master/navigator/document?P:100053490:100430098:subDocs
@@ -984,7 +886,7 @@ namespace TPGFEConfiguration{
       }
       return type;
     }
-    void setDensity(uint32_t den) { assert(density==1); density = den;}
+    void setDensity(uint32_t den) { density = den;}
     void setDropLSB(uint32_t dLSB) { assert(dLSB<=4); dropLSB = dLSB;}
     void setSelect(uint32_t sel) { assert(sel==1 or sel==2); select = sel;}
     void setSTCType(uint32_t stctype) { assert(stctype<=4); stc_type = stctype;}
