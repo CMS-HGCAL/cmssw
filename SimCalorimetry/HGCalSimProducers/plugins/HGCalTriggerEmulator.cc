@@ -124,19 +124,19 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
     uint32_t globalEcontIdx = 0;  
 
 
-    std::cout << "Emulator:: starts emulation of Fed Id: " << fedId << std::endl;
+    LogDebug("[HGCalTriggerEmulator]") << "Emulator:: starts emulation of Fed Id: " << fedId << std::endl;
     HGCalTriggerFedConfig fedConfig = config.feds[fedId];
 
     for (std::size_t itdaq = 0; itdaq < fedConfig.tdaqs.size(); itdaq++) {
       HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[itdaq];
-      //std::cout << "fed[" << std::dec << fedId << "].tdaq[" << itdaq 
-      //      << "], headerMarker = 0x" << std::hex << std::setfill('0') << std::setw(8) << tdaqConfig.tdaqBlockHeaderMarker << std::endl;
+      LogDebug("[HGCalTriggerEmulator]") << "fed[" << std::dec << fedId << "].tdaq[" << itdaq 
+            << "], headerMarker = 0x" << std::hex << std::setfill('0') << std::setw(8) << tdaqConfig.tdaqBlockHeaderMarker << std::endl;
       if (tdaqConfig.econts.size()==0) {
-        //std::cout << "with no active ECON-Ts, skipped" << std::endl;
+        LogDebug("[HGCalTriggerEmulator]") << "with no active ECON-Ts, skipped" << std::endl;
         continue;
       }
     
-      //std::cout << " with " << std::dec << tdaqConfig.econts.size() << " active ECON-Ts" << std::endl;
+      LogDebug("[HGCalTriggerEmulator]") << " with " << std::dec << tdaqConfig.econts.size() << " active ECON-Ts" << std::endl;
       for(unsigned int iecont=0; iecont<tdaqConfig.econts.size(); iecont++){
         std::map<uint32_t, TPGFEDataformat::HalfHgcrocData> rocData;
 
@@ -148,24 +148,23 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         
         }
         if (typecode.substr(0,1) == "T"){
-          std::cout << "Typecode : " << typecode << " Tiles NOT yet implemented, skipping!" << std::endl;
+          LogDebug("[HGCalTriggerEmulator]") << "Typecode : " << typecode << " Tiles NOT yet implemented, skipping!" << std::endl;
           globalEcontIdx++; // counter for total econts
           continue;
         }
 
         std::string short_typecode = typecode.substr(0,4); 
-        //std::cout << "typecode " << typecode << " and short " << short_typecode <<  std::endl;
               
-        std::cout << "----------------- iecont " << globalEcontIdx 
+        LogDebug("[HGCalTriggerEmulator]") << "----------------- iecont " << globalEcontIdx 
                   << " typecode " << typecode 
                   << "-------------------"<<std::endl;
-        std::cout << "\n--- Preapera hgroc cfg and read ADC from DAQ DIGIs ---" << std::endl;
+        LogDebug("[HGCalTriggerEmulator]") << "\n--- Preapera hgroc cfg and read ADC from DAQ DIGIs ---" << std::endl;
 
         // getting the first idx of DAQ ADC data
         uint32_t digi_idx =  moduleIndexer.getIndexForModuleData(typecode);
 
         uint32_t nhfrocs = moduleIndexer.getNumERxs(typecode);
-        std::cout << "Number of half rocs " << nhfrocs << std::endl;
+        LogDebug("[HGCalTriggerEmulator]") << "Number of half rocs " << nhfrocs << std::endl;
 
         HGCalECONTConfig econtConfig = tdaqConfig.econts[iecont];
         cfgs.setEconTConfig(globalEcontIdx, econtConfig);
@@ -178,7 +177,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           TPGFEDataformat::HalfHgcrocData hData;
           hData.setBx(bx);
 
-          std::cout << "ihroc : " << ihroc << " | Setting ADC for half HGROC channels." << std::endl;
+          LogDebug("[HGCalTriggerEmulator]") << "ihroc : " << ihroc << " | Setting ADC for half HGROC channels." << std::endl;
 
 
           for (uint32_t ch = 0; ch < 37; ++ch)  {
@@ -196,7 +195,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
 
             if (TrLink == uint16_t(-1) || TrCell == uint16_t(-1)) { 
-              std::cout << " \t Emulator::SettingADC:: ch " << ch << " rocpin " << rocpin << " is calibration (0), unconnected (-1), or not used in trigger sum (1): " << cellInfo_view.t()[cellInfoIdx]  << ", skipping!" << std::endl;
+              LogDebug("[HGCalTriggerEmulator]") << " \t Emulator::SettingADC:: ch " << ch << " rocpin " << rocpin << " is calibration (0), unconnected (-1), or not used in trigger sum (1): " << cellInfo_view.t()[cellInfoIdx]  << ", skipping!" << std::endl;
               digi_idx++;
               continue;
 
@@ -204,8 +203,8 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
             uint32_t absTC = (cellInfo_view.isHD()[cellInfoIdx]==0) ? (roc*16 + TrLink*4 + TrCell) : (roc*8 + TrLink*2 + TrCell) ;
             uint32_t adc = digidaq.adc();
 
-            std::cout << "\t rocpin " << rocpin << " chip " << roc << " TrLink " << TrLink << " TrCell " << TrCell << " TC " << absTC << std::endl;          
-            std::cout << "\t ihROC " << ihroc << " ROC" << roc << " Half " << half << " rocpin " << rocpin << " ch " << roc*72 + rocpin << " adc "<< adc <<std::endl;
+            LogDebug("[HGCalTriggerEmulator]") << "\t rocpin " << rocpin << " chip " << roc << " TrLink " << TrLink << " TrCell " << TrCell << " TC " << absTC << std::endl;          
+            LogDebug("[HGCalTriggerEmulator]") << "\t ihROC " << ihroc << " ROC" << roc << " Half " << half << " rocpin " << rocpin << " ch " << roc*72 + rocpin << " adc "<< adc <<std::endl;
 
             hData.getChannelData(rocpin%36).setAdc(adc, 0);    
             SiTCToROCpin [absTC].push_back(roc*72 + rocpin);
@@ -215,22 +214,22 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           rocData[ihroc] = hData;
 
         }
-        std::cout << "Size of the TC to ROCpin map: " << SiTCToROCpin.size() << std::endl;
+        LogDebug("[HGCalTriggerEmulator]") << "Size of the TC to ROCpin map: " << SiTCToROCpin.size() << std::endl;
         cfgs.setSiTCToChModule(SiTCToROCpin);
 
 
-        std::cout << "\n--- Running HGCROC Emulation ---" << std::endl;
+        LogDebug("[HGCalTriggerEmulator]") << "\n--- Running HGCROC Emulation ---" << std::endl;
         TPGFEModuleEmulation::HGCROCTPGEmulation rocEmul(cfgs);
         TPGFEDataformat::ModuleTcData modTcData;
         rocEmul.Emulate(false, short_typecode, globalEcontIdx, rocData, modTcData);
 
     
-        std::cout << "\n--- Running ECON-T Emulation ---" << std::endl;
+        LogDebug("[HGCalTriggerEmulator]") << "\n--- Running ECON-T Emulation ---" << std::endl;
         TPGFEModuleEmulation::ECONTEmulation econtEmul(cfgs);
         econtEmul.disableTcSafety = true;
         TPGFEDataformat::TcRawDataPacket rdp;
         econtEmul.Emulate(false, short_typecode, globalEcontIdx, modTcData, rdp);
-        rdp.print();
+        //rdp.print();
         
         
         uint32_t totE = 0; // module sum, for BC is over all the 48 TCs 
@@ -256,25 +255,24 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           emuldigisTrigger.view()[denseIdx].encodedTCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).energy());
           emuldigisTrigger.view()[denseIdx].TCAddress()(bx,0) = uint8_t(rdp.getTc(itc).address());
 
-          LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData fedId : " << fedId
+          LogDebug("[HGCalTriggerEmulator]")  << " fedId : " << fedId
                   << ", globalEcontIdx: " << globalEcontIdx
                   << ", tcidx: " << tcidx
                   << ", denseIdx: " << denseIdx
                   << std::endl;
-          LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData "
-                  << " algo = " << uint16_t(emuldigisTrigger.view()[denseIdx].algo())
+          LogDebug("[HGCalTriggerEmulator]")  << " algo = " << uint16_t(emuldigisTrigger.view()[denseIdx].algo())
                   << " sumType = " << uint16_t(emuldigisTrigger.view()[denseIdx].sumType())
                   << ", valid = " << uint16_t(emuldigisTrigger.view()[denseIdx].valid()(bx,0))
                   << ", nBxs = " << uint16_t(emuldigisTrigger.view()[denseIdx].nBxs())
                   << ", nTCs = " << uint16_t(emuldigisTrigger.view()[denseIdx].nTCs())
                   << ", ieconTId = " << uint32_t(emuldigisTrigger.view()[denseIdx].econTId())
                   << std::endl;
-          LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData ibx : " << bx
+          LogDebug("[HGCalTriggerEmulator]")  << " ibx : " << bx
                   << ", econt header : " << uint16_t(emuldigisTrigger.view()[denseIdx].econtHeader()(bx,0))
                   << ", expected econt header from Slink : " << uint16_t(emuldigisTrigger.view()[denseIdx].expEcontHeader()(bx,0))
                   << ", MS/totE : " << uint32_t(emuldigisTrigger.view()[denseIdx].TotE()(bx,0))
                   << std::endl;
-          LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData itc : " << itc
+          LogDebug("[HGCalTriggerEmulator]")  << " itc : " << itc
                   << ", Address: " << uint16_t(emuldigisTrigger.view()[denseIdx].TCAddress()(bx,0))
                   << ", Encoded Energy: " << uint32_t(emuldigisTrigger.view()[denseIdx].encodedTCEnergy()(bx,0))
                   << ", Unpacked Energy: " << uint32_t(emuldigisTrigger.view()[denseIdx].TCEnergy()(bx,0))
