@@ -163,28 +163,12 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                                                 << std::dec << std::setfill(' ')
                                                 << std::endl;	        
                         }
-                        // going back to previous subpacket, so at the next bx you always start from the first tpg of the pair
-                        tsh = tsh->prevSubpacketHeader(prevSubpacketSize);
+                    }
+                    // going back to previous subpacket, so at the next bx you always start from the first tpg of the pair
+                    tsh = tsh->prevSubpacketHeader(prevSubpacketSize);
           
 
                     
-                    } else { // is a TX subpacket, reading stage I
-                        // -----  now reading the TX
-                        const uint64_t *S164bitword((const uint64_t*)(tsh+1+bx*tsh->numberOfWordsPerBx())); 
-
-                        //filling StageI output (TX channels) // all very hardcoded
-                        for(unsigned j(0);j<6;j++) { 
-                                if (j < 5) S1Tcs[j] = S164bitword[j+1] & 0xffff; //first column
-                                if (j < 4) S1Tcs[j+5] = (S164bitword[j+1]>>16) & 0xffff; //second column
-                                if (nEconTs > 1) {
-                                    S1Tcs[j+9] = (S164bitword[j+1]>>32) & 0xffff;//third column (only for tiles)
-
-                                }
-                                else S1Tcs[j+9] = 0;
-                            }
-
-                        tsh = tsh->prevSubpacketHeader(prevSubpacketSize);
-                    }
 
                     uint32_t nprevTxs = 0 ; 
 #ifdef EDM_ML_DEBUG
@@ -235,15 +219,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                         
                         uint32_t econTId = iecon + econTOffset; //unique per fedId
                         uint32_t econtDenseIdx = moduleIndexer.getIndexForModule(fedId, econTId);
-                        bool isSiPM = false;
-                        for (const auto& [typecode, fedAndModule] : moduleIndexer.typecodeMap()) {
-                            if (fedAndModule.first == fedId &&
-                                moduleIndexer.getIndexForModule(typecode) == econtDenseIdx) {
-                                isSiPM = HGCalMappingModuleIndexerTrigger::getCellType(typecode).first;
-                                break;
-                            }
-                        }
-                        const bool isSecondTile = isSiPM && econTId == 10;
+
                         if (bx == 0) {
                             econtPacketInfo.view()[econtDenseIdx].exception() = (1 << hgcaldigi::ECONTUnpackingFlags::NormalUnpacking);
                             econtPacketInfo.view()[econtDenseIdx].location() = econTLocation;
@@ -320,18 +296,6 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                             digisTrigger.view()[denseIdx].TCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).decodedE(rdp.type()) << cfgecont.getDropLSB());
                             digisTrigger.view()[denseIdx].encodedTCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).energy());
                             digisTrigger.view()[denseIdx].TCAddress()(bx,0) = uint8_t(rdp.getTc(itc).address() + tcMuxSwapOffset );
-
-                            if (bx == 3 ) {
-
-                                econtPacketInfo.view()[econtDenseIdx].nTCs() = uint8_t(cfgecont.getNofTCs());
-                                const uint32_t stage1TC = isSecondTile ? itc + 9 : itc;
-                                if (stage1TC < 15) {
-                                    econtPacketInfo.view()[econtDenseIdx].TCEnergy_Stage1()(0,itc) =
-                                        uint16_t((S1Tcs[stage1TC] >> 6) & 0x1ff);
-                                }
-
-                            }
-
 
                             LogDebug("[HGCalUnpackerTrigger]")  << "HGCalUnpackerTrigger::parseFEDData fedId : " << fedId
                                     << ", iecon: " << iecon
