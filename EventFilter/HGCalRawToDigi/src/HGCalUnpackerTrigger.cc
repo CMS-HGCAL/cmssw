@@ -137,11 +137,6 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                     uint8_t prevSubpacketSize =   tsh->subpacketSize();
                     tsh = tsh->nextSubpacketHeader(); // going to next subpacket
                     
-                    // Allocate 15 entries to handle tiles as well (6 + 9 TCs).
-                    // Not every subpacket layout supplies all Stage-1 TX words,
-                    // so value-initialize the buffer before reading from it.
-                    std::unique_ptr<uint16_t[]> S1Tcs(new uint16_t[15]());
-
                     if (tsh->channelId()%2 == 0){ // is a RX subpacket, reading toghether the next tpg subpacket (second tdaq)
 
                         const uint64_t *el64packed2((const uint64_t*)(tsh+1+bx*tsh->numberOfWordsPerBx())); //second part of elinks
@@ -166,10 +161,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                     }
                     // going back to previous subpacket, so at the next bx you always start from the first tpg of the pair
                     tsh = tsh->prevSubpacketHeader(prevSubpacketSize);
-          
-
-                    
-
+    
                     uint32_t nprevTxs = 0 ; 
 #ifdef EDM_ML_DEBUG
                     for(uint32_t iel(0);iel<TDAQ_FRAME::TDAQ_PAIRS_NELINKS;iel++) { 
@@ -181,8 +173,6 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                                 << std::endl;	      
                     }
 #endif
-
-
 
                     for(unsigned iecon(0) ; iecon < nEconTs ; iecon++) {
                         const auto& econt_conf = tdaqConfig.econts[iecon];
