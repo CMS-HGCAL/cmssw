@@ -103,11 +103,24 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
   const HGCalMappingModuleIndexer& moduleIndexer = iSetup.getData(moduleIdxToken_);
   const HGCalMappingModuleIndexerTrigger& moduleTriggerIndexer = iSetup.getData(moduleTriggerIdxToken_);
-  hgcaldigi::HGCalDigiTriggerHost emuldigisTrigger(cms::alpakatools::host(), moduleIndexer.maxDataSize());
+  hgcaldigi::HGCalDigiTriggerHost emuldigisTrigger(cms::alpakatools::host(), moduleTriggerIndexer.maxDataSize());
 
   for (int32_t i = 0; i < emuldigisTrigger.view().metadata().size(); i++) {
-    for (int32_t ibx = 0; ibx < 7; ibx++) emuldigisTrigger.view()[i].valid()(ibx,0) = false;
     emuldigisTrigger.view()[i].algo() = 0;
+    emuldigisTrigger.view()[i].sumType() = 0;
+    emuldigisTrigger.view()[i].nBxs() = 0;
+    emuldigisTrigger.view()[i].nTCs() = 0;
+    emuldigisTrigger.view()[i].econTId() = 0;
+    for (int32_t ibx = 0; ibx < 7; ibx++) {
+      emuldigisTrigger.view()[i].valid()(ibx,0) = false;
+      emuldigisTrigger.view()[i].econtHeader()(ibx,0) = 0;
+      emuldigisTrigger.view()[i].expEcontHeader()(ibx,0) = 0;
+      emuldigisTrigger.view()[i].TotE()(ibx,0) = 0;
+      emuldigisTrigger.view()[i].encodedTotE()(ibx,0) = 0;
+      emuldigisTrigger.view()[i].TCEnergy()(ibx,0) = 0;
+      emuldigisTrigger.view()[i].encodedTCEnergy()(ibx,0) = 0;
+      emuldigisTrigger.view()[i].TCAddress()(ibx,0) = 0;
+    }
   }
 
   TPGFEConfiguration::Configuration cfgs;
