@@ -1,6 +1,5 @@
 #include "EventFilter/HGCalRawToDigi/interface/HGCalUnpackerTrigger.h"
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TPGFEDataformat.hh"
-#include "EventFilter/HGCalRawToDigi/interface/TPG/TPGBEDataformat.hh"
 #include "EventFilter/HGCalRawToDigi/interface/TPG/Stage1IO.hh"
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TpgSubpacketHeader.h"
 #include "DataFormats/HGCalDigi/interface/HGCalRawDataDefinitions.h"
@@ -219,7 +218,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 
                         TPGFEDataformat::TcRawDataPacket rdp;
                         try {
-                            TPGStage1Emulation::Stage1IO::convertElinksToTcRawData(cfgecont.getOutType(), cfgecont.getNofTCs(), el.get(), rdp);
+                            TPGStage1::convertElinksToTcRawData(cfgecont.getOutType(), cfgecont.getNofTCs(), el.get(), rdp);
                         }
                         catch (cms::Exception &e) {
                             LogDebug("Stage1IORecoverable")
