@@ -8,6 +8,12 @@
 #include <vector>
 #include <iomanip>
 
+// @short configuration for HGCROC 
+struct HGCalROCTrigConfig {
+  uint8_t adc_th;   //5 bits adc th global for HGCROC
+  COND_SERIALIZABLE;
+};
+
 // @short configuration for ECON-T module
 struct HGCalECONTConfig {
   uint8_t density; //lsb at the input TC from ROC
@@ -19,6 +25,7 @@ struct HGCalECONTConfig {
   std::vector<uint16_t> calv; //12-bit calibration for 48 TCs
   std::vector<uint8_t> tcMux;   //multiplexer between HGCROC and TC to ECONT
   std::vector<uint32_t> offset; 
+  std::vector<HGCalROCTrigConfig> hgcrocs; 
   COND_SERIALIZABLE;
 };
 
@@ -67,7 +74,7 @@ inline std::ostream& operator<<(std::ostream& os, const HGCalTriggerConfiguratio
       os << "fed[" << std::dec << ifed << "].tdaq[" << itdaq 
          << "], headerMarker = 0x" << std::hex << std::setfill('0') << std::setw(8) << tdaqConfig.tdaqBlockHeaderMarker << std::endl;
       if (tdaqConfig.econts.size()==0) {
-        os << "with no active ECON-Ts, skipped" << std::endl;
+        os << std::dec << "with no active ECON-Ts, skipped" << std::endl;
         continue;
       }
       os << " with " << std::dec << tdaqConfig.econts.size() << " active ECON-Ts" << std::endl;
@@ -94,6 +101,18 @@ inline std::ostream& operator<<(std::ostream& os, const HGCalTriggerConfiguratio
           os << std::dec << (int)econtConfig.offset[i]<<", ";
         }
         os << std::endl;
+        if (econtConfig.hgcrocs.size()==0) {
+          os << "config for HGCROC not loaded, skipped" << std::endl;
+        continue;
+        }
+        os << " with " << std::dec << econtConfig.hgcrocs.size() << " HGCROCs" << std::endl;
+        for (unsigned int ihgcroc=0; ihgcroc<econtConfig.hgcrocs.size(); ihgcroc++){
+          HGCalROCTrigConfig hgcrocConfig = econtConfig.hgcrocs[ihgcroc];
+
+          os << "fed[" << std::dec << ifed << "].tdaq[" << itdaq << "].econt[" << iecont << "].hgcroc[" << ihgcroc << "], ADC th = " 
+             << std::dec << (int)hgcrocConfig.adc_th << std::endl;
+
+        }
       }
     }
   }
