@@ -259,10 +259,23 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                         //// How much of below will be **CONFIGURE** ed
                         for(unsigned itc(0) ; itc < rdp.size() ; itc++){
 
-                            uint32_t tcidx = uint32_t(rdp.getTc(itc).address()); 
+                            uint32_t tcidx = uint32_t(rdp.getTc(itc).address());
                             uint32_t denseIdxRaw = moduleIndexer.getIndexForModuleData(fedId, econTId, tcidx) ; // before any swapping
                             
-                            // offset in 2 steps, first mux then econts 
+                            // guard: payload TC address may exceed configured tcMux size (OOB read otherwise)
+                            if (tcidx >= econt_conf.tcMux.size()) {
+                              LogDebug("TrigUnpackTcMuxOOB")
+                                << "fed=" << fedId << " econTId=" << econTId
+                                << " tcidx=" << tcidx << " tcMux.size=" << econt_conf.tcMux.size();
+                              continue;
+                            }
+                            
+                            uint32_t maxTCsForModule = moduleIndexer.getNumChannels(fedId, econTId);
+                            if (econt_conf.tcMux[tcidx] >= maxTCsForModule) {
+                              continue;  // Skip dummy TCs that exceed the allocated module capacity
+                            }
+
+                            // offset in 2 steps, first mux then econts
                             int32_t tcMuxSwapOffset = econt_conf.tcMux[tcidx] - tcidx;
                             int32_t econtSwapOffset = fedConfig.econtSwapOffset[iecon];
                             int32_t denseIdxOffset =  tcMuxSwapOffset + econtSwapOffset; 
