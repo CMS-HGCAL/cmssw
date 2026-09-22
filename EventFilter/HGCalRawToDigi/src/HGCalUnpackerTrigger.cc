@@ -270,13 +270,13 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                               continue;
                             }
                             
-			    uint32_t maxTCsForModule = moduleIndexer.getNumChannels(fedId, econTId);
+                            uint32_t maxTCsForModule = moduleIndexer.getNumChannels(fedId, econTId);
                             if (econt_conf.tcMux[tcidx] >= maxTCsForModule) {
                               continue;  // Skip dummy TCs that exceed the allocated module capacity
                             }
 
                             // offset in 2 steps, first mux then econts
-			    int32_t tcMuxSwapOffset = econt_conf.tcMux[tcidx] - tcidx;
+                            int32_t tcMuxSwapOffset = econt_conf.tcMux[tcidx] - tcidx;
                             int32_t econtSwapOffset = fedConfig.econtSwapOffset[iecon];
                             int32_t denseIdxOffset =  tcMuxSwapOffset + econtSwapOffset; 
 
