@@ -264,7 +264,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                             
                             // guard: payload TC address may exceed configured tcMux size (OOB read otherwise)
                             if (tcidx >= econt_conf.tcMux.size()) {
-                              LogDebug("TrigUnpackTcMuxOOB")
+			      edm::LogWarning("TrigUnpackTcMuxOOB")
                                 << "fed=" << fedId << " econTId=" << econTId
                                 << " tcidx=" << tcidx << " tcMux.size=" << econt_conf.tcMux.size();
                               continue;
@@ -272,6 +272,9 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                             
                             uint32_t maxTCsForModule = moduleIndexer.getNumChannels(fedId, econTId);
                             if (econt_conf.tcMux[tcidx] >= maxTCsForModule) {
+			      edm::LogWarning("TrigUnpackTcOOB")
+                                << "fed=" << fedId << " econTId=" << econTId
+                                << " TCmux=" << econt_conf.tcMux[tcidx] << " maxTC=" << maxTCsForModule;
                               continue;  // Skip dummy TCs that exceed the allocated module capacity
                             }
 
