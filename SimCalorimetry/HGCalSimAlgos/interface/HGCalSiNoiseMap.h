@@ -27,9 +27,9 @@ public:
   };
 
   struct SiCellOpCharacteristics {
-    SiCellOpCharacteristics() : lnfluence(0.), fluence(0.), ileak(0.), enc_s(0.), enc_p(0.), mipfC(0), mipADC(0) {}
+    SiCellOpCharacteristics() : lnfluence(0.), fluence(0.), ileak(0.), enc_s(0.), enc_p(0.), mipfC(0), adc_lsb(0), tot_lsb(0), toa_thr(0), tot_thr(0), mipADC(0) {}
     SiCellOpCharacteristicsCore core;
-    double lnfluence, fluence, ileak, enc_s, enc_p, mipfC;
+    double lnfluence, fluence, lndose, ileak, enc_s, enc_p, mipfC, adc_lsb, tot_lsb, toa_thr, tot_thr;
     unsigned int mipADC;
   };
 

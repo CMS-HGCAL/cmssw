@@ -9,9 +9,9 @@
 #include "FWCore/Framework/interface/ESWatcher.h"
 #include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
-#include "CondFormats/DataRecord/interface/HGCalDenseIndexInfoRcd.h"
-#include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHost.h"
 #include "CondFormats/HGCalObjects/interface/HGCalAgeingCondsHost.h"
+#include "CondFormats/DataRecord/interface/HGCalAgeingCondsRcd.h"
+
 
 class HGCalAgeingConditionTester : public edm::one::EDAnalyzer<> {
 public:
@@ -21,13 +21,13 @@ public:
 private:
   void analyze(const edm::Event&, const edm::EventSetup&) override;
 
-  edm::ESWatcher<HGCalElectronicsMappingRcd> cfgWatcher_;
-  edm::ESGetToken<hgcal::HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexTkn_;
+  edm::ESWatcher<HGCalAgeingCondsRcd> cfgWatcher_;
+  edm::ESGetToken<hgcal::HGCalAgeingCondsHost, HGCalAgeingCondsRcd> ageingParamsTkn_;
 };
 
 //
 HGCalAgeingConditionTester::HGCalAgeingConditionTester(const edm::ParameterSet& iConfig)
-    : denseIndexTkn_(esConsumes()) 
+    : ageingParamsTkn_(esConsumes()) 
     {}
 
 //
@@ -37,16 +37,14 @@ void HGCalAgeingConditionTester::analyze(const edm::Event& iEvent, const edm::Ev
     return;
 
   //test dense index token
-  auto const& denseIndexInfo = iSetup.getData(denseIndexTkn_);
-  printf("Retrieved %d dense index info\n", denseIndexInfo.view().metadata().size());
-  int nindices = denseIndexInfo.view().metadata().size();
-  std::cout << nindices << " indices retrieved from dense index info" << std::endl;
+  auto const& ageingParams = iSetup.getData(ageingParamsTkn_);
+  printf("Retrieved %d ageing parameters info\n", ageingParams.view().metadata().size());
 }
 
 //
 void HGCalAgeingConditionTester::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
-  desc.add<edm::ESInputTag>("denseIndexer", edm::ESInputTag(""))->setComment("Dense indexer SoA source");
+  desc.add<edm::ESInputTag>("ageingParams", edm::ESInputTag(""))->setComment("Aging parameters SoA");
   descriptions.addWithDefaultLabel(desc);
 }
 

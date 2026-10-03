@@ -6,16 +6,21 @@ def customise_hgcal_ageing_byalgo(process, **kwargs):
 
     si_benchmark = kwargs.get('si_benchmark', 'TDR_600V')
 
-    process.load('SimCalorimetry.HGCalSimAlgos.hgCalAlgoBasedAgeingCondProducer_cfi')
-    process.hgCalAlgoBasedAgeingCondProducer.doseMapURL = cms.FileInPath(kwargs.get('doseMapURL', 'SimCalorimetry/HGCalSimProducers/data/doseParams_3000fb_fluka-3.7.20.txt'))
-    process.hgCalAlgoBasedAgeingCondProducer.doseMapAlgo = cms.uint32(kwargs.get('doseMapAlgo', 0))
-    process.hgCalAlgoBasedAgeingCondProducer.scaleByDoseFactor = cms.double(kwargs.get('scaleByDoseFactor', 1.0))
-    process.hgCalAlgoBasedAgeingCondProducer.ileakParam = cms.vdouble(hgcSiSensorIleak(si_benchmark))
-    process.hgCalAlgoBasedAgeingCondProducer.cceParams = cms.PSet(
-        cceParam120 = cms.vdouble(hgcSiSensorCCE(120,si_benchmark)),
-        cceParam200 = cms.vdouble(hgcSiSensorCCE(200,si_benchmark)),
-        cceParam300 = cms.vdouble(hgcSiSensorCCE(300,si_benchmark))
-    )   
+    if not hasattr(process, 'ProcessAcceleratorCUDA'):
+        process.load('Configuration.StandardSequences.Accelerators_cff')
+        
+    process.hgCalAlgoBasedAgeingCondProducer = cms.ESProducer(
+        'hgcal::HGCalAlgoBasedAgeingCondProducer@alpaka',
+        doseMapURL = cms.FileInPath(kwargs.get('doseMapURL', 'SimCalorimetry/HGCalSimProducers/data/doseParams_3000fb_fluka-3.7.20.txt')),
+        doseMapAlgo = cms.uint32(kwargs.get('doseMapAlgo', 0)),
+        scaleByDoseFactor = cms.double(kwargs.get('scaleByDoseFactor', 1.0)),
+        ileakParam = cms.vdouble(hgcSiSensorIleak(si_benchmark)),
+        cceParams = cms.PSet(
+            cceParam120 = cms.vdouble(hgcSiSensorCCE(120,si_benchmark)),
+            cceParam200 = cms.vdouble(hgcSiSensorCCE(200,si_benchmark)),
+            cceParam300 = cms.vdouble(hgcSiSensorCCE(300,si_benchmark))
+        )
+    )
 
     return process
 

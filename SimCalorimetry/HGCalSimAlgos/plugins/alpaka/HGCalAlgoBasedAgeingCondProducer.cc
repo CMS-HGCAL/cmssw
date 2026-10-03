@@ -15,6 +15,12 @@
 
 #include "SimCalorimetry/HGCalSimAlgos/interface/HGCalSiNoiseMap.h"
 
+#include "Geometry/CaloGeometry/interface/CaloGeometry.h"
+#include "Geometry/Records/interface/CaloGeometryRecord.h"
+#include "Geometry/HGCalGeometry/interface/HGCalGeometry.h"
+#include "DataFormats/ForwardDetId/interface/HGCSiliconDetId.h"
+#include "DataFormats/DetId/interface/DetId.h"
+
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -29,13 +35,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       //
       HGCalAlgoBasedAgeingCondProducer(const edm::ParameterSet& iConfig) : ESProducer(iConfig) {
         auto cc = setWhatProduced(this);
+        geoTkn_ = cc.consumes();
         denseIndexTkn_ = cc.consumes(iConfig.getParameter<edm::ESInputTag>("denseIndexer"));
-        
+        cellMappingToken_ = cc.consumes(iConfig.getParameter<edm::ESInputTag>("cellMappingSource"));
+
         //init the noise map for Si
         auto doseMapURL = iConfig.getParameter<edm::FileInPath>("doseMapURL");
         auto doseMapAlgo = iConfig.getParameter<uint32_t>("doseMapAlgo");
         auto scaleByDoseFactor = iConfig.getParameter<double>("scaleByDoseFactor");
-        std::vector<double> ileakParam(iConfig.getParameter<edm::ParameterSet>("ileakParam").template getParameter<std::vector<double>>("ileakParam"));
+        std::vector<double> ileakParam(iConfig.getParameter<std::vector<double>>("ileakParam"));
         std::vector<double> cceParam120(iConfig.getParameter<edm::ParameterSet>("cceParams").template getParameter<std::vector<double>>("cceParam120"));
         std::vector<double> cceParam200(iConfig.getParameter<edm::ParameterSet>("cceParams").template getParameter<std::vector<double>>("cceParam200"));
         std::vector<double> cceParam300(iConfig.getParameter<edm::ParameterSet>("cceParams").template getParameter<std::vector<double>>("cceParam300"));
@@ -50,12 +58,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
         edm::ParameterSetDescription desc;
         desc.add<edm::ESInputTag>("denseIndexer", edm::ESInputTag(""))->setComment("Dense indexer SoA source");
+        desc.add<edm::ESInputTag>("cellMappingSource", edm::ESInputTag(""))->setComment("Cell mapping source");
         desc.add<edm::FileInPath>("doseMapURL")->setComment("dose map file");
         desc.add<uint32_t>("doseMapAlgo")->setComment("fluence algo to use");
         desc.add<double>("scaleByDoseFactor")->setComment("dose scaling factor");
-        edm::ParameterSetDescription ileakDesc;
-        ileakDesc.add<std::vector<double>>("ileakParam");
-        desc.add<edm::ParameterSetDescription>("ileakParam", ileakDesc)->setComment("leakage current parameterization");
+        desc.add<std::vector<double>>("ileakParam")->setComment("leakage current parameterization");
         edm::ParameterSetDescription cceDesc;
         cceDesc.add<std::vector<double>>("cceParam120");
         cceDesc.add<std::vector<double>>("cceParam200");
@@ -67,9 +74,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       //
       std::optional<HGCalAgeingCondsHost> produce(const HGCalAgeingCondsRcd& iRecord) {
 
+        //get the geometry record
+        const auto &geom = iRecord.get(geoTkn_);
+
         //get the dense indexer in use
         auto const& denseIndexInfo = iRecord.get(denseIndexTkn_);
         auto const& denseIndexInfo_view = denseIndexInfo.const_view();
+
+        //get the cell mapping info
+        auto const& cell_info = iRecord.get(cellMappingToken_);
+        auto const& cell_info_view = cell_info.const_view();
 
         //declare the dense index info collection to be produced
         //the size is determined by the module indexer
@@ -78,15 +92,46 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         auto ac_view = ageingConds.view();
         for(int i=0; i<nIndices; i++){
           
-          //read the coordinates of this cell to compute dose and fluence
+          //get the information on this cell
           auto di_row = denseIndexInfo_view[i];
-          auto x = di_row.x();
-          auto y = di_row.y();
-          auto r = std::sqrt(x*x + y*y);
-          auto layer = di_row.layer();
+          DetId did( di_row.detid() );
+          auto cell_info_idx = di_row.cellInfoIdx();
+          auto chType = cell_info_view[cell_info_idx].t();
 
-          ac_view[i].dose() = r;
-          ac_view[i].fluence() = layer;          
+          // unconnected channel
+          if(chType==-1) {
+            // FIXME
+          }
+
+          // SiPM-on-tile
+          else if( cell_info_view[cell_info_idx].isSiPM() ) {
+
+            //FIXME
+
+          } 
+          
+          // Si
+          else {
+            HGCSiliconDetId siid(did);
+            siNoiseMap_->setGeometry( geom.getSubdetectorGeometry(did.det(), ForwardSubdetector::ForwardEmpty) );
+            auto siop = siNoiseMap_->getSiCellOpCharacteristics(siid);
+            ac_view[i].signal() = siop.mipfC;
+            ac_view[i].signalScale() = siop.core.cce;     
+            ac_view[i].enc() = siop.core.noise;
+            ac_view[i].enc_s() = siop.enc_s;     
+            ac_view[i].enc_p() = siop.enc_p;
+            ac_view[i].ileak() = siop.ileak;     
+            ac_view[i].xtalk() = 0;
+            ac_view[i].ntotalPE() = 0;     
+            ac_view[i].gain() = siop.core.gain;
+            ac_view[i].toa_thr() = siop.toa_thr;
+            ac_view[i].tot_thr() = siop.tot_thr;
+            ac_view[i].adc_lsb() = siop.adc_lsb;     
+            ac_view[i].tot_lsb() = siop.tot_lsb;  
+            ac_view[i].ln_f() = siop.lnfluence;     
+            ac_view[i].ln_dose() = siop.lndose;  
+            std::cout << i << " " << ac_view[i].signal() << " " << ac_view[i].signalScale() << " " << ac_view[i].enc() << std::endl;
+          }   
         }
 
         //return denseIdxInfo;
@@ -94,7 +139,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }  // end of produce()
 
     private:
+
+      edm::ESGetToken<CaloGeometry, CaloGeometryRecord> geoTkn_;
       edm::ESGetToken<hgcal::HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexTkn_;
+      edm::ESGetToken<hgcal::HGCalMappingCellParamHost, HGCalElectronicsMappingRcd> cellMappingToken_;
       std::unique_ptr<HGCalSiNoiseMap<HGCSiliconDetId> > siNoiseMap_;
     };
 

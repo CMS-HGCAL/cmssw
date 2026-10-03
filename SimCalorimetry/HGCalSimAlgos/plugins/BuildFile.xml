@@ -10,7 +10,7 @@
 <use name="Geometry/HGCalGeometry"/>
 
 <!-- alpaka-based portable plugins -->
-<library file="alpaka/*.cc" name="SimCalorimeteryHGCalSimAlgosPluginsPortable">
+<library file="alpaka/*.cc" name="SimCalorimetryHGCalSimAlgosPluginsPortable">
   <use name="alpaka"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
