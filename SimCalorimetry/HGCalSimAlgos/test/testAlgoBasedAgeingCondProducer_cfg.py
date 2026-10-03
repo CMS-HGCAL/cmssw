@@ -27,15 +27,14 @@ kwargs = { k: getattr(options,k) for k in ['modules','sicells','sipmcells','offs
 process = customise_hgcalmapper(process, **kwargs)
 
 # ageing conditions
-from SimCalorimetry.HGCalSimAlgos.hgcal_ageing_byalgo_cfi import customise_hgcal_ageing_byalgo
+from SimCalorimetry.HGCalSimAlgos.hgcal_ageing_byalgo_cfi import customise_hgcal_ageing_byalgo_startup
 process = customise_hgcal_ageing_byalgo_startup(process)
 
 # Geometry
 process.load('Configuration.Geometry.GeometryExtendedRun4D122Reco_cff')
 
 # tester
-process.tester = cms.EDAnalyzer('HGCalAgeingConditionTester')
-)
-process.tester.verbosity = cms.untracked.int32(options.verbosity)
+process.load('SimCalorimetry.HGCalSimAlgos.hgCalAgeingConditionTester_cfi')
 
-process.p = cms.Path(process.tester)
+# test path
+process.p = cms.Path(process.hgCalAgeingConditionTester)

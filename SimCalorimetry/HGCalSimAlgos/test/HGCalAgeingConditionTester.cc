@@ -13,9 +13,9 @@
 #include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHost.h"
 #include "CondFormats/HGCalObjects/interface/HGCalAgeingCondsHost.h"
 
-class HGCalAlgoBasedAgeingCondProducer : public edm::one::EDAnalyzer<> {
+class HGCalAgeingConditionTester : public edm::one::EDAnalyzer<> {
 public:
-  explicit HGCalAlgoBasedAgeingCondProducer(const edm::ParameterSet&);
+  explicit HGCalAgeingConditionTester(const edm::ParameterSet&);
   static void fillDescriptions(edm::ConfigurationDescriptions&);
 
 private:
@@ -26,12 +26,12 @@ private:
 };
 
 //
-HGCalAlgoBasedAgeingCondProducer::HGCalAlgoBasedAgeingCondProducer(const edm::ParameterSet& iConfig)
+HGCalAgeingConditionTester::HGCalAgeingConditionTester(const edm::ParameterSet& iConfig)
     : denseIndexTkn_(esConsumes()) 
     {}
 
 //
-void HGCalAlgoBasedAgeingCondProducer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
+void HGCalAgeingConditionTester::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   // if the cfg didn't change there's nothing else to do
   if (!cfgWatcher_.check(iSetup))
     return;
@@ -44,11 +44,11 @@ void HGCalAlgoBasedAgeingCondProducer::analyze(const edm::Event& iEvent, const e
 }
 
 //
-void HGCalAlgoBasedAgeingCondProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+void HGCalAgeingConditionTester::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::ESInputTag>("denseIndexer", edm::ESInputTag(""))->setComment("Dense indexer SoA source");
   descriptions.addWithDefaultLabel(desc);
 }
 
 // define this as a plug-in
-DEFINE_FWK_MODULE(HGCalAlgoBasedAgeingCondProducer);
+DEFINE_FWK_MODULE(HGCalAgeingConditionTester);
