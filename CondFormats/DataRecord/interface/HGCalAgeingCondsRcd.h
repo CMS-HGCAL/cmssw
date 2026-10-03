@@ -21,9 +21,10 @@
 #include "FWCore/Utilities/interface/mplVector.h"
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
 #include "Geometry/Records/interface/CaloGeometryRecord.h"
+#include "CondFormats/DataRecord/interface/HGCalDenseIndexInfoRcd.h"
 
 class HGCalAgeingCondsRcd : public edm::eventsetup::DependentRecordImplementation<
-                                   HGCalAgeingCondsRcd,
-                                   edm::mpl::Vector<HGCalDenseIndexInfoRcd> > {};
+                                HGCalAgeingCondsRcd,
+                                edm::mpl::Vector<HGCalElectronicsMappingRcd, CaloGeometryRecord, HGCalDenseIndexInfoRcd> > {};
 
 #endif

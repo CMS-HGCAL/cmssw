@@ -1,7 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 process = cms.Process("TEST")
 
-
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing('python')
 options.register('verbosity',0,mytype=VarParsing.varType.int,
@@ -27,11 +26,16 @@ from Geometry.HGCalMapping.hgcalmapping_cff import customise_hgcalmapper
 kwargs = { k: getattr(options,k) for k in ['modules','sicells','sipmcells','offsetfile'] if getattr(options,k)!='' }
 process = customise_hgcalmapper(process, **kwargs)
 
+# ageing conditions
+from SimCalorimetry.HGCalSimAlgos.hgcal_ageing_byalgo_cfi import customise_hgcal_ageing_byalgo
+process = customise_hgcal_ageing_byalgo_startup(process)
+
 # Geometry
-process.load('Configuration.Geometry.GeometryExtendedRun4D104Reco_cff')
+process.load('Configuration.Geometry.GeometryExtendedRun4D122Reco_cff')
 
 # tester
-process.tester = cms.EDAnalyzer('HGCalMappingESSourceTester')
+process.tester = cms.EDAnalyzer('HGCalAgeingConditionTester')
+)
 process.tester.verbosity = cms.untracked.int32(options.verbosity)
 
 process.p = cms.Path(process.tester)
