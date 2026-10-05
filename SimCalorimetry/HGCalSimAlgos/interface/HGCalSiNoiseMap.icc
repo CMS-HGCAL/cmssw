@@ -15,15 +15,19 @@ HGCalSiNoiseMap<T>::HGCalSiNoiseMap()
       activateCachedOp_(false) {
   //q80fC
   encsParam_.push_back({636., 15.6, 0.0328});   //2nd order polynomial coefficients as function of capacitance
-  chargeAtFullScaleADCPerGain_.push_back(80.);  //the num of fC (charge) which corresponds to the max ADC value
+  chargeAtFullScaleADCPerGain_.push_back(98.);  //the num of fC (charge) which corresponds to the max ADC value
+  //chargeAtFullScaleADCPerGain_.push_back(80.);
   adcPulses_.push_back({{0., 0., 1.0, 0.066 / 0.934, 0., 0.}});  //in-time bunch is the 3rd entry in the array
   //q160fC
   encsParam_.push_back({1045., 8.74, 0.0685});
-  chargeAtFullScaleADCPerGain_.push_back(160.);
+  chargeAtFullScaleADCPerGain_.push_back(208.);
+  //chargeAtFullScaleADCPerGain_.push_back(160.);  
   adcPulses_.push_back({{0., 0., 1.0, 0.153 / 0.847, 0., 0.}});
+
   // q320fC
   encsParam_.push_back({1915., 2.79, 0.0878});
-  chargeAtFullScaleADCPerGain_.push_back(320.);
+  chargeAtFullScaleADCPerGain_.push_back(319.);
+  //chargeAtFullScaleADCPerGain_.push_back(320.);
   adcPulses_.push_back({{0., 0., 1.0, 0.0963 / 0.9037, 0., 0.}});
 
   //start with a default value
@@ -204,7 +208,8 @@ typename HGCalSiNoiseMap<T>::SiCellOpCharacteristics HGCalSiNoiseMap<T>::getSiCe
 
     siop.lnfluence = getFluenceValue(subdet, layer, radius, true);
     siop.fluence = exp(siop.lnfluence);
-
+    siop.lndose = getDoseValue(subdet, layer, radius, true);
+    
     double conv(log(cellVol) + unitToMicroLog_);
     siop.ileak = exp(ileakParam_[0] * siop.lnfluence + ileakParam_[1] + conv);
 
@@ -252,6 +257,12 @@ typename HGCalSiNoiseMap<T>::SiCellOpCharacteristics HGCalSiNoiseMap<T>::getSiCe
   siop.mipfC = S;
   siop.mipADC = std::floor(S / lsbPerGain_[gain]);
   siop.core.thrADC = std::floor(S / 2. / lsbPerGain_[gain]);
+
+  //ROC operation parameters for Si
+  siop.adc_lsb = lsbPerGain_[gain];
+  siop.tot_lsb = 3.918;
+  siop.tot_thr = 0.9*chargeAtFullScaleADCPerGain_[gain];
+  siop.toa_thr = 12.;
 
   //build noise estimate
   if (ignoreNoise_) {

@@ -131,7 +131,7 @@ private:
   hgc_digi::FEADCPulseShape defaultADCPulse_;
   std::vector<hgc_digi::FEADCPulseShape> adcPulses_;
 
-  //lsb
+  //lsb, full scale charge
   std::vector<double> lsbPerGain_, chargeAtFullScaleADCPerGain_;
 
   //conversions
