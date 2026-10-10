@@ -98,9 +98,23 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           auto cell_info_idx = di_row.cellInfoIdx();
           auto chType = cell_info_view[cell_info_idx].t();
 
-          // unconnected channel
-          if(chType==-1) {
-            // FIXME
+          // require full channels only for the moment (FIXME for calib channels)
+          if(chType!=1) {
+            ac_view[i].signal() = 0;
+            ac_view[i].signalScale() = 0;
+            ac_view[i].enc() = 0;
+            ac_view[i].enc_s() = 0;
+            ac_view[i].enc_p() = 0;
+            ac_view[i].ileak() = 0;
+            ac_view[i].xtalk() = 0;
+            ac_view[i].ntotalPE() = 0;     
+            ac_view[i].gain() = 0;
+            ac_view[i].toa_thr() = 0;
+            ac_view[i].tot_thr() = 0;
+            ac_view[i].adc_lsb() = 0;    
+            ac_view[i].tot_lsb() = 0;
+            ac_view[i].ln_f() = 0;
+            ac_view[i].ln_dose() = 0;
           }
 
           // SiPM-on-tile

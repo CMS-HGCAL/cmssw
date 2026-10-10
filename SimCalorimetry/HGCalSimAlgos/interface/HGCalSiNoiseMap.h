@@ -12,7 +12,10 @@
 
 /**
    @class HGCalSiNoiseMap
-   @short derives from HGCalRadiation map to parse fluence parameters, provides Si-specific functions; see DN-19-045
+   @short derives from HGCalRadiation map to parse fluence parameters, provides Si-specific functions
+   As the class is expected to provide a fixed benchmark, the values are hardcoded following the two references below
+   [1] https://cms-alcm.web.cern.ch/notes/CMS-DN-2024-006/DN2019_045_v1.pdf
+   [2] https://cms-alcm.web.cern.ch/notes/CMS-DN-2024-006/DN2024_006_v1.pdf
 */
 template <typename T>
 class HGCalSiNoiseMap : public HGCalRadiationMap {
@@ -47,9 +50,10 @@ public:
   void setCceParam(const std::vector<double> &parsFine,
                    const std::vector<double> &parsThin,
                    const std::vector<double> &parsThick) {
-    cceParam_.push_back(parsFine);   //120
-    cceParam_.push_back(parsThin);   //200
-    cceParam_.push_back(parsThick);  //300
+    cceParam_.push_back(parsFine);   //HD 120
+    cceParam_.push_back(parsThin);   //LD 200
+    cceParam_.push_back(parsThick);  //LD 300
+    cceParam_.push_back(parsThin);   //HD 200
   }
 
   /**
@@ -86,9 +90,9 @@ public:
                                                      GainRange_t &gain,
                                                      int &aimMIPtoADC);
 
-  std::array<double, 3> &getMipEqfC() { return mipEqfC_; }
-  std::array<double, 3> &getCellCapacitance() { return cellCapacitance_; }
-  std::array<double, 3> &getCellVolume() { return cellVolume_; }
+  std::array<double, 4> &getMipEqfC() { return mipEqfC_; }
+  std::array<double, 4> &getCellCapacitance() { return cellCapacitance_; }
+  std::array<double, 4> &getCellVolume() { return cellVolume_; }
   std::vector<std::vector<double> > &getCCEParam() { return cceParam_; }
   std::vector<double> &getIleakParam() { return ileakParam_; }
   std::vector<std::vector<double> > &getENCsParam() { return encsParam_; }
@@ -114,7 +118,7 @@ private:
   std::map<uint32_t, SiCellOpCharacteristicsCore> siopCache_;
 
   //vector of three params, per sensor type: 0:120 [mum], 1:200, 2:300
-  std::array<double, 3> mipEqfC_, cellCapacitance_, cellVolume_;
+  std::array<double, 4> mipEqfC_, cellCapacitance_, cellVolume_;
   std::vector<std::vector<double> > cceParam_;
 
   //leakage current/volume vs fluence

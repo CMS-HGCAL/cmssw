@@ -13,53 +13,63 @@ HGCalSiNoiseMap<T>::HGCalSiNoiseMap()
       ignoreNoise_(false),
       ignoreGainDependentPulse_(false),
       activateCachedOp_(false) {
-  //q80fC
+
+  //ROC GAINS
+  //High gain: q80fC
   encsParam_.push_back({636., 15.6, 0.0328});   //2nd order polynomial coefficients as function of capacitance
-  chargeAtFullScaleADCPerGain_.push_back(98.);  //the num of fC (charge) which corresponds to the max ADC value
-  //chargeAtFullScaleADCPerGain_.push_back(80.);
+  chargeAtFullScaleADCPerGain_.push_back(80.);
   adcPulses_.push_back({{0., 0., 1.0, 0.066 / 0.934, 0., 0.}});  //in-time bunch is the 3rd entry in the array
-  //q160fC
+
+  //Medium gain: q160fC
   encsParam_.push_back({1045., 8.74, 0.0685});
-  chargeAtFullScaleADCPerGain_.push_back(208.);
-  //chargeAtFullScaleADCPerGain_.push_back(160.);  
+  chargeAtFullScaleADCPerGain_.push_back(160.);
   adcPulses_.push_back({{0., 0., 1.0, 0.153 / 0.847, 0., 0.}});
 
-  // q320fC
+  //Low gain: q320fC
   encsParam_.push_back({1915., 2.79, 0.0878});
-  chargeAtFullScaleADCPerGain_.push_back(319.);
-  //chargeAtFullScaleADCPerGain_.push_back(320.);
+  chargeAtFullScaleADCPerGain_.push_back(320.);   
   adcPulses_.push_back({{0., 0., 1.0, 0.0963 / 0.9037, 0., 0.}});
 
-  //start with a default value
+  //turn-on gain is the medium one
   defaultADCPulse_ = adcPulses_[(GainRange_t)q160fC];
 
   // adc has 10 bits -> 1024 counts at max ( >0 baseline to be handled)
   for (auto i : chargeAtFullScaleADCPerGain_)
     lsbPerGain_.push_back(i / 1024.);
 
-  //fine sensors: 120 mum -  67: MPV of charge[number of e-]/mum for a mip in silicon; srouce PDG
+  //SI SENSOR REFERENCE VALUES
+  //HD 120 mum -  67: MPV of charge[number of e-]/mum for a mip in silicon; srouce PDG
   const double mipEqfC_120 = 120. * 67. * qe2fc_;
-  mipEqfC_[0] = mipEqfC_120;
-  const double cellCapacitance_120 = 50;
-  cellCapacitance_[0] = cellCapacitance_120;
-  const double cellVolume_120 = 0.56 * (120.e-4);
-  cellVolume_[0] = cellVolume_120;
+  mipEqfC_[HGCSiliconDetId:: HGCalHD120] = mipEqfC_120;
+  const double cellCapacitance_hd120 = 48.;
+  cellCapacitance_[HGCSiliconDetId:: HGCalHD120] = cellCapacitance_hd120;
+  const double cellVolume_hd120 = 0.56 * (120.e-4);
+  cellVolume_[HGCSiliconDetId:: HGCalHD120] = cellVolume_hd120;
 
-  //thin sensors: 200 mum
+  //LD 200 mum
   const double mipEqfC_200 = 200. * 70. * qe2fc_;
-  mipEqfC_[1] = mipEqfC_200;
-  const double cellCapacitance_200 = 65;
-  cellCapacitance_[1] = cellCapacitance_200;
-  const double cellVolume_200 = 1.26 * (200.e-4);
-  cellVolume_[1] = cellVolume_200;
+  mipEqfC_[HGCSiliconDetId:: HGCalLD200] = mipEqfC_200;
+  const double cellCapacitance_ld200 = 67.;
+  cellCapacitance_[HGCSiliconDetId:: HGCalLD200] = cellCapacitance_ld200;
+  const double cellVolume_ld200 = 1.26 * (200.e-4);
+  cellVolume_[HGCSiliconDetId:: HGCalLD200] = cellVolume_ld200;
 
-  //thick sensors: 300 mum
+  //LD 300 mum
   const double mipEqfC_300 = 300. * 73. * qe2fc_;
-  mipEqfC_[2] = mipEqfC_300;
-  const double cellCapacitance_300 = 45;
-  cellCapacitance_[2] = cellCapacitance_300;
-  const double cellVolume_300 = 1.26 * (300.e-4);
-  cellVolume_[2] = cellVolume_300;
+  mipEqfC_[HGCSiliconDetId:: HGCalLD300] = mipEqfC_300;
+  const double cellCapacitance_ld300 = 45.;
+  cellCapacitance_[HGCSiliconDetId:: HGCalLD300] = cellCapacitance_ld300;
+  const double cellVolume_ld300 = 1.26 * (300.e-4);
+  cellVolume_[HGCSiliconDetId:: HGCalLD300] = cellVolume_ld300;
+
+  //HD 200 mum
+  mipEqfC_[HGCSiliconDetId:: HGCalHD200] = mipEqfC_200;
+  const double cellCapacitance_hd200 = 29.;
+  cellCapacitance_[HGCSiliconDetId:: HGCalHD200] = cellCapacitance_hd200;
+  const double cellVolume_hd200 = 0.56 * (200.e-4);
+  cellVolume_[HGCSiliconDetId:: HGCalHD200] = cellVolume_hd200;
+
+
 }
 
 //
@@ -154,11 +164,11 @@ typename HGCalSiNoiseMap<T>::SiCellOpCharacteristics HGCalSiNoiseMap<T>::getSiCe
                                                                                                     int aimMIPtoADC) {
   //decode cell properties
   int layer = cellId.layer();
-  unsigned int cellThick = cellId.type();
-  double cellCap(cellCapacitance_[cellThick]);
-  double cellVol(cellVolume_[cellThick]);
-  double mipEqfC(mipEqfC_[cellThick]);
-  std::vector<double> &cceParam = cceParam_[cellThick];
+  unsigned int cellType = cellId.type();
+  double cellCap(cellCapacitance_[cellType]);
+  double cellVol(cellVolume_[cellType]);
+  double mipEqfC(mipEqfC_[cellType]);
+  std::vector<double> &cceParam = cceParam_[cellType];
 
   //location of the cell
   int subdet = cellId.subdet();
