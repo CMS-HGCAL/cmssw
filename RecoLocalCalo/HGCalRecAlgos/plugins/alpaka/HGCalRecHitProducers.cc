@@ -28,9 +28,6 @@
 // includes for size, calibration, and configuration parameters
 #include "CondFormats/DataRecord/interface/HGCalCalibrationRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalModuleConfigurationRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalCalibrationRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/HGCalObjects/interface/HGCalCalibrationParameterHost.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHost.h"
@@ -54,23 +51,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   private:
     void acquire(device::Event const&, device::EventSetup const&) override;
     void produce(device::Event&, device::EventSetup const&) override;
-    edm::ESWatcher<HGCalModuleConfigurationRcd> calibJsonWatcher_;
-    edm::ESWatcher<HGCalCalibrationRcd> calibSQLiteWatcher_;
+    edm::ESWatcher<HGCalCalibrationRcd> calibWatcher_;
 
     const edm::EDGetTokenT<hgcaldigi::HGCalDigiHost> digisToken_;
-    const std::string calibSourceType_;
-
-    std::optional<
-        edm::ESGetToken<
-            hgcalrechit::HGCalCalibParamHost,
-            HGCalModuleConfigurationRcd>>
-        calibJsonToken_;
-
-    std::optional<
-        edm::ESGetToken<
-            hgcalrechit::HGCalCalibParamHost,
-            HGCalCalibrationRcd>>
-        calibSQLiteToken_;
+    const edm::ESGetToken<hgcalrechit::HGCalCalibParamHost, HGCalCalibrationRcd> calibToken_;
     const device::ESGetToken<hgcal::HGCalMappingCellParamDevice, HGCalElectronicsMappingRcd> mappingToken_;
     const device::ESGetToken<hgcal::HGCalDenseIndexInfoDevice, HGCalDenseIndexInfoRcd> indexingToken_;
     const device::ESGetToken<hgcal::HGCalMappingModuleParamDevice, HGCalElectronicsMappingRcd> moduleToken_;
@@ -87,7 +71,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   HGCalRecHitsProducer::HGCalRecHitsProducer(const edm::ParameterSet& iConfig)
       : SynchronizingEDProducer(iConfig),
         digisToken_{consumes<hgcaldigi::HGCalDigiHost>(iConfig.getParameter<edm::InputTag>("digis"))},
-        calibSourceType_{iConfig.getParameter<std::string>("calibSourceType")},
+        calibToken_{esConsumes<hgcalrechit::HGCalCalibParamHost, HGCalCalibrationRcd>(
+            iConfig.getParameter<edm::ESInputTag>("calibSource"))},
         mappingToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("mappingSource"))},
         indexingToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("indexingSource"))},
         moduleToken_{esConsumes()},
@@ -96,26 +81,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         k_noise_{iConfig.getParameter<double>("k_noise")},
         n_hits_scale_{iConfig.getParameter<int>("n_hits_scale")},
         nsel_{cms::alpakatools::make_host_buffer<int32_t, Platform>()} {
-    const auto calibSource =
-        iConfig.getParameter<edm::ESInputTag>("calibSource");
-
-    if (calibSourceType_ == "json") {
-      calibJsonToken_.emplace(
-          esConsumes<
-              hgcalrechit::HGCalCalibParamHost,
-              HGCalModuleConfigurationRcd>(calibSource));
-    } else if (calibSourceType_ == "sqlite") {
-      calibSQLiteToken_.emplace(
-          esConsumes<
-              hgcalrechit::HGCalCalibParamHost,
-              HGCalCalibrationRcd>(calibSource));
-    } else {
-      throw cms::Exception("Configuration")
-          << "Unsupported calibSourceType='"
-          << calibSourceType_
-          << "'. Allowed values are 'json' and 'sqlite'.";
-    }
-
 #ifndef HGCAL_PERF_TEST
     if (n_hits_scale_ > 1) {
       throw cms::Exception("RuntimeError") << "Build with `HGCAL_PERF_TEST` flag to activate `n_hits_scale`.";
@@ -126,8 +91,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   void HGCalRecHitsProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
     desc.add<edm::InputTag>("digis", edm::InputTag("hgcalDigis", "DIGI", "TEST"));
-    desc.add<std::string>("calibSourceType", "json")
-        ->setComment("Calibration backend: 'json' or 'sqlite'");
     desc.add("calibSource", edm::ESInputTag{})
         ->setComment("Label for calibration parameters");
     desc.add("mappingSource", edm::ESInputTag{})->setComment("Label for cell mapping parameters");
@@ -143,10 +106,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto& queue = iEvent.queue();
 
     // Read digis
-    auto const& hostCalibParamProvider =
-        (calibSourceType_ == "sqlite")
-            ? iSetup.getData(*calibSQLiteToken_)
-            : iSetup.getData(*calibJsonToken_);
+    auto const& hostCalibParamProvider = iSetup.getData(calibToken_);
     auto const& deviceMappingCellParamProvider = iSetup.getData(mappingToken_);
     auto const& deviceIndexingParamProvider = iSetup.getData(indexingToken_);
     auto const& deviceModuleInfoProvider = iSetup.getData(moduleToken_);
@@ -154,10 +114,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     //printout new conditions if available
     LogDebug("HGCalCalibrationParameter").log([&](auto& log) {
-      const bool calibrationChanged =
-          (calibSourceType_ == "sqlite")
-              ? calibSQLiteWatcher_.check(iSetup)
-              : calibJsonWatcher_.check(iSetup);
+      const bool calibrationChanged = calibWatcher_.check(iSetup);
 
       if (calibrationChanged) {
         for (int i = 0; i < hostCalibParamProvider.view().metadata().size(); i++) {
