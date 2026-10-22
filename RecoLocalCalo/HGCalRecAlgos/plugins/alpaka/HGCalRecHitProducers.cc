@@ -71,8 +71,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   HGCalRecHitsProducer::HGCalRecHitsProducer(const edm::ParameterSet& iConfig)
       : SynchronizingEDProducer(iConfig),
         digisToken_{consumes<hgcaldigi::HGCalDigiHost>(iConfig.getParameter<edm::InputTag>("digis"))},
-        calibToken_{esConsumes<hgcalrechit::HGCalCalibParamHost, HGCalCalibrationRcd>(
-            iConfig.getParameter<edm::ESInputTag>("calibSource"))},
+        calibToken_{esConsumes<hgcalrechit::HGCalCalibParamHost, HGCalCalibrationRcd>()},
         mappingToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("mappingSource"))},
         indexingToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("indexingSource"))},
         moduleToken_{esConsumes()},
@@ -91,8 +90,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   void HGCalRecHitsProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
     desc.add<edm::InputTag>("digis", edm::InputTag("hgcalDigis", "DIGI", "TEST"));
-    desc.add("calibSource", edm::ESInputTag{})
-        ->setComment("Label for calibration parameters");
     desc.add("mappingSource", edm::ESInputTag{})->setComment("Label for cell mapping parameters");
     desc.add("indexingSource", edm::ESInputTag{})->setComment("Label for cell dense indexer");
     desc.add<double>("k_noise", -100.)->setComment("ZS threshold for rechits (multiples of noise)");
