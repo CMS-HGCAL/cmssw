@@ -125,6 +125,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               //assign det id only for full and calibration cells
               row.detid() = 0;
               row.layer() = 0;
+              row.area() = 0;
               if (cell_row.t() == 1 || cell_row.t() == 0) {
                 if (isSiPM) {
                   row.detid() = ::hgcal::mappingtools::getSiPMDetId(module_row.zside(),
@@ -140,7 +141,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                   row.detid() = module_row.detid() + cell_row.detid();
                   HGCSiliconDetId siDetId(row.detid());
                   row.layer() = siDetId.layer() + layerOffset;
-                  row.area() = cell_row.t()==0 ?  calibCellRefArea : hgcal_geom->getArea(siDetId);
+                  float area = hgcal_geom->getArea(siDetId);
+                  if(cell_row.t()==0) {
+                    int offset = cell_row.caliboffset();
+                    if(offset!=0) {
+                      auto surrond_row = denseIdxInfo.view()[denseIdx+offset];
+                      surrond_row.area() = area - calibCellRefArea;
+                    }
+                    area = (float)calibCellRefArea;
+                  }
+                  if(row.area()==0) row.area() = area;
                 }
 
                 //assign position from geometry
