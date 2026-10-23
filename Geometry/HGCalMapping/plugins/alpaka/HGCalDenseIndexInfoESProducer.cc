@@ -105,6 +105,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             uint32_t cellInfoOffset = cellIndexer.offsets_[typeidx];
 
             //now fill the information sequentially on the cells of this module
+            std::vector<uint32_t> surroundingCellAreas;
             for (uint32_t ich = 0; ich < nch; ich++) {
               //finalize assigning the dense index
               uint32_t denseIdx = off + ich;
@@ -145,12 +146,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                   if(cell_row.t()==0) {
                     int offset = cell_row.caliboffset();
                     if(offset!=0) {
-                      auto surrond_row = denseIdxInfo.view()[denseIdx+offset];
-                      surrond_row.area() = area - calibCellRefArea;
+                      surroundingCellAreas.push_back(denseIdx+offset);
                     }
                     area = (float)calibCellRefArea;
                   }
-                  if(row.area()==0) row.area() = area;
+                  row.area() = area;
                 }
 
                 //assign position from geometry
@@ -163,6 +163,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               }
             }  // end cell loop
 
+            //fix the assignment of cell areas in the surrounding cells
+            for(auto it : surroundingCellAreas) {
+              auto row = denseIdxInfo.view()[it];
+              row.area() = row.area() - calibCellRefArea;
+            }
+            
           }  // end module loop
 
         }  // end fed readout sequence loop
