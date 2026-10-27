@@ -17,6 +17,7 @@
 <!-- alpaka-based portable plugins -->
 <library file="alpaka/*.cc" name="SimCalorimetryHGCalSimProducersPluginsPortable">
   <use name="alpaka"/>
+  <use name="DataFormats/DetId"/>
   <use name="DataFormats/HGCalDigi"/>
   <use name="SimDataFormats/CaloHit"/>
   <use name="CondFormats/HGCalObjects"/>

@@ -40,15 +40,16 @@ process = customise_hgcal_ageing_byalgo_startup(process)
 from SimCalorimetry.HGCalSimProducers.hgCalSimHitAccumulator_cfi import hgCalSimHitAccumulator
 process.hgCalSimHitAccumulator = cms.EDProducer(
     'alpaka_serial_sync::HGCalSimHitAccumulator',
+    g4HitsDets = cms.vint32([8,9,10]),
     g4Hits = cms.VInputTag(
         cms.InputTag("g4SimHits", "HGCHitsEE"),
         cms.InputTag("g4SimHits", "HGCHitsHEfront"),
         cms.InputTag("g4SimHits", "HGCHitsHEback"),
     ),
-    indexingSource = cms.ESInputTag()
+    g4TOFDelays = cms.vdouble([-9,-11,-14]),
+    indexingSource = cms.ESInputTag(),
+    cellMappingSource = cms.ESInputTag()
 )
-
-
 
 # tester
 process.load('SimCalorimetry.HGCalSimAlgos.hgCalAgeingConditionTester_cfi')
