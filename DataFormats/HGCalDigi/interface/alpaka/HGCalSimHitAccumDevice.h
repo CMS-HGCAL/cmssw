@@ -1,8 +1,8 @@
 #ifndef DataFormats_HGCalDigi_interface_alpaka_HGCalSimHitAccumDevice_h
-#define DataFormats_HGCalSimHitAccum_interface_alpaka_HGCalSimHitAccumDevice_h
+#define DataFormats_HGCalDigi_interface_alpaka_HGCalSimHitAccumDevice_h
 
 #include "DataFormats/Portable/interface/alpaka/PortableCollection.h"
-#include "DataFormats/HGCalSimHitAccum/interface/HGCalSimHitAccumSoA.h"
+#include "DataFormats/HGCalDigi/interface/HGCalSimHitAccumSoA.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
