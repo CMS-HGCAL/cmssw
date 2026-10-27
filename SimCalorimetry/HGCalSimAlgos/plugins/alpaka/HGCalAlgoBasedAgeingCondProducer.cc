@@ -83,7 +83,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         desc.add<std::string>("doseMapURL")->setComment("dose map file");
         desc.add<uint32_t>("doseMapAlgo")->setComment("fluence algo to use");
         desc.add<double>("scaleByDoseFactor")->setComment("dose scaling factor");
-        
+
         //si ageing parameters
         edm::ParameterSetDescription siDesc;
         siDesc.add<std::vector<double>>("ileakParam");
@@ -98,7 +98,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         edm::ParameterSetDescription sipmDesc;
         sipmDesc.add<double>("refIdark");
         sipmDesc.add<double>("refXtalk");
-        desc.add<edm::ParameterSetDescription>("sipm", sipmDesc)->setComment("SiPM-on-tile sensor main ageing parameters");
+        desc.add<edm::ParameterSetDescription>("sipm", sipmDesc)
+            ->setComment("SiPM-on-tile sensor main ageing parameters");
 
         descriptions.addWithDefaultLabel(desc);
       }
@@ -130,7 +131,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           bool isSiPM = cell_info_view[cell_info_idx].isSiPM();
 
           // unconnected channels
-          if (chType < 0) {
+          if (chType < 0 || did.det() == 0) {
             ac_view[i].signal() = 0;
             ac_view[i].signalScale() = 0;
             ac_view[i].enc() = 0;
