@@ -15,3 +15,4 @@
 #include "DataFormats/HGCalDigi/interface/HGCalFEDPacketInfoSoA.h"
 #include "DataFormats/HGCalDigi/interface/HGCalDigiTriggerHost.h"
 #include "DataFormats/HGCalDigi/interface/HGCalDigiTriggerSoA.h"
+#include "DataFormats/HGCalDigi/interface/HGCalDigiTriggerHost.h"

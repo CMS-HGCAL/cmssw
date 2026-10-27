@@ -1,7 +1,10 @@
 #include <iostream>
 #include <iomanip>
+#include <string>
+#include <map>
+#include <vector>
 
-// CMSSW imports
+// framework imports
 #include "FWCore/Framework/interface/ESWatcher.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
@@ -11,7 +14,7 @@
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 
-// Alpaka imports
+// alpaka imports
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/SynchronizingEDProducer.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/EDPutToken.h"
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/ESGetToken.h"
@@ -19,11 +22,9 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/CopyToDevice.h"
 
-// includes for data formats
+// data formats
 #include "SimDataFormats/CaloHit/interface/PCaloHitContainer.h"
 #include "DataFormats/HGCalDigi/interface/alpaka/HGCalSimHitAccumDevice.h"
-
-// includes for size, calibration, and configuration parameters
 #include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDevice.h"
 #include "CondFormats/DataRecord/interface/HGCalDenseIndexInfoRcd.h"
 
@@ -53,7 +54,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     
 
     const device::ESGetToken<hgcal::HGCalDenseIndexInfoDevice, HGCalDenseIndexInfoRcd> indexingToken_;
-    edm::EDGetTokenT<edm::PCaloHitContainer> g4HitsToken_;
+    std::map<std::string, edm::EDGetTokenT<edm::PCaloHitContainer> > g4HitsTokens_;
     const device::EDPutToken<hgcaldigi::HGCalSimHitAccumDevice> g4AccumulatorToken_;
     int32_t ncellsMapped_;
   };
@@ -62,16 +63,24 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   HGCalSimHitAccumulator::HGCalSimHitAccumulator(const edm::ParameterSet& iConfig)
       : SynchronizingEDProducer(iConfig),
         indexingToken_{esConsumes<>(iConfig.getParameter<edm::ESInputTag>("indexingSource"))},
-        g4HitsToken_{consumes<edm::PCaloHitContainer>(iConfig.getParameter<edm::InputTag>("g4hits"))},
+        g4HitsTokens_{},
         g4AccumulatorToken_{produces()},
         ncellsMapped_(0) {
+
+    //Geant4 hit sources to handle
+    for (auto const& tag : iConfig.getParameter<std::vector<edm::InputTag>>("g4Hits")) {
+      auto k = tag.instance();
+      g4HitsTokens_[ k ] = consumes<edm::PCaloHitContainer>(tag);
+      std::cout << "Reading: " << k << std::endl;
+    }
+
   }
 
   //
   void HGCalSimHitAccumulator::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
-    desc.add("g4hits", edm::InputTag{})->setComment("Label for source of PCaloHits (Geant4)");
-    desc.add("indexingSource", edm::ESInputTag{})->setComment("Label for cell dense indexer");
+    desc.add< std::vector<edm::InputTag> >("g4Hits")->setComment("Label for source of PCaloHits (Geant4)");
+    desc.add<edm::ESInputTag>("indexingSource")->setComment("Label for cell dense indexer");
     descriptions.addWithDefaultLabel(desc);
   }
 
@@ -93,8 +102,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto const& denseIndexInfo = iSetup.getData(indexingToken_);
     buildGeoToDenseIndexMap(denseIndexInfo);
 
-    auto const& g4Hits = iEvent.get(g4HitsToken_);
-    std::cout << "Have " << g4Hits.size() << " hits" << std::endl;
+    std::size_t totalHits = 0;
+    for (auto const& g4It : g4HitsTokens_) {
+      const auto k = g4It.first;
+      const auto token = g4It.second;
+      const auto& hits = iEvent.get(token);
+      std::cout << "\t" << k << " has " << hits.size() << std::endl;
+      totalHits += hits.size();
+    }
+    std::cout << "Have " << totalHits << " hits" << std::endl;
   }
 
   /**

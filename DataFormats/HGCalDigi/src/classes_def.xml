@@ -84,5 +84,5 @@
   <class name="hgcaldigi::HGCalDigiTriggerSoA::View"/>
   <class name="hgcaldigi::HGCalDigiTriggerSoALayout<128,false>"/>
   <class name="edm::Wrapper<PortableHostCollection<hgcaldigi::HGCalDigiTriggerSoALayout<128,false> > >" splitLevel="0"/>
-
+  
 </lcgdict>
