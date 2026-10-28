@@ -6,8 +6,11 @@
 
 namespace hgcaldigi {
 
-  // SoA with x, y, z, id fields in host memory
+  // SoA with Geant 4 hit sums in host memory
   using HGCalSimHitAccumHost = PortableHostCollection<HGCalSimHitAccumSoA>;
+
+  // SoA with ROC 32b words in host memory
+  using HGCalROCDigisAccumHost = PortableHostCollection<HGCalROCDigisAccumSoA>;
 
 }  // namespace hgcaldigi
 

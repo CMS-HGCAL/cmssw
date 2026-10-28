@@ -11,12 +11,18 @@ namespace hgcaldigi {
   constexpr int kInTimeBin = (kTimeBins + 1) / 2;
 
   using TimedAccumulatorF = Eigen::Matrix<float, kTimeBins, 1>;
+  using TimedROCDigiI = Eigen::Matrix<uint32_t, kTimeBins, 1>;
 
   GENERATE_SOA_LAYOUT(HGCalSimHitAccumSoALayout,
                       SOA_COLUMN(TimedAccumulatorF, sumE),
                       SOA_COLUMN(TimedAccumulatorF, sumExT))
-
   using HGCalSimHitAccumSoA = HGCalSimHitAccumSoALayout<>;
+
+  GENERATE_SOA_LAYOUT(HGCalROCDigisAccumSoALayout,
+                      SOA_COLUMN(TimedROCDigiI, word)
+  )
+  using HGCalROCDigisAccumSoA = HGCalROCDigisAccumSoALayout<>;
+
 
 }  // namespace hgcaldigi
 

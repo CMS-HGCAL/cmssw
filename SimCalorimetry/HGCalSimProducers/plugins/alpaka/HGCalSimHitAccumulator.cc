@@ -34,6 +34,12 @@
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
 #include "DataFormats/DetId/interface/DetId.h"
 
+
+// FIXME: CALIBRATION CHANNELS!!!
+//Branch 27 of Events tree: PCaloHits_g4SimHits_CalibrationHGCHitsEE_SIM. Total size = 4222 Compressed size = 592
+//Branch 28 of Events tree: PCaloHits_g4SimHits_CalibrationHGCHitsHEback_SIM. Total size = 4318 Compressed size = 608
+//Branch 29 of Events tree: PCaloHits_g4SimHits_CalibrationHGCHitsHEfront_SIM. Total size = 4342 Compressed size = 612
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   using namespace cms::alpakatools;

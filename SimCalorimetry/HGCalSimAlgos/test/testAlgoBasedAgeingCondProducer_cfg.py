@@ -51,6 +51,17 @@ process.hgCalSimHitAccumulator = cms.EDProducer(
     cellMappingSource = cms.ESInputTag()
 )
 
+# HGCal Alpaka digitizer
+from SimCalorimetry.HGCalSimProducers.hgCalDigitizerProducer_cfi import hgCalDigitizerProducer
+process.hgCalDigitizerProducer = cms.EDProducer(
+    'alpaka_cuda_async::HGCalDigitizerProducer',
+    g4HitsAcc = cms.InputTag("hgCalSimHitAccumulator"),
+    ageingConds = cms.ESInputTag(),
+    n_blocks = cms.int32(4096),
+    n_threads = cms.int32(1024)
+)
+
+
 # tester
 process.load('SimCalorimetry.HGCalSimAlgos.hgCalAgeingConditionTester_cfi')
 
@@ -58,4 +69,5 @@ process.load('SimCalorimetry.HGCalSimAlgos.hgCalAgeingConditionTester_cfi')
 process.p = cms.Path(
     process.hgCalAgeingConditionTester 
     *process.hgCalSimHitAccumulator
+    *process.hgCalDigitizerProducer
 )

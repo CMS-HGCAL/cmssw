@@ -13,8 +13,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // inside the ALPAKA_ACCELERATOR_NAMESPACE::hgcaldigi namespace
     using namespace ::hgcaldigi;
 
-    // SoA in device global memory
+    // SoA in device global memory for sim hit accumulators
     using HGCalSimHitAccumDevice = PortableCollection<HGCalSimHitAccumSoA>;
+
+    // SoA in device global memory for ROC words accumulators
+    using HGCalROCDigisAccumDevice = PortableCollection<HGCalROCDigisAccumSoA>;
 
   }  // namespace hgcaldigi
 
