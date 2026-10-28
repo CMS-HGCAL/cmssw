@@ -62,11 +62,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         digisAccTkn_{produces()},
         n_blocks_{iConfig.getParameter<int>("n_blocks")},
         n_threads_{iConfig.getParameter<int>("n_threads")},
-        ripener_{n_blocks_,n_threads_}
-        //,digitizer_{n_blocks_,n_threads_}
-        //,harvester_{n_blocks_,n_threads_}
-  {        
-  }
+        ripener_{n_blocks_, n_threads_}  //,digitizer_{n_blocks_,n_threads_}
+                                         //,harvester_{n_blocks_,n_threads_}
+  {}
 
   //
   void HGCalDigitizerProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -80,14 +78,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   //
   void HGCalDigitizerProducer::acquire(device::Event const& iEvent, device::EventSetup const& iSetup) {
-
     auto& queue = iEvent.queue();
     const auto& ageingConds = iSetup.getData(ageingCondsTkn_);
     const auto& g4AccHits = iEvent.get(g4HitsAccTkn_);
     auto ncells = g4AccHits.view().metadata().size();
-    
+
     LogDebug("") << "Loaded accumulated Geant 4 hits for " << ncells << " cells"
-                 <<" and " << ageingConds.view().metadata().size() << " ageing conditions";
+                 << " and " << ageingConds.view().metadata().size() << " ageing conditions";
 
     //this should be commented out or put within pre-compiled #ifdef ML_DEBUG type of flags
     alpaka::wait(queue);
@@ -103,31 +100,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     //run digitization
     //FIXME
-        
+
     //this should be commented out or put within pre-compiled #ifdef ML_DEBUG type of flags
     alpaka::wait(queue);
     auto stop = std::chrono::steady_clock::now();
     std::chrono::duration<float> elapsed = stop - start;
-      LogDebug("HGCalDigitizerProducer") 
-        << "Time spent creating " << ncells << " digis: " << elapsed.count();
+    LogDebug("HGCalDigitizerProducer") << "Time spent creating " << ncells << " digis: " << elapsed.count();
     //////////////////////////////////////////////
   }
 
   //
   void HGCalDigitizerProducer::produce(device::Event& iEvent, device::EventSetup const& iSetup) {
-
     //harvest digitized values
     //FIXME
     //auto digis = digitizer_.harvest(iEvent.queue(), *simHitAccum_device_);
     hgcaldigi::HGCalROCDigisAccumDevice rocDigisAccum_device_(iEvent.queue(), 0);
     //alpaka::memcpy(queue, device_g4Hits.buffer(), host_g4Hits.const_buffer());
-    
+
     LogDebug() << "Storing HGCAL DIGIs in the event";
     iEvent.emplace(digisAccTkn_, std::move(rocDigisAccum_device_));
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
-
 
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/MakerMacros.h"
 DEFINE_FWK_ALPAKA_MODULE(HGCalDigitizerProducer);

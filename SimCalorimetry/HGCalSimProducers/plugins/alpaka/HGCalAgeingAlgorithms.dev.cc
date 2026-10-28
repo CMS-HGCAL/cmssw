@@ -16,70 +16,32 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using namespace cms::alpakatools;
 
   // @short subtract pedestals, linearize ADC & TOT to charge (fC), and convert to energy (GeV)
-  struct HGCalAgeingKernel_scaleResponse {
+  struct HGCalAgeingKernel_finalizeResponse {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   HGCalSimHitAccumDevice::View g4Hits,
                                   HGCalAgeingCondsDevice::ConstView conds) const {
-      /*
-      auto adc_denoise =
-          [&](uint32_t adc, uint32_t cm, uint32_t adcm1, float adc_ped, float cm_slope, float cm_ped, float bxm1_slope) {
-            float cmf = cm_slope * (0.5 * float(cm) - cm_ped);
-            return ((adc - adc_ped) - cmf - bxm1_slope * (adcm1 - adc_ped - cmf));
-          };
-
-      auto tot_linearization =
-          [&](uint32_t tot, float tot_lin, float tot2adc, float tot_ped, float tot_p0, float tot_p1, float tot_p2) {
-            bool isLin(tot > tot_lin);
-            bool isNotLin(!isLin);
-            return isLin * (tot2adc * (tot - tot_ped)) + isNotLin * (tot_p0 + tot_p1 * tot + tot_p2 * tot * tot);
-          };
-      */
-
       for (auto idx : uniform_elements(acc, g4Hits.metadata().size())) {
-        printf("%d\n",idx);
+        //scale the signal
+        auto k_fact = conds[idx].signalScale();
+        g4Hits.sumE()[idx] *= k_fact;
+        g4Hits.sumExT()[idx] *= k_fact;
 
-        /*
-        auto calib = calibs[idx];
-        bool calibvalid = calib.valid();
-        auto digi = digis[idx];
-        auto digiflags = digi.flags();
-        bool isAvailable((digiflags != ::hgcal::DIGI_FLAG::Invalid) &&
-                         (digiflags != ::hgcal::DIGI_FLAG::NotAvailable) && calibvalid);
-        bool useTOT((digi.tctp() == 3) && isAvailable);
-        bool useADC(!useTOT && isAvailable);
-        auto lin_counts = useADC * adc_denoise(digi.adc(),
-                                               digi.cm(),
-                                               digi.adcm1(),
-                                               calib.ADC_ped(),
-                                               calib.CM_slope(),
-                                               calib.CM_ped(),
-                                               calib.BXm1_slope()) +
-                          useTOT * tot_linearization(digi.tot(),
-                                                     calib.TOT_lin(),
-                                                     calib.TOTtoADC(),
-                                                     calib.TOT_ped(),
-                                                     calib.TOT_P0(),
-                                                     calib.TOT_P1(),
-                                                     calib.TOT_P2());
-
-        // after denoising/linearization apply the MIP & EM scale to convert to energy (GeV)
-        // noise is also saved in units of GeV
-        recHits[idx].mipEnergy() = lin_counts * calib.MIPS_scale();
-        recHits[idx].energy() = calib.EM_scale() * calib.MIPS_scale() * lin_counts;
-        recHits[idx].sigmaNoise() = calib.EM_scale() * calib.MIPS_scale() * calib.Noise();
-        */
+        //finalize averaging the <time of arrival>
+        auto nrows = g4Hits.sumExT()[idx].size();
+        for (auto j = 0; j < nrows; j++) {
+          auto en = g4Hits.sumE()[idx](j, 0);
+          if (en == 0)
+            continue;
+          g4Hits.sumExT()[idx](j, 0) *= 1. / en;
+        }
       }
     }
   };
 
-
   // @short apply all calibration kernels
-  HGCalSimHitAccumDevice HGCalAgeingAlgorithms::age(
-      Queue& queue,
-      HGCalSimHitAccumHost const& host_g4Hits, 
-      HGCalAgeingCondsDevice const& ageConds) const {
-
-
+  HGCalSimHitAccumDevice HGCalAgeingAlgorithms::age(Queue& queue,
+                                                    HGCalSimHitAccumHost const& host_g4Hits,
+                                                    HGCalAgeingCondsDevice const& ageConds) const {
     print_acc_host(host_g4Hits, 10);
 
     edm::LogWarning("HGCalAgeingAlgorithms") << "Start of ageing: copying accumulators to device" << std::endl;
@@ -98,24 +60,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::LogWarning("HGCalAgeingAlgorithms") << "N groups: " << groups << "\tN items: " << items << std::endl;
 
     //execute ageing kernels
-    alpaka::exec<Acc1D>(queue,
-                        grid,
-                        HGCalAgeingKernel_scaleResponse{},
-                        device_g4Hits.view(),
-                        ageConds.const_view());
+    alpaka::exec<Acc1D>(queue, grid, HGCalAgeingKernel_finalizeResponse{}, device_g4Hits.view(), ageConds.const_view());
 
     return device_g4Hits;
   }
 
   //
   void HGCalAgeingAlgorithms::print_acc_host(HGCalSimHitAccumHost const& g4Hits, int max) const {
-   int max_ = max > 0 ? max : g4Hits.view().metadata().size();
+    int max_ = max > 0 ? max : g4Hits.view().metadata().size();
 
     //lambdas for header and rows
     auto printHeader = [&](const char* label, const int n) {
       std::ostringstream os;
       os << "| " << label << " |";
-      for (int k = 0; k < n; k++) os << " " << k << " |";
+      for (int k = 0; k < n; k++)
+        os << " " << k << " |";
       edm::LogWarning("HGCalAgeingAlgorithms") << os.str();
     };
     auto printRow = [&](const char* label, const int n, auto values) {
@@ -132,7 +91,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto const& hit = g4Hits.view()[i];
       edm::LogWarning("HGCalAgeingAlgorithms") << "Hit " << i;
       printHeader("Bucket", ncols);
-      printRow("E",   ncols, [&]() -> decltype(auto) { return hit.sumE(); });
+      printRow("E", ncols, [&]() -> decltype(auto) { return hit.sumE(); });
       printRow("E*T", ncols, [&]() -> decltype(auto) { return hit.sumExT(); });
     }
   }

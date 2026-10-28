@@ -23,13 +23,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     /**
       @short steer the applicaiton of ageing and other realistic reponse algorithms
     */
-    HGCalSimHitAccumDevice age(Queue& , HGCalSimHitAccumHost const&, HGCalAgeingCondsDevice const&) const;
+    HGCalSimHitAccumDevice age(Queue&, HGCalSimHitAccumHost const&, HGCalAgeingCondsDevice const&) const;
 
   private:
     /**
       @short debugging printouts
     */
-    void print_acc_host(HGCalSimHitAccumHost const& , int max=-1) const;
+    void print_acc_host(HGCalSimHitAccumHost const&, int max = -1) const;
 
     //FIXME
     //void print_recHit_device(Queue& queue, HGCalSoARecHitsHostCollection::View const& recHits, int max = -1) const;
@@ -37,8 +37,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     int n_blocks_, n_threads_;
   };
 
-
-/*
+  /*
   FIXME
   class HGCalROCDigitizerAlgorithms {
   public:

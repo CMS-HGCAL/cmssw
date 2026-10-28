@@ -18,11 +18,8 @@ namespace hgcaldigi {
                       SOA_COLUMN(TimedAccumulatorF, sumExT))
   using HGCalSimHitAccumSoA = HGCalSimHitAccumSoALayout<>;
 
-  GENERATE_SOA_LAYOUT(HGCalROCDigisAccumSoALayout,
-                      SOA_COLUMN(TimedROCDigiI, word)
-  )
+  GENERATE_SOA_LAYOUT(HGCalROCDigisAccumSoALayout, SOA_COLUMN(TimedROCDigiI, word))
   using HGCalROCDigisAccumSoA = HGCalROCDigisAccumSoALayout<>;
-
 
 }  // namespace hgcaldigi
 
