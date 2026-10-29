@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <sstream>
+#include <cmath>
 
 // CMSSW imports
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
@@ -15,38 +16,94 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   using namespace cms::alpakatools;
 
-  // @short subtract pedestals, linearize ADC & TOT to charge (fC), and convert to energy (GeV)
+  // @short this kernel takes care of finalizing the Geant4 energy response and assigning the final energy deposit and average time estimates
   struct HGCalAgeingKernel_finalizeResponse {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
-                                  HGCalSimHitAccumDevice::View g4Hits,
-                                  HGCalAgeingCondsDevice::ConstView conds) const {
-      for (auto idx : uniform_elements(acc, g4Hits.metadata().size())) {
-        //scale the signal
-        auto k_fact = conds[idx].signalScale();
-        g4Hits.sumE()[idx] *= k_fact;
-        g4Hits.sumExT()[idx] *= k_fact;
+                                  HGCalRealisticSimHitDevice::View g4Hits,
+                                  HGCalAgeingCondsDevice::ConstView conds,
+                                  HGCalDenseIndexInfoDevice::ConstView denseIndex,
+                                  HGCalMappingCellParamDevice::ConstView cellInfo) const {
+      //Si: E[keV] - > q [fC] 1000 eV/ 3.62 (eV per e) / 6.24150934e3 (e per fC)
+      constexpr float keV2fC = 0.044259;
+      //SiPM : this is a reference value for a 3 mm^2 tile
+      constexpr float keV2MIP = 1. / 675.0;
 
-        //finalize averaging the <time of arrival>
-        auto nrows = g4Hits.sumExT()[idx].size();
-        for (auto j = 0; j < nrows; j++) {
-          auto en = g4Hits.sumE()[idx](j, 0);
-          if (en == 0)
+      // helper for common operations
+      auto scaleResponse = [&](auto sumQ, auto avgTOA, float k_fact) {
+        for (auto j = 0; j < hgcaldigi::kTimeBins; j++) {
+          sumQ(j, 0) = k_fact * sumQ(j, 0);
+          avgTOA(j, 0) = k_fact * avgTOA(j, 0);
+
+          auto en = sumQ(j, 0);
+          if (en == 0) {
+            avgTOA(j, 0) = 0.;
             continue;
-          g4Hits.sumExT()[idx](j, 0) *= 1. / en;
+          }
+
+          avgTOA(j, 0) *= 1. / en;
         }
+      };  //end scale response helper
+
+      // dispatch operation
+      for (auto idx : uniform_elements(acc, g4Hits.metadata().size())) {
+        auto hit = g4Hits[idx];
+        auto cellIdx = denseIndex[idx].cellInfoIdx();
+        bool isSiPM = cellInfo[cellIdx].isSiPM();
+        auto cce = conds[idx].signalScale();
+        auto k_fact = cce / (isSiPM ? keV2MIP : keV2fC);
+
+        scaleResponse(hit.sumQ(), hit.avgTOA(), k_fact);
+
+      }  //end grid loop
+    }
+  };
+
+  // @short print RecHits for debugging
+  struct HGCalAgeingKernel_printHits {
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc, HGCalRealisticSimHitDevice::ConstView view, int max_size) const {
+      //lambdas for header and rows
+      auto printHeader = [&](const char* label) {
+        printf("| %s |", label);
+        for (int i = 0; i < hgcaldigi::kTimeBins; i++) {
+          printf(" %5d |", i);
+        }
+        printf("\n");
+      };
+
+      auto printRow = [&](const char* label, auto values) {
+        printf("| %s |", label);
+        for (int k = 0; k < hgcaldigi::kTimeBins; k++) {
+          printf(" %.3f |", values(k, 0));
+        }
+        printf("\n");
+      };
+
+      //printout the required number of rows
+      int n = 0;
+      auto nhits = view.metadata().size();
+      for (int i = 0; i < nhits; ++i) {
+        auto const& hit = view[i];
+        if (hit.sumQ().sum() == 0)
+          continue;
+        n++;
+        if (n > max_size)
+          break;
+        printHeader("Bucket");
+        printRow("q/p.e. * 1e3", 1e3 * hit.sumQ());
+        printRow("<t> [ns]", hit.avgTOA());
       }
     }
   };
 
   // @short apply all calibration kernels
-  HGCalSimHitAccumDevice HGCalAgeingAlgorithms::age(Queue& queue,
-                                                    HGCalSimHitAccumHost const& host_g4Hits,
-                                                    HGCalAgeingCondsDevice const& ageConds) const {
-    print_acc_host(host_g4Hits, 10);
-
+  HGCalRealisticSimHitDevice HGCalAgeingAlgorithms::age(Queue& queue,
+                                                        HGCalSimHitAccumHost const& host_g4Hits,
+                                                        HGCalAgeingCondsDevice const& ageConds,
+                                                        HGCalDenseIndexInfoDevice const& denseIndex,
+                                                        HGCalMappingCellParamDevice const& cellInfo) const {
     edm::LogWarning("HGCalAgeingAlgorithms") << "Start of ageing: copying accumulators to device" << std::endl;
     auto const ncells = host_g4Hits.view().metadata().size();
-    HGCalSimHitAccumDevice device_g4Hits(queue, ncells);
+    HGCalRealisticSimHitDevice device_g4Hits(queue, ncells);
     alpaka::memcpy(queue, device_g4Hits.buffer(), host_g4Hits.const_buffer());
 
     // number of items per group and division in groups to cover the whole problem
@@ -60,54 +117,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::LogWarning("HGCalAgeingAlgorithms") << "N groups: " << groups << "\tN items: " << items << std::endl;
 
     //execute ageing kernels
-    alpaka::exec<Acc1D>(queue, grid, HGCalAgeingKernel_finalizeResponse{}, device_g4Hits.view(), ageConds.const_view());
+    alpaka::exec<Acc1D>(queue,
+                        grid,
+                        HGCalAgeingKernel_finalizeResponse{},
+                        device_g4Hits.view(),
+                        ageConds.const_view(),
+                        denseIndex.const_view(),
+                        cellInfo.const_view());
+
+    //FIXME - uncomment ifdef for final version
+    //#ifdef EDM_ML_DEBUG
+    int n_hits_to_print = 10;
+    alpaka::exec<Acc1D>(queue, grid, HGCalAgeingKernel_printHits{}, device_g4Hits.view(), n_hits_to_print);
+    //#endif
 
     return device_g4Hits;
   }
-
-  //
-  void HGCalAgeingAlgorithms::print_acc_host(HGCalSimHitAccumHost const& g4Hits, int max) const {
-    int max_ = max > 0 ? max : g4Hits.view().metadata().size();
-
-    //lambdas for header and rows
-    auto printHeader = [&](const char* label, const int n) {
-      std::ostringstream os;
-      os << "| " << label << " |";
-      for (int k = 0; k < n; k++)
-        os << " " << k << " |";
-      edm::LogWarning("HGCalAgeingAlgorithms") << os.str();
-    };
-    auto printRow = [&](const char* label, const int n, auto values) {
-      std::ostringstream os;
-      os << "| " << label << " |";
-      for (int k = 0; k < n; k++) {
-        os << " " << values()(k, 0) << " |";
-      }
-      edm::LogWarning("HGCalAgeingAlgorithms") << os.str();
-    };
-
-    const auto ncols = hgcaldigi::kTimeBins;
-    for (int i = 0; i < max_; i++) {
-      auto const& hit = g4Hits.view()[i];
-      edm::LogWarning("HGCalAgeingAlgorithms") << "Hit " << i;
-      printHeader("Bucket", ncols);
-      printRow("E", ncols, [&]() -> decltype(auto) { return hit.sumE(); });
-      printRow("E*T", ncols, [&]() -> decltype(auto) { return hit.sumExT(); });
-    }
-  }
-
-  /* FIXME
-  void HGCalAgeingAlgorithms::print_recHit_device(Queue& queue,
-                                                             HGCalSoARecHitsHostCollection::View const& recHits,
-                                                             int max) const {
-    auto grid = make_workdiv<Acc1D>(1, 1);
-    auto size = max > 0 ? max : recHits.metadata().size();
-    alpaka::exec<Acc1D>(queue, grid, HGCalAgeingKernel_printRecHits{}, recHits, size);
-
-    // ensure that the print operations are complete before returning
-    alpaka::wait(queue);
-  }
-
-  */
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE

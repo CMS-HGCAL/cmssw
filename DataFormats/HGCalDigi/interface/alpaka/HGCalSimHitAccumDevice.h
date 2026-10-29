@@ -16,6 +16,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     // SoA in device global memory for sim hit accumulators
     using HGCalSimHitAccumDevice = PortableCollection<HGCalSimHitAccumSoA>;
 
+    // SoA with realistic Geant4 hits in HGCAL
+    using HGCalRealisticSimHitDevice = PortableHostCollection<HGCalRealisticSimHitSoA>;
+
     // SoA in device global memory for ROC words accumulators
     using HGCalROCDigisAccumDevice = PortableCollection<HGCalROCDigisAccumSoA>;
 
