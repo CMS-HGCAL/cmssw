@@ -51,10 +51,10 @@ process.hgCalSimHitAccumulator = cms.EDProducer(
     cellMappingSource = cms.ESInputTag()
 )
 
-# HGCal Alpaka digitizer
+# HGCal Alpaka digitizer (notice it's declaring the CPU version of it!)
 from SimCalorimetry.HGCalSimProducers.hgCalDigitizerProducer_cfi import hgCalDigitizerProducer
 process.hgCalDigitizerProducer = cms.EDProducer(
-    'alpaka_cuda_async::HGCalDigitizerProducer',
+    'alpaka_serial_sync::HGCalDigitizerProducer',
     g4HitsAcc = cms.InputTag("hgCalSimHitAccumulator"),
     ageingConds = cms.ESInputTag(),
     n_blocks = cms.int32(4096),

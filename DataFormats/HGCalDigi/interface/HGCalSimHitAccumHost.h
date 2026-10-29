@@ -9,6 +9,9 @@ namespace hgcaldigi {
   // SoA with Geant 4 hit sums in host memory
   using HGCalSimHitAccumHost = PortableHostCollection<HGCalSimHitAccumSoA>;
 
+  // SoA with realistic Geant4 hits in HGCAL
+  using HGCalRealisticSimHitHost = PortableHostCollection<HGCalRealisticSimHitSoA>;
+
   // SoA with ROC 32b words in host memory
   using HGCalROCDigisAccumHost = PortableHostCollection<HGCalROCDigisAccumSoA>;
 
