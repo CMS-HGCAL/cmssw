@@ -54,7 +54,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const device::EDPutToken<hgcaldigi::HGCalROCDigisAccumDevice> digisAccTkn_;
     int n_blocks_, n_threads_;
     const HGCalAgeingAlgorithms ripener_;
-    //const HGCalAgeingAlgorithms digitizer_;
+    const HGCalROCDigitizerAlgorithms digitizer_;
     std::optional<hgcaldigi::HGCalRealisticSimHitDevice> agedG4HitsAcc_device_;
     std::optional<hgcaldigi::HGCalROCDigisAccumDevice> rocDigisAccum_device_;
   };
@@ -69,9 +69,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         digisAccTkn_{produces()},
         n_blocks_{iConfig.getParameter<int>("n_blocks")},
         n_threads_{iConfig.getParameter<int>("n_threads")},
-        ripener_{n_blocks_, n_threads_}  //,digitizer_{n_blocks_,n_threads_}
-                                         //,harvester_{n_blocks_,n_threads_}
-  {}
+        ripener_{n_blocks_, n_threads_},
+        digitizer_{n_blocks_, n_threads_} {}
 
   //
   void HGCalDigitizerProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -116,7 +115,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     agedG4HitsAcc_device_ = ripener_.age(queue, g4AccHits, ageingConds_device, denseIndex_device, cellInfo_device);
 
     //run digitization
-    //FIXME
+    //@Christian : maybe here is a place to pass seeds (as it basically needs to be used in the digitizer, not in the ageing step)
+    if (agedG4HitsAcc_device_.has_value())
+      rocDigisAccum_device_ = digitizer_.digitize(
+          queue, agedG4HitsAcc_device_.value(), ageingConds_device, denseIndex_device, cellInfo_device);
 
     //this should be commented out or put within pre-compiled #ifdef ML_DEBUG type of flags
     alpaka::wait(queue);
@@ -131,11 +133,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     //harvest digitized values
     //FIXME
     //auto digis = digitizer_.harvest(iEvent.queue(), *simHitAccum_device_);
-    hgcaldigi::HGCalROCDigisAccumDevice rocDigisAccum_device_(iEvent.queue(), 0);
+    //hgcaldigi::HGCalROCDigisAccumDevice rocDigisAccum_device_(iEvent.queue(), 0);
     //alpaka::memcpy(queue, device_g4Hits.buffer(), host_g4Hits.const_buffer());
 
     LogDebug() << "Storing HGCAL DIGIs in the event";
-    iEvent.emplace(digisAccTkn_, std::move(rocDigisAccum_device_));
+    if (rocDigisAccum_device_.has_value()) {
+      iEvent.emplace(digisAccTkn_, std::move(rocDigisAccum_device_.value()));
+    } else {
+      hgcaldigi::HGCalROCDigisAccumDevice empty_digis(iEvent.queue(), 0);
+      iEvent.emplace(digisAccTkn_, std::move(empty_digis));
+      edm::LogWarning("") << "Producing an empty set of accumulated ROC DIGIs";
+    }
   }
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE

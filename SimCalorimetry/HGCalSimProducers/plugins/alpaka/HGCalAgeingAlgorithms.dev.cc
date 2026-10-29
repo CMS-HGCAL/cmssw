@@ -58,43 +58,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
-  // @short print RecHits for debugging
-  struct HGCalAgeingKernel_printHits {
-    ALPAKA_FN_ACC void operator()(Acc1D const& acc, HGCalRealisticSimHitDevice::ConstView view, int max_size) const {
-      //lambdas for header and rows
-      auto printHeader = [&](const char* label) {
-        printf("| %s |", label);
-        for (int i = 0; i < hgcaldigi::kTimeBins; i++) {
-          printf(" %5d |", i);
-        }
-        printf("\n");
-      };
-
-      auto printRow = [&](const char* label, auto values) {
-        printf("| %s |", label);
-        for (int k = 0; k < hgcaldigi::kTimeBins; k++) {
-          printf(" %.3f |", values(k, 0));
-        }
-        printf("\n");
-      };
-
-      //printout the required number of rows
-      int n = 0;
-      auto nhits = view.metadata().size();
-      for (int i = 0; i < nhits; ++i) {
-        auto const& hit = view[i];
-        if (hit.sumQ().sum() == 0)
-          continue;
-        n++;
-        if (n > max_size)
-          break;
-        printHeader("Bucket");
-        printRow("q/p.e. * 1e3", 1e3 * hit.sumQ());
-        printRow("<t> [ns]", hit.avgTOA());
-      }
-    }
-  };
-
   // @short apply all calibration kernels
   HGCalRealisticSimHitDevice HGCalAgeingAlgorithms::age(Queue& queue,
                                                         HGCalSimHitAccumHost const& host_g4Hits,
