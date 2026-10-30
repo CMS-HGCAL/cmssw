@@ -1,15 +1,21 @@
 // CMSSW imports
+#include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
 #include "FWCore/Framework/interface/ESWatcher.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "FWCore/ServiceRegistry/interface/Service.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 #include <iomanip>  // for std::setw
 #include <future>
 #include <chrono>
+
+// CLHEP includes
+#include "CLHEP/Random/RandomEngine.h"
+#include "CLHEP/Random/RandFlat.h"
 
 // Alpaka imports
 #include "HeterogeneousCore/AlpakaCore/interface/alpaka/stream/SynchronizingEDProducer.h"
@@ -115,10 +121,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     agedG4HitsAcc_device_ = ripener_.age(queue, g4AccHits, ageingConds_device, denseIndex_device, cellInfo_device);
 
     //run digitization
-    //@Christian : maybe here is a place to pass seeds (as it basically needs to be used in the digitizer, not in the ageing step)
+
+    // setup RNG for noise generation
+    edm::Service<edm::RandomNumberGenerator> rng;
+    CLHEP::HepRandomEngine& engine = rng->getEngine(iEvent.streamID());
+    const uint64_t seed = CLHEP::RandFlat::shootInt(&engine, std::numeric_limits<uint64_t>::max());
+
     if (agedG4HitsAcc_device_.has_value())
       rocDigisAccum_device_ = digitizer_.digitize(
-          queue, agedG4HitsAcc_device_.value(), ageingConds_device, denseIndex_device, cellInfo_device);
+          queue, agedG4HitsAcc_device_.value(), ageingConds_device, denseIndex_device, cellInfo_device, seed);
 
     //this should be commented out or put within pre-compiled #ifdef ML_DEBUG type of flags
     alpaka::wait(queue);

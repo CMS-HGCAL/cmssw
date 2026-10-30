@@ -87,7 +87,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                       HGCalRealisticSimHitDevice&,
                                       HGCalAgeingCondsDevice const&,
                                       HGCalDenseIndexInfoDevice const&,
-                                      HGCalMappingCellParamDevice const&) const;
+                                      HGCalMappingCellParamDevice const&,
+                                      const uint64_t) const;
 
   private:
     int n_blocks_, n_threads_;
