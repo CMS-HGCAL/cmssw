@@ -22,7 +22,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   HGCalRealisticSimHitDevice::View realisticHits,
                                   HGCalAgeingCondsDevice::ConstView conds,
                                   HGCalDenseIndexInfoDevice::ConstView denseIndex,
-                                  HGCalMappingCellParamDevice::ConstView cellInfo) const {
+                                  HGCalMappingCellParamDevice::ConstView cellInfo,
+                                  const uint64_t seed) const {
+
+      const uint32_t globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0u];
+      // one engine per thread (or per work item)
+      auto engine = alpaka::rand::engine::createDefault(acc, seed + globalThreadIdx,  0);
+      auto normal = alpaka::rand::distribution::createNormalReal<float>(acc);
+
       // helper to add noise for each time slice
       auto addNoise = [&](auto sumQ, float noise) {
         for (auto j = 0; j < hgcaldigi::kTimeBins; j++) {
@@ -36,7 +43,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         auto hit = realisticHits[idx];
         //auto cellIdx = denseIndex[idx].cellInfoIdx();
         //bool isSiPM = cellInfo[cellIdx].isSiPM();
-        auto enc = conds[idx].enc();
+        const float noiseVal = normal(engine);
+        auto enc = conds[idx].enc() * noiseVal;
         addNoise(hit.sumQ(), enc);
       }  //end grid loop
     }
@@ -98,7 +106,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                                  HGCalRealisticSimHitDevice& device_realisticHits,
                                                                  HGCalAgeingCondsDevice const& ageConds,
                                                                  HGCalDenseIndexInfoDevice const& denseIndex,
-                                                                 HGCalMappingCellParamDevice const& cellInfo) const {
+                                                                 HGCalMappingCellParamDevice const& cellInfo,
+                                                                 const uint64_t seed) const {
     edm::LogWarning("HGCalROCDigitizerAlgorithms") << "Start of digitization" << std::endl;
     auto const ncells = device_realisticHits.view().metadata().size();
     HGCalROCDigisAccumDevice device_rocDigis(queue, ncells);
@@ -114,14 +123,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::LogWarning("HGCalROCDigitizerAlgorithms") << "N groups: " << groups << "\tN items: " << items << std::endl;
 
     //execute digitization kernels
-    //@Christian : maybe here is a place to pass seeds
     alpaka::exec<Acc1D>(queue,
                         grid,
                         HGCalROCDigitizerKernel_addNoise{},
                         device_realisticHits.view(),
                         ageConds.const_view(),
                         denseIndex.const_view(),
-                        cellInfo.const_view());
+                        cellInfo.const_view(),
+                        seed);
 
     alpaka::exec<Acc1D>(queue,
                         grid,

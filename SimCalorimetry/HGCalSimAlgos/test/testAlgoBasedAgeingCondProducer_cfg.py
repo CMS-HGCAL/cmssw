@@ -65,6 +65,14 @@ process.hgCalDigitizerProducer = cms.EDProducer(
 # tester
 process.load('SimCalorimetry.HGCalSimAlgos.hgCalAgeingConditionTester_cfi')
 
+process.RandomNumberGeneratorService = cms.Service(
+    "RandomNumberGeneratorService",
+    hgCalDigitizerProducer = cms.PSet(
+        initialSeed = cms.untracked.uint32(1337),
+        engineName = cms.untracked.string("HepJamesRandom")
+    )
+)
+
 # test path
 process.p = cms.Path(
     process.hgCalAgeingConditionTester 
