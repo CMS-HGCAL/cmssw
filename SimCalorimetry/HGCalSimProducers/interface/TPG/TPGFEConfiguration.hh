@@ -139,7 +139,7 @@ namespace TPGFEConfiguration{
       }
 
       //Read the channel <--> pin mapping from text file
-      void setSiTCToChModule(std::map<uint32_t,std::vector<uint32_t>> TctoCh ) { SiTCToCh = TctoCh ;}
+      void setSiTCToChModule(const std::map<uint32_t,std::vector<uint32_t>>& TctoCh ) { SiTCToCh = TctoCh ;}
       // FIXME implement similar thing for tiles
 
       //set the ROC ECONT configs from cmssw data formats

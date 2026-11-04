@@ -112,7 +112,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
   TPGFEConfiguration::Configuration cfgs;
   cfgs.initId();
 
-  std::map<std::string, std::pair<uint32_t, uint32_t>> typecodeMap = moduleTriggerIndexer.typecodeMap();
+  const std::map<std::string, std::pair<uint32_t, uint32_t>>& typecodeMap = moduleTriggerIndexer.typecodeMap();
   uint16_t bx = 0; // FIXME implement extended reading
 
   for(const auto& frs :  moduleTriggerIndexer.fedReadoutSequences() ) {
@@ -124,10 +124,10 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
 
     LogDebug("[HGCalTriggerEmulator]") << "Emulator:: starts emulation of Fed Id: " << fedId << std::endl;
-    HGCalTriggerFedConfig fedConfig = config.feds[fedId];
+    const HGCalTriggerFedConfig& fedConfig = config.feds[fedId];
 
     for (std::size_t itdaq = 0; itdaq < fedConfig.tdaqs.size(); itdaq++) {
-      HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[itdaq];
+      const HGCalTDAQConfig& tdaqConfig = fedConfig.tdaqs[itdaq];
       LogDebug("[HGCalTriggerEmulator]") << "fed[" << std::dec << fedId << "].tdaq[" << itdaq
             << "], headerMarker = 0x" << std::hex << std::setfill('0') << std::setw(8) << tdaqConfig.tdaqBlockHeaderMarker << std::endl;
       if (tdaqConfig.econts.size()==0) {
@@ -165,7 +165,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         uint32_t nhfrocs = moduleIndexer.getNumERxs(typecode);
         LogDebug("[HGCalTriggerEmulator]") << "Number of half rocs " << nhfrocs << std::endl;
 
-        HGCalECONTConfig econtConfig = tdaqConfig.econts[iecont];
+        const HGCalECONTConfig& econtConfig = tdaqConfig.econts[iecont];
         cfgs.setEconTConfig(globalEcontIdx, econtConfig);
 
         std::map< uint32_t, std::vector<uint32_t> >  SiTCToROCpin;

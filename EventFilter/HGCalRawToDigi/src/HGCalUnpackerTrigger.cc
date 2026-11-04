@@ -30,7 +30,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 
     LogDebug("[HGCalUnpackerTrigger]") << " nwords (64b) = " << std::distance(header, trailer) << "\n";
 
-    HGCalTriggerFedConfig fedConfig = config.feds[fedId];
+    const HGCalTriggerFedConfig& fedConfig = config.feds[fedId]; // NOTE: Switched to const &, we only use this to read. - Jan
     char word64[20];
 
 #ifdef EDM_ML_DEBUG
@@ -59,7 +59,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
     bool done(false); // bool to skip all the tdaqs > tdaqsize
     while(tsh<=tshEnd && !done) {
 
-        HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[TdaqIdx];
+        const HGCalTDAQConfig& tdaqConfig = fedConfig.tdaqs[TdaqIdx]; // NOTE: Switched to const &, we only use this to read. - Jan
 
         uint32_t isValidTdaq;
         isValidTdaq = tdaqConfig.econts.size();
@@ -99,10 +99,11 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                 // ordering of elinks is trivial, with the 8 and 16 in the last position of the array, as default
                 std::vector<uint8_t> elinks_mapping = {0,1,2,3,4,5,6,14,7,8,9,10,11,12,13,15};
 
-                auto elinksMap = fedConfig.elinksMap;
+                const auto& elinksMap = fedConfig.elinksMap;
+                auto it = elinksMap.find(TdaqIdx);
                 // if itdaq is in the keys of elinks map, overwrite the dummy elink map
-                if (elinksMap.find(TdaqIdx)!= elinksMap.end()) {
-                    elinks_mapping = elinksMap[TdaqIdx];
+                if (it != elinksMap.end()) {
+                    elinks_mapping = it->second;
                     LogDebug("HGCalUnpackerTrigger") << "Found map for re-ordering elinks on itdaq " <<  TdaqIdx  << " and " << TdaqIdx + 1;
 
                 }
