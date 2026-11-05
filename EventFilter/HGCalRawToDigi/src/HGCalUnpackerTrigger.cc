@@ -236,9 +236,9 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                         }
                         #endif
 
-
+                        uint32_t dropLSB = econt_conf.getDropLSB();
                         uint32_t totE = 0; // module sum, for BC is over all the 48 TCs
-                        for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type()) >> econt_conf.getDropLSB();
+                        for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type()) << dropLSB;
 
                         //// How much of below will be **CONFIGURE** ed
                         for(unsigned itc(0) ; itc < rdp.size() ; itc++){
@@ -281,8 +281,8 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                             digisTrigger.view()[denseIdx].econtHeader()(bx,0) = uint8_t(rdp.bx());
                             digisTrigger.view()[denseIdx].expEcontHeader()(bx,0) = uint8_t(expEcontHeader);
                             digisTrigger.view()[denseIdx].encodedTotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(rdp.moduleSum()) : totE ;
-                            digisTrigger.view()[denseIdx].TotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(TPGFEDataformat::TcRawData::Decode5E3M(rdp.moduleSum())) : totE ;
-                            digisTrigger.view()[denseIdx].TCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).decodedE(rdp.type()) << econt_conf.getDropLSB());
+                            digisTrigger.view()[denseIdx].TotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(TPGFEDataformat::TcRawData::Decode5E3M(rdp.moduleSum()) << dropLSB)  : totE ;
+                            digisTrigger.view()[denseIdx].TCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).decodedE(rdp.type()) << dropLSB);
                             digisTrigger.view()[denseIdx].encodedTCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).energy());
                             digisTrigger.view()[denseIdx].TCAddress()(bx,0) = uint8_t(rdp.getTc(itc).address() + tcMuxSwapOffset );
 
