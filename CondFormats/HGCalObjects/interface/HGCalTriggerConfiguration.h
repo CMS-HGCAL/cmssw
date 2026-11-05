@@ -13,13 +13,34 @@
 #include <vector>
 #include <iomanip>
 #include <cassert>
+#include <cmath>
 
 // @short configuration for HGCROC
 struct HGCalROCTrigConfig {
-  uint8_t adc_th;   //5 bits adc th global for HGCROC
+  uint8_t adc_th;   //5 bits adc th global for HGCROC &0x1F
+  // FIXME read from cfg, atm dummy values
+  uint64_t ClrAdcTot_trig = 0;  //36-bits 
+  uint8_t MultFactor = 1; //5-bits
+  uint8_t Tot_P[4] = {0, 0, 0, 0};  //one per 9 channel (each with 7-bits)
+  uint8_t Tot_TH[4] = {0, 0, 0, 0}; //one per 9 channel (each with 8 bits)
+
+  bool isChMasked(uint32_t ich) const {
+    int chnl = ich%36;
+    return (ClrAdcTot_trig>>chnl) & 0x1 ;
+  }
+  uint32_t getTotTH(uint32_t ich) const {
+    uint32_t chnl = ich%36;
+    uint32_t  tot_idx = std::floor(chnl/9);
+    return uint32_t(Tot_TH[tot_idx]);
+  }
+  uint32_t getTotP(uint32_t ich) const {
+    uint32_t chnl = ich%36;
+    uint32_t tot_idx = std::floor(chnl/9);
+    return uint32_t(Tot_P[tot_idx]);
+  }
+
   COND_SERIALIZABLE;
 };
-
 // @short configuration for ECON-T module
 struct HGCalECONTConfig {
   uint8_t density; //lsb at the input TC from ROC
@@ -32,7 +53,7 @@ struct HGCalECONTConfig {
   std::vector<uint8_t> tcMux;   //multiplexer between HGCROC and TC to ECONT
   std::vector<uint32_t> offset;
   std::vector<HGCalROCTrigConfig> hgcrocs;
-
+  
   uint32_t getDropLSB() const { assert(dropLSB>=0 and dropLSB<=4); return uint32_t(dropLSB);} // TODO: dropLSB>=0 is always true. - Jan
   uint32_t getSelect() const { assert(select==1 or select==2); return uint32_t(select);} // TODO: Ported over from ConfigEconT; unsure if we need this. - Jan
   uint32_t getSTCType() const { assert(stcType>=0 and stcType<=4); return uint32_t(stcType);} // TODO: stcType>=0 is always true. - Jan

@@ -22,72 +22,6 @@
 
 
 namespace TPGFEConfiguration{
-  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //////The configuration of half of ROC based on HGCROC3a [doc. no. v2.0] (See Table@Page-43)
-  //////EDMS ROCv3a: https://edms.cern.ch/ui/#!master/navigator/document?D:100570166:100570166:subDocs
-  //////EDMS ROCv3b(recent): https://edms.cern.ch/ui/#!master/navigator/document?D:101362066:101362066:subDocs
-  class ConfigHfROC {
-  public:
-    ConfigHfROC() {}
-    uint8_t getSelTC4() const {return selTC4 ;}
-    uint32_t getAdcTH() const { return uint32_t(Adc_TH);}
-    uint64_t getClrAdcTottrig() const { return ClrAdcTot_trig;}
-    bool isChMasked(uint32_t ich) const {
-      int chnl = ich%36;
-      return (getClrAdcTottrig()>>chnl) & 0x1 ;
-    }
-    uint32_t getTotTH(uint32_t ich) const {
-      uint32_t chnl = ich%36;
-      uint32_t  tot_idx = TMath::FloorNint(chnl/9);
-      return uint32_t(Tot_TH[tot_idx]);
-    }
-    uint32_t getTotP(uint32_t ich) const {
-      uint32_t chnl = ich%36;
-      uint32_t tot_idx = TMath::FloorNint(chnl/9);
-      return uint32_t(Tot_P[tot_idx]);
-    }
-    uint32_t getMultFactor() const { return uint32_t(MultFactor);}
-    void setSelTC4(uint8_t seltc4) { selTC4 = seltc4;}
-    void setAdcTH(uint32_t  adcth) { Adc_TH = adcth & 0x1F;}
-    void setClrAdcTottrig(uint64_t clradctottrig) { ClrAdcTot_trig = clradctottrig & 0xFFFFFFFF;}
-    void setMultFactor(uint32_t multfactor) { MultFactor = multfactor & 0x1F;}
-    void setTotTH(uint32_t tot_idx, uint32_t tot_th) { Tot_TH[tot_idx] = tot_th & 0xFF;}
-    void setTotP(uint32_t tot_idx, uint32_t tot_p) { Tot_P[tot_idx] = tot_p & 0x7F;}
-    void print() const {
-      std::cout << std::dec << ::std::setfill(' ')
-                << "ConfigHfROC(" << this << ")::print(): "
-                <<"Adc_TH = "<< std::setw(4) << getAdcTH()
-                <<", MultFactor = "<< std::setw(3) << getMultFactor()
-                << std::endl;
-
-      std::cout << std::dec << ::std::setfill(' ')
-                << "ConfigHfROC(" << this << ")::print(): "
-                <<"ClrAdcTot_trig = ";
-      for(uint32_t ich=0;ich<36;ich++) std::cout << std::setw(2) << "("<< ich <<": " << isChMasked(ich) <<") ";
-      std::cout << std::endl;
-
-      std::cout << std::dec << ::std::setfill(' ')
-                << "ConfigHfROC(" << this << ")::print(): "
-                <<"Tot_P = ";
-      for(uint32_t itotch=0;itotch<4;itotch++) std::cout << std::setw(4) << "("<< itotch <<": " << uint32_t(Tot_P[itotch]) <<") ";
-      std::cout << std::endl;
-
-      std::cout << std::dec << ::std::setfill(' ')
-                << "ConfigHfROC(" << this << ")::print(): "
-                <<"Tot_TH = ";
-      for(uint32_t itotch=0;itotch<4;itotch++) std::cout << std::setw(4) << "("<< itotch <<": " << uint32_t(Tot_TH[itotch]) <<") ";
-      std::cout << std::endl;
-    }
-
-  private:
-    //Digital Info
-    uint8_t selTC4;
-    uint8_t Adc_TH; //5-bits
-    uint64_t ClrAdcTot_trig;  //36-bits
-    uint8_t MultFactor; //5-bits
-    uint8_t Tot_P[4];  //one per 9 channel (each with 7-bits):not present in 2023 beam test
-    uint8_t Tot_TH[4]; //one per 9 channel (each with 8 bits):not present in 2023 beam test
-  };
 
   //The configuration of channel corresponding to ADC per module
   class ConfigCh {
@@ -120,7 +54,7 @@ namespace TPGFEConfiguration{
       Configuration() {initId(); setTrainEWIndices(0,'w',0);}
 
       //setters
-      void setRocPara(const std::map<uint32_t,TPGFEConfiguration::ConfigHfROC>& cfghroc){
+      void setRocPara(const std::map<uint32_t,HGCalROCTrigConfig>& cfghroc){
         for(auto const& hroc : cfghroc) hroccfg[hroc.first] = cfghroc.at(hroc.first);
       }
       void setChPara(const std::map<uint64_t,TPGFEConfiguration::ConfigCh>& cfghrocch) {
@@ -157,7 +91,7 @@ namespace TPGFEConfiguration{
 
       const std::map<std::tuple<uint32_t,uint32_t,uint32_t>,std::string>& getModIdxToName() {return modIdxToName;}
 
-      std::map<uint32_t,TPGFEConfiguration::ConfigHfROC>& getRocPara() { return hroccfg;}
+      std::map<uint32_t,HGCalROCTrigConfig>& getRocPara() { return hroccfg;}
       std::map<uint64_t,TPGFEConfiguration::ConfigCh>& getChPara() { return hrocchcfg;}
       std::map<uint32_t,HGCalECONTConfig>& getEconTPara() { return econTcfg;}
 
@@ -181,7 +115,7 @@ namespace TPGFEConfiguration{
       uint32_t train_idx;
       char ew;
       uint32_t ew_idx;
-      std::map<uint32_t,TPGFEConfiguration::ConfigHfROC> hroccfg; std::map<uint64_t,TPGFEConfiguration::ConfigCh> hrocchcfg;
+      std::map<uint32_t,HGCalROCTrigConfig> hroccfg; std::map<uint64_t,TPGFEConfiguration::ConfigCh> hrocchcfg;
 
       //econt configuration
       std::string EconTfname;
@@ -192,27 +126,7 @@ namespace TPGFEConfiguration{
 
   void Configuration::setRocConfig( uint32_t hrocidx, const HGCalECONTConfig& econtCfg)
   {
-    // FIXME check if it makes more sense to have half roc or entire roc
-    HGCalROCTrigConfig hgcrocConfig = econtCfg.hgcrocs[int(hrocidx/2)]; // is defined per ROC
-
-    // FIXME read from cfg, atm dummy values
-    uint64_t chmask = 0;
-    uint32_t multfactor = 1;
-    uint32_t dummy_tot_th = 0;
-    uint32_t dummy_tot_p = 0;
-
-    TPGFEConfiguration::ConfigHfROC hroc;
-    hroc.setSelTC4(!econtCfg.density);
-    hroc.setAdcTH(hgcrocConfig.adc_th);
-    hroc.setClrAdcTottrig(chmask);
-    hroc.setMultFactor(multfactor);
-    for(int itot=0;itot<4;itot++){
-      hroc.setTotTH(itot, dummy_tot_th);
-      hroc.setTotP(itot, dummy_tot_p);
-    }
-
-    hroccfg[hrocidx] = hroc;
-
+    hroccfg[hrocidx] = econtCfg.hgcrocs[int(hrocidx/2)];
     // FIXME pedestals
     // for(uint32_t ich=0;ich<nchs;ich++){
     //   uint32_t ihalf = (ich<TPGFEDataformat::HalfHgcrocData::NumberOfChannels)?0:1;
