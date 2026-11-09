@@ -54,16 +54,11 @@ struct HGCalECONTConfig {
   std::vector<uint32_t> offset;
   std::vector<HGCalROCTrigConfig> hgcrocs;
   
-  uint32_t getDropLSB() const { assert(dropLSB>=0 and dropLSB<=4); return uint32_t(dropLSB);} // TODO: dropLSB>=0 is always true. - Jan
-  uint32_t getSelect() const { assert(select==1 or select==2); return uint32_t(select);} // TODO: Ported over from ConfigEconT; unsure if we need this. - Jan
-  uint32_t getSTCType() const { assert(stcType>=0 and stcType<=4); return uint32_t(stcType);} // TODO: stcType>=0 is always true. - Jan
-  uint32_t getNElinks() const { assert(eportTxNumen!=0);  return uint32_t(eportTxNumen);}
-
   uint32_t getNofTCs() const { return getBCType(); }
   uint32_t getBCType() const {
     uint32_t maxTcs = 0;
     if(getOutType()==TPGFEDataformat::BestC){
-      switch(getNElinks()){
+      switch(eportTxNumen){
       case 1:
         maxTcs = 1;
         break;
@@ -154,9 +149,9 @@ struct HGCalECONTConfig {
 
   uint32_t getNofSTCs() const {
     uint32_t maxSTCs = 0;
-    switch(getSTCType()){
+    switch(stcType){
       case 0: //0 = STC4B(5E+4M)
-      switch(getNElinks()){
+      switch(eportTxNumen){
         case 1:
           maxSTCs = 2;
           break;
@@ -175,7 +170,7 @@ struct HGCalECONTConfig {
       }
       break;
       case 1: //1 = STC16(5E+4M)
-      switch(getNElinks()){
+      switch(eportTxNumen){
         case 1:
           maxSTCs = 2;
           break;
@@ -185,7 +180,7 @@ struct HGCalECONTConfig {
       }
       break;
       case 2: //2 = CTC4A(4E+3M)
-      switch(getNElinks()){
+      switch(eportTxNumen){
         case 1:
           maxSTCs = 4;
           break;
@@ -198,7 +193,7 @@ struct HGCalECONTConfig {
       }
       break;
       default: //3 = STC4A(4E+3M) //4 = CTC4B(5E+3M)
-      switch(getNElinks()){
+      switch(eportTxNumen){
         case 1:
           maxSTCs = 3;
           break;
@@ -214,15 +209,6 @@ struct HGCalECONTConfig {
       }
     }//stctype
     return maxSTCs;
-  }
-
-  bool getDensity() const {
-    assert(density==0 or density==1);
-    return (density==1) ? true : false;
-  }
-
-  bool getMSSumType() const {
-    return sumType;
   }
 
   uint32_t getCalibration(uint32_t itc) const {

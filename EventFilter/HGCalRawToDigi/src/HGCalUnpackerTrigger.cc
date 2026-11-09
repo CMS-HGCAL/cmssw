@@ -224,7 +224,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                                                             << " Algo "<< econt_conf.getOutType()
                                                             << " econTId " << iecon
                                                             << " Econt offset " << econTOffset
-                                                            << " nElinks "<< econt_conf.getNElinks()
+                                                            << " nElinks "<< econt_conf.eportTxNumen
                                                             <<  std::endl;
 
                         // check econt bx counter on central bx is aligned with slink one
@@ -236,7 +236,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                         }
                         #endif
 
-                        uint32_t dropLSB = econt_conf.getDropLSB();
+                        uint32_t dropLSB = econt_conf.dropLSB;
                         uint32_t totE = 0; // module sum, for BC is over all the 48 TCs
                         for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type()) << dropLSB;
 
@@ -273,7 +273,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                             uint32_t denseIdx = denseIdxRaw + denseIdxOffset; // applying offset accounting for TCs and econts swapping
 
                             digisTrigger.view()[denseIdx].algo() = uint8_t(econt_conf.getOutType());
-                            digisTrigger.view()[denseIdx].sumType() = uint8_t(econt_conf.getMSSumType());
+                            digisTrigger.view()[denseIdx].sumType() = uint8_t(econt_conf.sumType);
                             digisTrigger.view()[denseIdx].valid()(bx,0) = true;
                             digisTrigger.view()[denseIdx].nBxs() = uint8_t(tsh->numberOfBxs());
                             digisTrigger.view()[denseIdx].econTId() = econTId;

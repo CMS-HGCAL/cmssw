@@ -599,7 +599,7 @@ namespace TPGFEModuleEmulation{
   ) 
   {
     isVerbose = true;
-    uint32_t dropLSB = configs.getEconTPara().at(moduleId).getDropLSB() ;
+    uint32_t dropLSB = configs.getEconTPara().at(moduleId).dropLSB ;
  
     const TPGFEDataformat::Type& outputType = configs.getEconTPara().at(moduleId).getOutType();
 
@@ -612,7 +612,7 @@ namespace TPGFEModuleEmulation{
     for(uint32_t econtc = 0; econtc < nTCs;  econtc++)
     {
 
-      uint64_t decompressed = DecompressEcont(mdata.getTC(econtc).getCdata(), configs.getEconTPara().at(moduleId).getDensity()); //funny that return needs to defined as 64-bit
+      uint64_t decompressed = DecompressEcont(mdata.getTC(econtc).getCdata(), configs.getEconTPara().at(moduleId).density); //funny that return needs to defined as 64-bit
       uint64_t decomp64bit = decompressed * configs.getEconTPara().at(moduleId).getCalibration(econtc); //overflows for 12bit TOT
       LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::ECONTEmulation::EmulateBC (moduleid="<<moduleId<<", TC="<<econtc<<") decompressed: " << decompressed << ", decompressed*calib: " << decomp64bit << std::endl; 
       decompressed =  decomp64bit >> 11;

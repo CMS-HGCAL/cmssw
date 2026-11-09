@@ -230,7 +230,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         econtEmul.Emulate(false, short_typecode, globalEcontIdx, modTcData, rdp);
         //rdp.print();
 
-        uint32_t dropLSB = cfgs.getEconTPara().at(globalEcontIdx).getDropLSB();
+        uint32_t dropLSB = cfgs.getEconTPara().at(globalEcontIdx).dropLSB;
         uint32_t totE = 0; // module sum, for BC is over all the 48 TCs
         for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type()) << dropLSB;
 
@@ -241,7 +241,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           uint32_t denseIdx = moduleTriggerIndexer.getIndexForModuleData(fedId, globalEcontIdx, tcidx) ; // before any swapping
 
           emuldigisTrigger.view()[denseIdx].algo() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).getOutType());
-          emuldigisTrigger.view()[denseIdx].sumType() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).getMSSumType());
+          emuldigisTrigger.view()[denseIdx].sumType() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).sumType);
           emuldigisTrigger.view()[denseIdx].valid()(bx,0) = true;
           emuldigisTrigger.view()[denseIdx].nBxs() = uint8_t(1);
           emuldigisTrigger.view()[denseIdx].econTId() = globalEcontIdx;
