@@ -106,15 +106,15 @@ namespace TPGFEModuleEmulation{
         if(chdata.getTcTp()==3) isTcTp3 = true;
 
         // chdata.print(); 
-        const TPGFEConfiguration::ConfigHfROC& rocpara = configs.getRocPara().at(rocid); //get the ROC parameters corresponding to the channel, which contains pedestal, threshold, TOT parameters, masking information, etc. needed for emulation
-        selTC4 = rocpara.getSelTC4();
+        const HGCalECONTConfig& econtpara = configs.getEconTPara().at(moduleId); //to get selTC parameter (inverse of density stored in ECONT)
+        const HGCalROCTrigConfig& rocpara = configs.getRocPara().at(rocid); //get the ROC parameters corresponding to the channel, which contains pedestal, threshold, TOT parameters, masking information, etc. needed for emulation
+        selTC4 = !(econtpara.density);
         if(!isSim){ //if not simulation, assumed beamtest data
           //uint32_t ped = configs.getChPara().at(pck.packChId(rocid,rocpin)).getAdcpedestal(); //get the pedestal of the channel, which is needed for pedestal subtraction in emulation
-          //rocpara.print(); //print the ROC parameters for the reference event
           uint32_t ped = 0; //FIXME
 
           if(!chdata.isTot()){ // if the signal is ADC, perform pedestal subtraction and threshold cut, and accumulate the ADC if the channel is not masked and pedestal is valid. If the channel is masked or pedestal is invalid, set the ADC to 0.
-            unsigned thr = rocpara.getAdcTH(); 
+            unsigned thr = rocpara.adc_th; 
             uint32_t adc = chdata.getAdc();
             // if(chdata.getTcTp()==1)
             //   if(itc!=20 or rocid!=770) adc = 0;
@@ -125,7 +125,7 @@ namespace TPGFEModuleEmulation{
           else{ // if the signal is TOT, perform threshold cut and pedestal correction.
             uint32_t tot1 = (chdata.getTot()>=rocpara.getTotTH(rocpin)) ? (chdata.getTot()-rocpara.getTotP(rocpin)) : (rocpara.getTotTH(rocpin)-rocpara.getTotP(rocpin)) ;
             //ideally ped<255 condition should only be restricted for ADC case, however TOT signal triggers in emulation for event 146245 of relay 1695829026 and link 1, which is not that seen by ECONT data
-            uint32_t totlin = (!(rocpara.isChMasked(rocpin)) and (ped<0xFF))?tot1*rocpara.getMultFactor():0;  // perform pedestal correction and linearization for TOT signal, and set the TOT to 0 if the channel is masked or pedestal is invalid.
+            uint32_t totlin = (!(rocpara.isChMasked(rocpin)) and (ped<0xFF))?tot1*rocpara.MultFactor:0;  // perform pedestal correction and linearization for TOT signal, and set the TOT to 0 if the channel is masked or pedestal is invalid.
             totadc += totlin;
             //isTot = true;
             LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: tot1: " << tot1 << ", tot: " << chdata.getTot() <<", thr : "<< rocpara.getTotTH(rocpin) <<", ped: "<< rocpara.getTotP(rocpin) << ", totlin : "<< totlin <<std::endl;
@@ -599,7 +599,7 @@ namespace TPGFEModuleEmulation{
   ) 
   {
     isVerbose = true;
-    uint32_t dropLSB = configs.getEconTPara().at(moduleId).getDropLSB() ;
+    uint32_t dropLSB = configs.getEconTPara().at(moduleId).dropLSB ;
  
     const TPGFEDataformat::Type& outputType = configs.getEconTPara().at(moduleId).getOutType();
 
@@ -612,7 +612,7 @@ namespace TPGFEModuleEmulation{
     for(uint32_t econtc = 0; econtc < nTCs;  econtc++)
     {
 
-      uint64_t decompressed = DecompressEcont(mdata.getTC(econtc).getCdata(), configs.getEconTPara().at(moduleId).getDensity()); //funny that return needs to defined as 64-bit
+      uint64_t decompressed = DecompressEcont(mdata.getTC(econtc).getCdata(), configs.getEconTPara().at(moduleId).density); //funny that return needs to defined as 64-bit
       uint64_t decomp64bit = decompressed * configs.getEconTPara().at(moduleId).getCalibration(econtc); //overflows for 12bit TOT
       LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::ECONTEmulation::EmulateBC (moduleid="<<moduleId<<", TC="<<econtc<<") decompressed: " << decompressed << ", decompressed*calib: " << decomp64bit << std::endl; 
       decompressed =  decomp64bit >> 11;

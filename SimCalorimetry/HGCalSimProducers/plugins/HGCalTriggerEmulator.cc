@@ -112,7 +112,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
   TPGFEConfiguration::Configuration cfgs;
   cfgs.initId();
 
-  std::map<std::string, std::pair<uint32_t, uint32_t>> typecodeMap = moduleTriggerIndexer.typecodeMap();
+  const std::map<std::string, std::pair<uint32_t, uint32_t>>& typecodeMap = moduleTriggerIndexer.typecodeMap();
   uint16_t bx = 0; // FIXME implement extended reading
 
   for(const auto& frs :  moduleTriggerIndexer.fedReadoutSequences() ) {
@@ -124,10 +124,10 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
 
     LogDebug("[HGCalTriggerEmulator]") << "Emulator:: starts emulation of Fed Id: " << fedId << std::endl;
-    HGCalTriggerFedConfig fedConfig = config.feds[fedId];
+    const HGCalTriggerFedConfig& fedConfig = config.feds[fedId];
 
     for (std::size_t itdaq = 0; itdaq < fedConfig.tdaqs.size(); itdaq++) {
-      HGCalTDAQConfig tdaqConfig = fedConfig.tdaqs[itdaq];
+      const HGCalTDAQConfig& tdaqConfig = fedConfig.tdaqs[itdaq];
       LogDebug("[HGCalTriggerEmulator]") << "fed[" << std::dec << fedId << "].tdaq[" << itdaq
             << "], headerMarker = 0x" << std::hex << std::setfill('0') << std::setw(8) << tdaqConfig.tdaqBlockHeaderMarker << std::endl;
       if (tdaqConfig.econts.size()==0) {
@@ -165,7 +165,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         uint32_t nhfrocs = moduleIndexer.getNumERxs(typecode);
         LogDebug("[HGCalTriggerEmulator]") << "Number of half rocs " << nhfrocs << std::endl;
 
-        HGCalECONTConfig econtConfig = tdaqConfig.econts[iecont];
+        const HGCalECONTConfig& econtConfig = tdaqConfig.econts[iecont];
         cfgs.setEconTConfig(globalEcontIdx, econtConfig);
 
         std::map< uint32_t, std::vector<uint32_t> >  SiTCToROCpin;
@@ -230,9 +230,9 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         econtEmul.Emulate(false, short_typecode, globalEcontIdx, modTcData, rdp);
         //rdp.print();
 
-
+        uint32_t dropLSB = cfgs.getEconTPara().at(globalEcontIdx).dropLSB;
         uint32_t totE = 0; // module sum, for BC is over all the 48 TCs
-        for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type()) >> cfgs.getEconTPara().at(globalEcontIdx).getDropLSB();
+        for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type()) << dropLSB;
 
         for(unsigned itc(0) ; itc < rdp.size() ; itc++){
 
@@ -241,7 +241,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           uint32_t denseIdx = moduleTriggerIndexer.getIndexForModuleData(fedId, globalEcontIdx, tcidx) ; // before any swapping
 
           emuldigisTrigger.view()[denseIdx].algo() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).getOutType());
-          emuldigisTrigger.view()[denseIdx].sumType() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).getMSSumType());
+          emuldigisTrigger.view()[denseIdx].sumType() = uint8_t(cfgs.getEconTPara().at(globalEcontIdx).sumType);
           emuldigisTrigger.view()[denseIdx].valid()(bx,0) = true;
           emuldigisTrigger.view()[denseIdx].nBxs() = uint8_t(1);
           emuldigisTrigger.view()[denseIdx].econTId() = globalEcontIdx;
@@ -249,8 +249,8 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           emuldigisTrigger.view()[denseIdx].econtHeader()(bx,0) = uint8_t(rdp.bx());
           emuldigisTrigger.view()[denseIdx].expEcontHeader()(bx,0) = uint8_t(0);
           emuldigisTrigger.view()[denseIdx].encodedTotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(rdp.moduleSum()) : totE ;
-          emuldigisTrigger.view()[denseIdx].TotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(TPGFEDataformat::TcRawData::Decode5E3M(rdp.moduleSum())) : totE ;
-          emuldigisTrigger.view()[denseIdx].TCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).decodedE(rdp.type()) << cfgs.getEconTPara().at(globalEcontIdx).getDropLSB());
+          emuldigisTrigger.view()[denseIdx].TotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(TPGFEDataformat::TcRawData::Decode5E3M(rdp.moduleSum())<< dropLSB) : totE ;
+          emuldigisTrigger.view()[denseIdx].TCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).decodedE(rdp.type()) << dropLSB);
           emuldigisTrigger.view()[denseIdx].encodedTCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).energy());
           emuldigisTrigger.view()[denseIdx].TCAddress()(bx,0) = uint8_t(rdp.getTc(itc).address());
 
