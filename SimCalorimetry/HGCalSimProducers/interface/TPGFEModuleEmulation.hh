@@ -1,0 +1,325 @@
+#ifndef TPGFEModuleEmulation_h
+#define TPGFEModuleEmulation_h
+
+#include <iostream>
+#include <cstring>
+#include <vector>
+#include <cassert>
+#include <cstddef>
+
+#include "EventFilter/HGCalRawToDigi/interface/TPG/TPGFEDataformat.hh"
+#include "SimCalorimetry/HGCalSimProducers/interface/TPGFEConfiguration.hh"
+
+namespace TPGFEModuleEmulation{
+  uint16_t CompressHgroc(uint32_t val, uint8_t isldm){ // isldm stand for "is low density mode". It is determined by the SelTC4 parameter of HGCROC.
+        
+      //////The configuration of half of ROC based on HGCROC3a [doc. no. v2.0] (Read subsection 1.3.3 of Page-39)
+      //////EDMS ROCv3a: https://edms.cern.ch/ui/#!master/navigator/document?D:100570166:100570166:subDocs
+      //4E+3M
+      //Ref:https://graphics.stanford.edu/%7Eseander/bithacks.html
+
+      //controlled by the SelTC4 parameter of HGCROC (1/0 for LD/HD)
+      
+      val = (isldm)?val>>1:val>>3;
+            
+      uint32_t r = 0; // r will be log_2(v)
+      uint32_t sub ;
+      uint32_t shift ;
+      uint32_t mant ;
+      
+      if (val > 7) {
+        uint32_t v = val;
+        r = 0;
+        while (v >>= 1) r++;
+        sub = r - 2;
+        shift = r - 3;
+        if (sub <= 0xF) {
+          mant = (val >> shift) & 0x7;
+        } else {
+          sub = 0xF;
+          mant = 0x7;
+        }
+      } else {
+        r = 0;
+        sub = 0;
+        shift = 0;
+        mant = val & 0x7;
+      }
+
+      uint16_t cdata = (sub<<3) | mant;
+
+      return cdata;
+  }
+
+  //The following emulation function performs 1) pedestal subtraction, 2) linearization, 3) compression
+  TPGFEDataformat::ModuleTcData EmulateHgroc(bool isSim, const std::map<uint32_t,std::vector<uint32_t>>& tcPinMap, const HGCalECONTConfig& econtCfg,  std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>& rocdata){
+    TPGFEDataformat::ModuleTcData mdata;
+    uint16_t bx = 0xFFFF;
+    const uint32_t nTCs = tcPinMap.size(); //read it from cfg econt
+    uint8_t selTC4 = !(econtCfg.density);
+    mdata.setNofTCs(nTCs);
+    //for (const auto& [itc, pinlist] : tcPinMap) {
+    for (auto it = tcPinMap.begin(); it != tcPinMap.end(); ++it)	    
+    { // loop over TCs of the module
+      auto itc = it->first;
+      LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: tclist["<<itc<<"] " << std::endl;
+      uint32_t totadc = 0; // accumulated charge of the TC, which will be compressed and stored in the output TcData. For simulation, it is either accumulated ADC or TOT depending on the signal type; for beam-test data, it is the accumulated ADC after pedestal subtraction and threshold cut, or the accumulated TOT after threshold cut and pedestal correction, depending on the signal type.
+      bool isTot = false; // stand for whether the TC is triggered by TOT signal
+      bool isTcTp1 = false; // stand for whether the TC is triggered by a channel with TC/Tp flag = 1
+      bool isTcTp2 = false; // TC means trigger cell, and Tp means pass through. The TC/Tp flag information is provided in the input data for each channel, and is used to keep track of the signal type of the channels corresponding to the TC, which will be stored in the output TcData.
+      bool isTcTp3 = false; // ...
+
+      std::vector<uint32_t> pinlist = it->second;
+      for(const auto& tcch : pinlist) 
+      { // loop over sensor channels corresponding to the TC
+      
+        uint32_t rocpin = tcch%36 ; // the pin number of the channel within the ROC, which is needed for retrieving the channel data and parameters of the corresponding half-ROC.
+        uint32_t rocn = TMath::Floor(tcch/72); // the ROC number
+        uint32_t half = (int(TMath::Floor(tcch/36))%2==0)?0:1; // the half-ROC number
+        uint32_t hrocid = 2*rocn + half;
+        HGCalROCTrigConfig rocpara = econtCfg.hgcrocs[rocn];
+
+        if(rocdata.find(hrocid)==rocdata.end()){ // if the half-ROC data is not found in the input data, skip the channel and print warning
+          LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: HalfRoc not found in data for Tcch: "<< tcch << ", rocn: " << rocn << ", half: " << half << ", rocpin: " << rocpin << std::endl;
+          continue ; 
+        }
+
+        LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: TC : " << itc << ", tcch: " << tcch <<", rocpin : "<<rocpin<<", hrocid: "<<hrocid<<", rocn: "<<rocn<<", half: "<<half<<std::endl; //print the channel data for the reference event
+
+        TPGFEDataformat::HalfHgcrocChannelData& chdata = rocdata.at(hrocid).getChannelData(rocpin); //get the channel data corresponding to the channel, which contains ADC, TOT, TC/Tp flag information. 
+        bx = rocdata.at(hrocid).getBx(); // get the bx information from the half-ROC data
+        if(chdata.getTcTp()==1) isTcTp1 = true;
+        if(chdata.getTcTp()==2) isTcTp2 = true;
+        if(chdata.getTcTp()==3) isTcTp3 = true;
+
+        // chdata.print(); 
+        if(!isSim){ //if not simulation, assumed beamtest data
+          //uint32_t ped = configs.getChPara().at(pck.packChId(hrocid,rocpin)).getAdcpedestal(); //get the pedestal of the channel, which is needed for pedestal subtraction in emulation
+          uint32_t ped = 0; //FIXME
+
+          if(!chdata.isTot()){ // if the signal is ADC, perform pedestal subtraction and threshold cut, and accumulate the ADC if the channel is not masked and pedestal is valid. If the channel is masked or pedestal is invalid, set the ADC to 0.
+            unsigned thr =  econtCfg.hgcrocs[rocn].adc_th; 
+            uint32_t adc = chdata.getAdc();
+            adc = (adc>(ped+thr) and !(rocpara.isChMasked(rocpin)) and (ped<0xFF)) ? adc-ped : 0 ;
+            totadc += adc; // accumulate the ADC of the channels corresponding to the TC
+            LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: ped: " << ped << ", thr: " << thr <<", adc : "<<adc<<", rocpara.isChMasked(rocpin): "<< rocpara.isChMasked(rocpin) <<std::endl; //print the pedestal, threshold, ADC after pedestal subtraction and threshold cut, and masking information for the reference event
+          }
+          else{ // if the signal is TOT, perform threshold cut and pedestal correction.
+            uint32_t tot1 = (chdata.getTot()>=rocpara.getTotTH(rocpin)) ? (chdata.getTot()-rocpara.getTotP(rocpin)) : (rocpara.getTotTH(rocpin)-rocpara.getTotP(rocpin)) ;
+            //ideally ped<255 condition should only be restricted for ADC case, however TOT signal triggers in emulation for event 146245 of relay 1695829026 and link 1, which is not that seen by ECONT data
+            uint32_t totlin = (!(rocpara.isChMasked(rocpin)) and (ped<0xFF))?tot1*rocpara.MultFactor:0;  // perform pedestal correction and linearization for TOT signal, and set the TOT to 0 if the channel is masked or pedestal is invalid.
+            totadc += totlin;
+            //isTot = true;
+            LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: tot1: " << tot1 << ", tot: " << chdata.getTot() <<", thr : "<< rocpara.getTotTH(rocpin) <<", ped: "<< rocpara.getTotP(rocpin) << ", totlin : "<< totlin <<std::endl;
+          }//istot or adc
+        }
+        else{ // if simulation, directly accumulate ADC or TOT depending on the signal type without pedestal subtraction, threshold cut, and linearization, as the input simulation data is assumed to be already prepared with ideal detector response and perfectly calibrated.
+          //check CMSSW for details should be 
+          if(!chdata.isTot())
+            totadc += chdata.getAdc(); 
+          else
+            totadc += chdata.getTot(); 
+        } //isCMSSW simulation of beam-test analysis
+      } //loop of sensor channels
+      
+      mdata.setCharge(itc, totadc);
+      mdata.getTC(itc).setTot(isTot); //stand for tctp==3
+      mdata.getTC(itc).setTcTp1(isTcTp1);
+      mdata.getTC(itc).setTcTp2(isTcTp2);
+      mdata.getTC(itc).setTcTp3(isTcTp3);
+      mdata.setCdata(itc, CompressHgroc(totadc,selTC4 ));
+  
+    }//loop over TCs
+    mdata.setBx(bx);
+    //std::cout << "\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: " << std::endl;
+    //mdata.print();
+    return mdata;
+  }
+  
+    
+  uint32_t DecompressEcont(uint16_t compressed, uint8_t density){
+    //4E+3M with midpoint correction
+    //controlled by the density parameter of ECON-T (0/1 stands for LD/HD and represents 1/3 bit shifts)
+    uint32_t mant = compressed & 0x7;
+    uint32_t expo = (compressed>>3) & 0xF;
+      
+    if(expo==0) return (density) ? (mant<<3)+4 : (mant<<1)+1 ; //The the +4/+1 are midpoint corrections for expo==0
+      
+    uint32_t shift = expo+2; 
+              shift += (density) ? 3 : 1;
+    uint32_t decomp = 1<<shift; 
+    uint32_t mpdeco = 1<<(shift-4);
+    decomp = decomp | (mant<<(shift-3));
+    decomp = decomp | mpdeco;
+      return decomp;
+  }
+   
+  uint16_t CompressEcontBc(uint64_t val, uint32_t dropLSB){
+    //4E+3M
+    //controlled by the dropLSB parameter of ECON-T 
+    val = val>>dropLSB;  
+    
+    uint32_t r = 0; // r will be lg(v)
+    uint32_t sub ;
+    uint32_t shift ;
+    uint32_t mant ;
+
+    if(val>7){
+      uint64_t v = val; 
+      r = 0; 
+      while (v >>= 1) r++;
+      sub = r - 2;
+      shift = r - 3;
+      if(sub<=0xF){
+        mant = (val>>shift) & 0x7;
+      }else{
+        sub = 0xF;
+        mant = 0x7;
+      }
+    }else{
+      r = 0;
+      sub = 0;
+      shift = 0;
+      mant = val & 0x7;
+    }
+    sub = sub & 0xF;
+    mant = mant & 0x7;
+
+    uint16_t packed = (sub<<3) | mant;
+    
+    return packed;
+  }
+  
+  uint16_t CompressEcontModsum(uint64_t val, uint32_t dropLSB){
+    //5E+3M
+    //controlled by the dropLSB parameter of ECON-T 
+    //val = val>>dropLSB;  
+
+    uint32_t r = 0; // r will be lg(v)
+    uint32_t sub ;
+    uint32_t shift ;
+    uint32_t mant ;
+    
+    if(val>7){
+      uint64_t v = val; 
+      r = 0; 
+      while (v >>= 1) r++;
+      sub = r - 2;
+      shift = r - 3;
+      if(sub<=0x1F){
+        mant = (val>>shift) & 0x7;
+      }else{
+        sub = 0x1F;
+        mant = 0x7;
+      }
+    }else{
+      r = 0;
+      sub = 0;
+      shift = 0;
+      mant = val & 0x7;
+    }
+    
+    sub = sub & 0x1F;
+    mant = mant & 0x7;
+    
+    uint16_t packed = (sub<<3) | mant;
+
+    return packed;
+  }
+  
+
+  void batcherOEMSort(std::vector<TPGFEDataformat::TcRawData>& tc) {
+    //C++ adaptation of batcher odd-even sorting of https://github.com/dnoonan08/ECONT_Emulator/ASICBlocks/bestchoice.py
+    //Requires 49 Tcs for sorting
+    TPGFEDataformat::TcRawData dummy(TPGFEDataformat::Unknown,0x3f, 0, 0, false, false, false);
+    tc.push_back(dummy);
+    
+    uint32_t N = uint32_t(tc.size());
+    uint32_t t = uint32_t(ceil(log(N)/log(2)));
+    uint32_t p = uint32_t(pow(2,(t-1)));
+    while(p>=1){
+      uint32_t q = uint32_t(pow(2,(t-1)));
+      uint32_t r = 0;
+      uint32_t d = p;
+      while (q>=p){
+        for(uint32_t i=0; i<(N-d) ; i++){
+          if ((i & p) != r) continue;
+          if (tc[i] < tc[i+d]) std::swap(tc[i], tc[i+d]);
+        }
+        d = q - p;
+        q = floor(q/2);
+        r = p;
+      }
+      p = floor(p/2);
+    }
+    tc.pop_back(); 
+
+  }
+
+
+  TPGFEDataformat::TcRawDataPacket EmulateEcontSTC(bool isSim, const HGCalECONTConfig& econtCfg , const TPGFEDataformat::ModuleTcData& mdata) {
+    //FIXME to be implemented
+    TPGFEDataformat::TcRawDataPacket rdp;
+    return rdp;
+  }
+
+  TPGFEDataformat::TcRawDataPacket EmulateEcontBc(bool isSim, const HGCalECONTConfig& econtCfg , const TPGFEDataformat::ModuleTcData& mdata) {
+    TPGFEDataformat::TcRawDataPacket rdp;
+    uint32_t dropLSB = econtCfg.dropLSB ;
+
+    const TPGFEDataformat::Type& outputType = econtCfg.getOutType();
+
+    uint32_t nTCs =  mdata.getNofTCs();
+    uint16_t bx = (mdata.getBx()==3564) ? 0xF : mdata.getBx() & 0x7 ; //make 8 modulo
+    uint64_t decompressedMS = 0;
+    std::vector<TPGFEDataformat::TcRawData> tcrawdatalist;
+    TPGFEDataformat::TcRawData tcdata;
+
+    for(uint32_t econtc = 0; econtc < nTCs;  econtc++)
+    {
+
+      uint64_t decompressed = DecompressEcont(mdata.getTC(econtc).getCdata(), econtCfg.density); //funny that return needs to defined as 64-bit
+      uint64_t decomp64bit = decompressed * econtCfg.getCalibration(econtc); //overflows for 12bit TOT
+      LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::EmulateEcontBc (TC="<<econtc<<") decompressed: " << decompressed << ", decompressed*calib: " << decomp64bit << std::endl; 
+      decompressed =  decomp64bit >> 11;
+      decompressedMS += (decompressed >> dropLSB) ;
+      LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::EmulateEcontBc (TC="<<econtc<<") decompressed*calib>>11: " << decompressed << ", decompressedMS: " << decompressedMS << std::endl; 
+      uint16_t compressed_bc = CompressEcontBc(decompressed,dropLSB);
+      tcdata.setTriggerCell(outputType, econtc, compressed_bc, decompressed>>dropLSB, mdata.getTC(econtc).isTcTp1(), mdata.getTC(econtc).isTcTp2(), mdata.getTC(econtc).isTcTp3()) ;
+      tcrawdatalist.push_back(tcdata);
+    }
+    batcherOEMSort(tcrawdatalist);
+    //for(int itc=0;itc<int(tcrawdatalist.size());itc++) tcrawdatalist[itc].print();
+    
+    uint16_t compressed_modsum = CompressEcontModsum(decompressedMS,dropLSB);
+    rdp.reset();
+    rdp.setTBM(outputType, bx, compressed_modsum, decompressedMS>>dropLSB); 
+    uint32_t realTcSize = tcrawdatalist.size();
+    if (realTcSize > 0 && tcrawdatalist.back().address() == 0x3f) { // check if this condition still make sense.
+      realTcSize--;
+    }
+    uint32_t nofBCTcs = econtCfg.getBCType();
+    if (nofBCTcs > realTcSize) {
+      LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::EmulateBC Only found " << realTcSize << " TCs but expected " << nofBCTcs << std::endl;
+      nofBCTcs = realTcSize;
+    }
+    for(uint32_t itc = 0 ; itc<nofBCTcs ; itc++)
+      rdp.setTcData(outputType, tcrawdatalist[itc].address(), tcrawdatalist[itc].energy(), tcrawdatalist[itc].rawE(),tcrawdatalist[itc].isTcTp1(),tcrawdatalist[itc].isTcTp2(),tcrawdatalist[itc].isTcTp3());
+    return rdp;
+  }//Emulate BC
+    
+  //The following emulation function performs 1) decompression, 2) calibration, 3) compression
+  TPGFEDataformat::TcRawDataPacket EmulateEcont(bool isSim,  const HGCalECONTConfig& econtCfg, const TPGFEDataformat::ModuleTcData& mdata)
+  {
+    const TPGFEDataformat::Type& outputType = econtCfg.getOutType();
+
+    if(outputType==TPGFEDataformat::BestC) 
+      return EmulateEcontBc(isSim, econtCfg, mdata);
+    else if(outputType==TPGFEDataformat::STC4A or outputType==TPGFEDataformat::STC4B or outputType==TPGFEDataformat::STC16 or TPGFEDataformat::CTC4A or TPGFEDataformat::CTC4B)
+      return EmulateEcontSTC(isSim, econtCfg, mdata); // FIXME to be implemented
+  }
+    
+}//end of namespace
+
+
+#endif
