@@ -12,8 +12,7 @@
 #include "SimCalorimetry/HGCalSimProducers/interface/TPGFEModuleEmulation.hh"
 #include "SimCalorimetry/HGCalSimProducers/interface/TPGFEDataformatEmulation.hh"
 
-#include "EventFilter/HGCalRawToDigi/interface/TPG/TPGFEDataformat.hh"
-
+#include "EventFilter/HGCalRawToDigi/interface/TPGFEDataformat.hh"
 #include "DataFormats/HGCalDigi/interface/HGCalRawDataDefinitions.h"
 #include "DataFormats/HGCalDigi/interface/HGCalTriggerDefinitions.h"
 

@@ -26,7 +26,7 @@ namespace hgcal {
 
 /*
  * @short Basic "type" enum, originally defined
- * in EventFilter/HGCalRawToDigi/interface/TPG/TPGFEDataformat.hh
+ * in EventFilter/HGCalRawToDigi/interface/TPGFEDataformat.hh
  * (where most of this namespace resides), but moved here to avoid
  * the possibility of a dependency cycle. Keeping the old namespace,
  * we will likely want to change this! -Jan
