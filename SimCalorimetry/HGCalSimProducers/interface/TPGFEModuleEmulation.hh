@@ -76,8 +76,8 @@ namespace TPGFEModuleEmulation{
         uint32_t rocpin = tcch%36 ; // the pin number of the channel within the ROC, which is needed for retrieving the channel data and parameters of the corresponding half-ROC.
         uint32_t rocn = TMath::Floor(tcch/72); // the ROC number
         uint32_t half = (int(TMath::Floor(tcch/36))%2==0)?0:1; // the half-ROC number
-        uint32_t hrocid = 2*rocn + half;
-        HGCalROCTrigConfig rocpara = econtCfg.hgcrocs[rocn];
+        uint32_t hrocid = 2*rocn + half; // the half roc id
+        HGCalROCTrigConfig hrocCfg = econtCfg.hgcrocs[hrocid];
 
         if(rocdata.find(hrocid)==rocdata.end()){ // if the half-ROC data is not found in the input data, skip the channel and print warning
           LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: HalfRoc not found in data for Tcch: "<< tcch << ", rocn: " << rocn << ", half: " << half << ", rocpin: " << rocpin << std::endl;
@@ -98,19 +98,19 @@ namespace TPGFEModuleEmulation{
           uint32_t ped = 0; //FIXME
 
           if(!chdata.isTot()){ // if the signal is ADC, perform pedestal subtraction and threshold cut, and accumulate the ADC if the channel is not masked and pedestal is valid. If the channel is masked or pedestal is invalid, set the ADC to 0.
-            unsigned thr =  econtCfg.hgcrocs[rocn].adc_th; 
+            unsigned thr =  hrocCfg.adc_th; 
             uint32_t adc = chdata.getAdc();
-            adc = (adc>(ped+thr) and !(rocpara.isChMasked(rocpin)) and (ped<0xFF)) ? adc-ped : 0 ;
+            adc = (adc>(ped+thr) and !(hrocCfg.isChMasked(rocpin)) and (ped<0xFF)) ? adc-ped : 0 ;
             totadc += adc; // accumulate the ADC of the channels corresponding to the TC
-            LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: ped: " << ped << ", thr: " << thr <<", adc : "<<adc<<", rocpara.isChMasked(rocpin): "<< rocpara.isChMasked(rocpin) <<std::endl; //print the pedestal, threshold, ADC after pedestal subtraction and threshold cut, and masking information for the reference event
+            LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: ped: " << ped << ", thr: " << thr <<", adc : "<<adc<<", hrocCfg.isChMasked(rocpin): "<< hrocCfg.isChMasked(rocpin) <<std::endl; //print the pedestal, threshold, ADC after pedestal subtraction and threshold cut, and masking information for the reference event
           }
           else{ // if the signal is TOT, perform threshold cut and pedestal correction.
-            uint32_t tot1 = (chdata.getTot()>=rocpara.getTotTH(rocpin)) ? (chdata.getTot()-rocpara.getTotP(rocpin)) : (rocpara.getTotTH(rocpin)-rocpara.getTotP(rocpin)) ;
+            uint32_t tot1 = (chdata.getTot()>=hrocCfg.getTotTH(rocpin)) ? (chdata.getTot()-hrocCfg.getTotP(rocpin)) : (hrocCfg.getTotTH(rocpin)-hrocCfg.getTotP(rocpin)) ;
             //ideally ped<255 condition should only be restricted for ADC case, however TOT signal triggers in emulation for event 146245 of relay 1695829026 and link 1, which is not that seen by ECONT data
-            uint32_t totlin = (!(rocpara.isChMasked(rocpin)) and (ped<0xFF))?tot1*rocpara.MultFactor:0;  // perform pedestal correction and linearization for TOT signal, and set the TOT to 0 if the channel is masked or pedestal is invalid.
+            uint32_t totlin = (!(hrocCfg.isChMasked(rocpin)) and (ped<0xFF))?tot1*hrocCfg.MultFactor:0;  // perform pedestal correction and linearization for TOT signal, and set the TOT to 0 if the channel is masked or pedestal is invalid.
             totadc += totlin;
             //isTot = true;
-            LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: tot1: " << tot1 << ", tot: " << chdata.getTot() <<", thr : "<< rocpara.getTotTH(rocpin) <<", ped: "<< rocpara.getTotP(rocpin) << ", totlin : "<< totlin <<std::endl;
+            LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: tot1: " << tot1 << ", tot: " << chdata.getTot() <<", thr : "<< hrocCfg.getTotTH(rocpin) <<", ped: "<< hrocCfg.getTotP(rocpin) << ", totlin : "<< totlin <<std::endl;
           }//istot or adc
         }
         else{ // if simulation, directly accumulate ADC or TOT depending on the signal type without pedestal subtraction, threshold cut, and linearization, as the input simulation data is assumed to be already prepared with ideal detector response and perfectly calibrated.
