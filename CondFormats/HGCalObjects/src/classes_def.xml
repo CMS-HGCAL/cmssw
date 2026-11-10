@@ -74,29 +74,48 @@
 
 
   <!-- HGCal channel calibration conditions -->
-  <class name="HGCalCalibrationModulePayload" class_version="0">
+  <class name="HGCalADCPedestalsModulePayload" class_version="0">
     <field name="typecode" mapping="blob"/>
-    <field name="channel" mapping="blob"/>
     <field name="adcPed" mapping="blob"/>
+  </class>
+
+  <class name="HGCalADCPedestalsPayload" class_version="0">
+    <field name="modules" mapping="blob"/>
+  </class>
+
+  <class name="HGCalNoiseModulePayload" class_version="0">
+    <field name="typecode" mapping="blob"/>
     <field name="noise" mapping="blob"/>
+  </class>
+
+  <class name="HGCalNoisePayload" class_version="0">
+    <field name="modules" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCommonModePedestalsModulePayload" class_version="0">
+    <field name="typecode" mapping="blob"/>
     <field name="cmPed" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCommonModePedestalsPayload" class_version="0">
+    <field name="modules" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCommonModeSlopeModulePayload" class_version="0">
+    <field name="typecode" mapping="blob"/>
     <field name="cmSlope" mapping="blob"/>
-    <field name="bxm1Slope" mapping="blob"/>
-    <field name="bxm1Ped" mapping="blob"/>
-    <field name="totToADC" mapping="blob"/>
-    <field name="totPed" mapping="blob"/>
-    <field name="totLin" mapping="blob"/>
-    <field name="totP0" mapping="blob"/>
-    <field name="totP1" mapping="blob"/>
-    <field name="totP2" mapping="blob"/>
-    <field name="toaCTDC" mapping="blob"/>
-    <field name="toaFTDC" mapping="blob"/>
-    <field name="toaTW" mapping="blob"/>
-    <field name="mipsScale" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCommonModeSlopePayload" class_version="0">
+    <field name="modules" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCalibrationValidityModulePayload" class_version="0">
+    <field name="typecode" mapping="blob"/>
     <field name="valid" mapping="blob"/>
   </class>
 
-  <class name="HGCalCalibrationPayload" class_version="0">
+  <class name="HGCalCalibrationValidityPayload" class_version="0">
     <field name="modules" mapping="blob"/>
   </class>
 

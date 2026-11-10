@@ -3,8 +3,16 @@
 
 int main() {
   // calibration conditions
-  testSerialization<HGCalCalibrationModulePayload>();
-  testSerialization<HGCalCalibrationPayload>();
+  testSerialization<HGCalADCPedestalsModulePayload>();
+  testSerialization<HGCalNoiseModulePayload>();
+  testSerialization<HGCalCommonModePedestalsModulePayload>();
+  testSerialization<HGCalCommonModeSlopeModulePayload>();
+  testSerialization<HGCalCalibrationValidityModulePayload>();
+  testSerialization<HGCalADCPedestalsPayload>();
+  testSerialization<HGCalNoisePayload>();
+  testSerialization<HGCalCommonModePedestalsPayload>();
+  testSerialization<HGCalCommonModeSlopePayload>();
+  testSerialization<HGCalCalibrationValidityPayload>();
 
   //dense indexers
   testSerialization<HGCalDenseIndexerBase>();

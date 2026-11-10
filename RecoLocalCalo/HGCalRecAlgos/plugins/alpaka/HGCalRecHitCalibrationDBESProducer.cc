@@ -1,5 +1,5 @@
 // HGCal calibration conditions reader:
-// HGCalCalibrationPayload from CondDB -> HGCalCalibParamHost
+// Five pedestal condition payloads from CondDB -> HGCalCalibParamHost
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/FileInPath.h"
@@ -19,7 +19,16 @@
 
 #include "CondFormats/HGCalObjects/interface/HGCalCalibrationParameterHost.h"
 #include "CondFormats/HGCalObjects/interface/alpaka/HGCalCalibrationParameterDevice.h"
-#include "CondFormats/HGCalObjects/interface/HGCalCalibrationPayload.h"
+#include "CondFormats/DataRecord/interface/HGCalADCPedestalsRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalADCPedestalsPayload.h"
+#include "CondFormats/DataRecord/interface/HGCalNoiseRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalNoisePayload.h"
+#include "CondFormats/DataRecord/interface/HGCalCommonModePedestalsRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCommonModePedestalsPayload.h"
+#include "CondFormats/DataRecord/interface/HGCalCommonModeSlopeRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCommonModeSlopePayload.h"
+#include "CondFormats/DataRecord/interface/HGCalCalibrationValidityRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCalibrationValidityPayload.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHost.h"
 
@@ -42,12 +51,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     namespace {
 
-      const HGCalCalibrationModulePayload& findModulePayload(
-          const std::string& moduleTypecode,
-          const HGCalCalibrationPayload& payload) {
+      template <typename Payload>
+      const auto& findModulePayload(const std::string& moduleTypecode,
+                                    const Payload& payload,
+                                    const char* condition) {
         if (payload.modules.empty()) {
           throw cms::Exception("InvalidData")
-              << "HGCalCalibrationPayload contains no module entries.";
+              << "Condition '" << condition << "' contains no module entries.";
         }
 
         // Preserve the JSON search_modkey behaviour:
@@ -66,7 +76,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         }
 
         throw cms::Exception("InvalidData")
-            << "Could not find a calibration payload matching module '"
+            << "Could not find " << condition << " conditions matching module '"
             << moduleTypecode << "'.";
       }
 
@@ -83,34 +93,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         }
       }
 
-      void checkFlattenedMatrixSize(const std::vector<float>& values,
-                                    std::size_t rows,
-                                    std::size_t width,
-                                    const std::string& field,
-                                    const std::string& typecode) {
-        const std::size_t expected = rows * width;
-
-        if (values.size() != expected) {
-          throw cms::Exception("InvalidData")
-              << "Conditions field '" << field << "' for module '"
-              << typecode << "' contains " << values.size()
-              << " flattened values; expected " << expected
-              << " (" << rows << " x " << width << ").";
-        }
-      }
-
-      template <typename EigenRow>
-      void fillFlattenedRow(EigenRow& output,
-                            const std::vector<float>& values,
-                            std::size_t row,
-                            std::size_t width) {
-        const std::size_t offset = row * width;
-
-        for (std::size_t column = 0; column < width; ++column) {
-          output(column) = values[offset + column];
-        }
-      }
-
     }  // namespace
 
     class HGCalCalibrationDBESProducer : public ESProducer {
@@ -123,10 +105,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                     "filenameEnergyLoss")) {
         auto collector = setWhatProduced(this);
 
-        payloadToken_ =
-            collector.consumes<HGCalCalibrationPayload>(
-                configuration.getParameter<edm::ESInputTag>(
-                    "payloadSource"));
+        const auto payloadSource = configuration.getParameter<edm::ESInputTag>("payloadSource");
+        adcPedestalsToken_ = collector.consumesFrom<HGCalADCPedestalsPayload, HGCalADCPedestalsRcd>(payloadSource);
+        noiseToken_ = collector.consumesFrom<HGCalNoisePayload, HGCalNoiseRcd>(payloadSource);
+        commonModePedestalsToken_ = collector.consumesFrom<HGCalCommonModePedestalsPayload, HGCalCommonModePedestalsRcd>(payloadSource);
+        commonModeSlopeToken_ = collector.consumesFrom<HGCalCommonModeSlopePayload, HGCalCommonModeSlopeRcd>(payloadSource);
+        validityToken_ = collector.consumesFrom<HGCalCalibrationValidityPayload, HGCalCalibrationValidityRcd>(payloadSource);
 
         indexToken_ =
             collector.consumesFrom<HGCalMappingModuleIndexer,
@@ -157,7 +141,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                 "payloadSource",
                 edm::ESInputTag(""))
             ->setComment(
-                "HGCalCalibrationPayload from HGCalCalibrationRcd.");
+                "Input label shared by the five pedestal condition payloads.");
 
         description
             .add<edm::ESInputTag>(
@@ -176,8 +160,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
       std::optional<::hgcalrechit::HGCalCalibParamHost> produce(
           const HGCalCalibrationRcd& record) {
-        const auto& calibrationPayload =
-            record.get(payloadToken_);
+        const auto& adcPedestalsPayload = record.get(adcPedestalsToken_);
+        const auto& noisePayload = record.get(noiseToken_);
+        const auto& commonModePedestalsPayload = record.get(commonModePedestalsToken_);
+        const auto& commonModeSlopePayload = record.get(commonModeSlopeToken_);
+        const auto& validityPayload = record.get(validityToken_);
 
         const auto& moduleIndexer =
             record.get(indexToken_);
@@ -232,10 +219,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
              moduleIndexer.typecodeMap()) {
           const auto [fedId, moduleId] = ids;
 
-          const auto& module =
-              findModulePayload(
-                  moduleTypecode,
-                  calibrationPayload);
+          const auto& adcPedestals = findModulePayload(moduleTypecode, adcPedestalsPayload, "ADC_ped");
+          const auto& noise = findModulePayload(moduleTypecode, noisePayload, "Noise");
+          const auto& commonModePedestals = findModulePayload(moduleTypecode, commonModePedestalsPayload, "CM_ped");
+          const auto& commonModeSlope = findModulePayload(moduleTypecode, commonModeSlopePayload, "CM_slope");
+          const auto& validity = findModulePayload(moduleTypecode, validityPayload, "Valid");
 
           const uint32_t moduleIndex =
               moduleIndexer.getIndexForModule(
@@ -252,7 +240,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
           uint32_t rows =
               static_cast<uint32_t>(
-                  module.adcPed.size());
+                  adcPedestals.adcPed.size());
 
           if (mappedChannels != rows) {
             edm::LogWarning(
@@ -266,200 +254,31 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
             rows = std::min(rows, mappedChannels);
           }
 
-          checkVectorSize(
-              module.noise,
-              module.adcPed.size(),
-              "Noise",
-              module.typecode);
+          checkVectorSize(noise.noise, adcPedestals.adcPed.size(), "Noise", moduleTypecode);
+          checkVectorSize(commonModePedestals.cmPed, adcPedestals.adcPed.size(), "CM_ped", moduleTypecode);
+          checkVectorSize(commonModeSlope.cmSlope, adcPedestals.adcPed.size(), "CM_slope", moduleTypecode);
+          checkVectorSize(validity.valid, adcPedestals.adcPed.size(), "Valid", moduleTypecode);
 
-          checkVectorSize(
-              module.cmSlope,
-              module.adcPed.size(),
-              "CM_slope",
-              module.typecode);
+          for (std::size_t channel = 0; channel < rows; ++channel) {
+            auto output = product.view()[offset + channel];
+            output.ADC_ped() = adcPedestals.adcPed[channel];
+            output.Noise() = noise.noise[channel];
+            output.CM_ped() = commonModePedestals.cmPed[channel];
+            output.CM_slope() = commonModeSlope.cmSlope[channel];
+            output.valid() = validity.valid[channel];
 
-          checkVectorSize(
-              module.cmPed,
-              module.adcPed.size(),
-              "CM_ped",
-              module.typecode);
-
-          checkVectorSize(
-              module.bxm1Slope,
-              module.adcPed.size(),
-              "BXm1_slope",
-              module.typecode);
-
-          checkVectorSize(
-              module.totToADC,
-              module.adcPed.size(),
-              "TOTtoADC",
-              module.typecode);
-
-          checkVectorSize(
-              module.totPed,
-              module.adcPed.size(),
-              "TOT_ped",
-              module.typecode);
-
-          checkVectorSize(
-              module.totLin,
-              module.adcPed.size(),
-              "TOT_lin",
-              module.typecode);
-
-          checkVectorSize(
-              module.totP0,
-              module.adcPed.size(),
-              "TOT_P0",
-              module.typecode);
-
-          checkVectorSize(
-              module.totP1,
-              module.adcPed.size(),
-              "TOT_P1",
-              module.typecode);
-
-          checkVectorSize(
-              module.totP2,
-              module.adcPed.size(),
-              "TOT_P2",
-              module.typecode);
-
-          checkVectorSize(
-              module.mipsScale,
-              module.adcPed.size(),
-              "MIPS_scale",
-              module.typecode);
-
-          checkVectorSize(
-              module.valid,
-              module.adcPed.size(),
-              "Valid",
-              module.typecode);
-
-          checkFlattenedMatrixSize(
-              module.toaCTDC,
-              module.adcPed.size(),
-              HGCalCalibrationModulePayload::kCTDCSize,
-              "TOA_CTDC",
-              module.typecode);
-
-          checkFlattenedMatrixSize(
-              module.toaFTDC,
-              module.adcPed.size(),
-              HGCalCalibrationModulePayload::kFTDCSize,
-              "TOA_FTDC",
-              module.typecode);
-
-          checkFlattenedMatrixSize(
-              module.toaTW,
-              module.adcPed.size(),
-              HGCalCalibrationModulePayload::kTWSize,
-              "TOA_TW",
-              module.typecode);
-
-          fill_SoA_column<float>(
-              product.view().ADC_ped(),
-              module.adcPed,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().Noise(),
-              module.noise,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().CM_slope(),
-              module.cmSlope,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().CM_ped(),
-              module.cmPed,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().BXm1_slope(),
-              module.bxm1Slope,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().TOTtoADC(),
-              module.totToADC,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().TOT_ped(),
-              module.totPed,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().TOT_lin(),
-              module.totLin,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().TOT_P0(),
-              module.totP0,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().TOT_P1(),
-              module.totP1,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().TOT_P2(),
-              module.totP2,
-              offset,
-              rows);
-
-          fill_SoA_column<float>(
-              product.view().MIPS_scale(),
-              module.mipsScale,
-              offset,
-              rows);
-
-          fill_SoA_column<unsigned char>(
-              product.view().valid(),
-              module.valid,
-              offset,
-              rows);
-
-          for (std::size_t channel = 0;
-               channel < rows;
-               ++channel) {
-            auto output =
-                product.view()[offset + channel];
-
-            fillFlattenedRow(
-                output.TOA_CTDC(),
-                module.toaCTDC,
-                channel,
-                HGCalCalibrationModulePayload::kCTDCSize);
-
-            fillFlattenedRow(
-                output.TOA_FTDC(),
-                module.toaFTDC,
-                channel,
-                HGCalCalibrationModulePayload::kFTDCSize);
-
-            fillFlattenedRow(
-                output.TOA_TW(),
-                module.toaTW,
-                channel,
-                HGCalCalibrationModulePayload::kTWSize);
+            // Match the defaults of PrepareLevel0CalibParams.py for pedestal input.
+            output.BXm1_slope() = 0.f;
+            output.TOTtoADC() = 1.f;
+            output.TOT_ped() = 0.f;
+            output.TOT_lin() = 0.f;
+            output.TOT_P0() = 0.f;
+            output.TOT_P1() = 0.f;
+            output.TOT_P2() = 0.f;
+            output.MIPS_scale() = 1.f;
+            output.TOA_CTDC().setZero();
+            output.TOA_FTDC().setZero();
+            output.TOA_TW().setZero();
           }
 
           const int layer =
@@ -556,10 +375,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         return scaleFactors[index];
       }
 
-      edm::ESGetToken<
-          HGCalCalibrationPayload,
-          HGCalCalibrationRcd>
-          payloadToken_;
+      edm::ESGetToken<HGCalADCPedestalsPayload, HGCalADCPedestalsRcd> adcPedestalsToken_;
+      edm::ESGetToken<HGCalNoisePayload, HGCalNoiseRcd> noiseToken_;
+      edm::ESGetToken<HGCalCommonModePedestalsPayload, HGCalCommonModePedestalsRcd> commonModePedestalsToken_;
+      edm::ESGetToken<HGCalCommonModeSlopePayload, HGCalCommonModeSlopeRcd> commonModeSlopeToken_;
+      edm::ESGetToken<HGCalCalibrationValidityPayload, HGCalCalibrationValidityRcd> validityToken_;
 
       edm::ESGetToken<
           HGCalMappingModuleIndexer,

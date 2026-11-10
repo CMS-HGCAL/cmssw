@@ -20,20 +20,13 @@ options.register(
     "Output SQLite connection string",
 )
 
-options.register(
-    "record",
-    "HGCalCalibrationRcd",
-    VarParsing.multiplicity.singleton,
-    VarParsing.varType.string,
-    "Conditions record name",
-)
 
 options.register(
     "outputTag",
     "HGCalCalibration_v1",
     VarParsing.multiplicity.singleton,
     VarParsing.varType.string,
-    "Conditions tag name",
+    "Prefix for the five pedestal Conditions tags",
 )
 
 options.parseArguments()
@@ -42,16 +35,25 @@ process = cms.Process("WRITECALIB")
 
 process.load("FWCore.MessageLogger.MessageLogger_cfi")
 
+condition_names = (
+    "ADCPedestals",
+    "Noise",
+    "CommonModePedestals",
+    "CommonModeSlope",
+    "CalibrationValidity",
+)
+
 process.PoolDBOutputService = cms.Service(
     "PoolDBOutputService",
     CondDB.clone(connect=cms.string(options.outputDB)),
     timetype=cms.untracked.string("runnumber"),
-    toPut=cms.VPSet(
+    toPut=cms.VPSet(*[
         cms.PSet(
-            record=cms.string(options.record),
-            tag=cms.string(options.outputTag),
+            record=cms.string(f"HGCal{name}Rcd"),
+            tag=cms.string(f"{options.outputTag}_{name}"),
         )
-    ),
+        for name in condition_names
+    ]),
     loadBlobStreamer=cms.untracked.bool(False),
 )
 
@@ -67,7 +69,6 @@ process.maxEvents = cms.untracked.PSet(
 process.hgcalCalibrationDBWriter = cms.EDAnalyzer(
     "HGCalCalibrationDBWriter",
     jsonFile=cms.string(options.jsonFile),
-    recordName=cms.string(options.record),
 )
 
 process.writeCalibration = cms.Path(

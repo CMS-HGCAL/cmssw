@@ -1,5 +1,9 @@
 #include "CondCore/DBOutputService/interface/PoolDBOutputService.h"
-#include "CondFormats/HGCalObjects/interface/HGCalCalibrationPayload.h"
+#include "CondFormats/HGCalObjects/interface/HGCalADCPedestalsPayload.h"
+#include "CondFormats/HGCalObjects/interface/HGCalNoisePayload.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCommonModePedestalsPayload.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCommonModeSlopePayload.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCalibrationValidityPayload.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
@@ -18,7 +22,6 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <numeric>
 #include <string>
 #include <utility>
 #include <vector>
@@ -76,41 +79,6 @@ namespace {
     return values;
   }
 
-  std::vector<int> readChannelVector(const json& moduleData,
-                                     std::size_t nrows,
-                                     const std::string& typecode) {
-    if (!moduleData.contains("Channel")) {
-      std::vector<int> channels(nrows);
-      std::iota(channels.begin(), channels.end(), 0);
-      return channels;
-    }
-
-    if (!moduleData.at("Channel").is_array()) {
-      throw cms::Exception("InvalidData")
-          << "Field 'Channel' for module '" << typecode
-          << "' is not an array.";
-    }
-
-    auto channels = moduleData.at("Channel").get<std::vector<int>>();
-
-    if (channels.size() < nrows) {
-      throw cms::Exception("InvalidData")
-          << "Field 'Channel' for module '" << typecode
-          << "' contains only " << channels.size()
-          << " values, but at least " << nrows << " are required.";
-    }
-
-    if (channels.size() > nrows) {
-      edm::LogWarning("HGCalCalibrationDBWriter")
-          << "Field 'Channel' for module '" << typecode
-          << "' contains " << channels.size() << " values; using the first "
-          << nrows << ".";
-      channels.resize(nrows);
-    }
-
-    return channels;
-  }
-
   std::vector<unsigned char> readValidVector(const json& moduleData,
                                              std::size_t nrows,
                                              const std::string& typecode) {
@@ -156,59 +124,6 @@ namespace {
     return output;
   }
 
-  std::vector<float> readFlattenedMatrix(const json& moduleData,
-                                         const std::string& key,
-                                         std::size_t nrows,
-                                         std::size_t width,
-                                         const std::string& typecode,
-                                         bool required = false) {
-    if (!moduleData.contains(key)) {
-      if (required) {
-        throw cms::Exception("InvalidData")
-            << "Missing required key '" << key
-            << "' for module '" << typecode << "'.";
-      }
-
-      return std::vector<float>(nrows * width, 0.f);
-    }
-
-    const auto& matrix = moduleData.at(key);
-
-    if (!matrix.is_array() || matrix.size() < nrows) {
-      throw cms::Exception("InvalidData")
-          << "Field '" << key << "' for module '" << typecode
-          << "' must contain at least " << nrows << " rows.";
-    }
-
-    if (matrix.size() > nrows) {
-      edm::LogWarning("HGCalCalibrationDBWriter")
-          << "Field '" << key << "' for module '" << typecode
-          << "' contains " << matrix.size() << " rows; using the first "
-          << nrows << ".";
-    }
-
-    std::vector<float> flattened;
-    flattened.reserve(nrows * width);
-
-    for (std::size_t rowIndex = 0; rowIndex < nrows; ++rowIndex) {
-      const auto& row = matrix.at(rowIndex);
-
-      if (!row.is_array() || row.size() != width) {
-        throw cms::Exception("InvalidData")
-            << "Field '" << key << "' for module '" << typecode
-            << "', row " << rowIndex << " contains "
-            << row.size() << " values; expected " << width << ".";
-      }
-
-      const auto rowValues = row.get<std::vector<float>>();
-      flattened.insert(flattened.end(),
-                       rowValues.begin(),
-                       rowValues.end());
-    }
-
-    return flattened;
-  }
-
 }  // namespace
 
 class HGCalCalibrationDBWriter : public edm::global::EDAnalyzer<> {
@@ -225,13 +140,15 @@ private:
 
   void endJob() override;
 
-  std::string recordName_;
-  HGCalCalibrationPayload payload_;
+  HGCalADCPedestalsPayload adcPedestals_;
+  HGCalNoisePayload noise_;
+  HGCalCommonModePedestalsPayload commonModePedestals_;
+  HGCalCommonModeSlopePayload commonModeSlope_;
+  HGCalCalibrationValidityPayload validity_;
 };
 
 HGCalCalibrationDBWriter::HGCalCalibrationDBWriter(
-    const edm::ParameterSet& config)
-    : recordName_(config.getParameter<std::string>("recordName")) {
+    const edm::ParameterSet& config) {
   const std::string jsonFile =
       config.getParameter<std::string>("jsonFile");
 
@@ -266,7 +183,11 @@ HGCalCalibrationDBWriter::HGCalCalibrationDBWriter(
         << "The calibration input must be a non-empty JSON object.";
   }
 
-  payload_.modules.reserve(calibrationData.size());
+  adcPedestals_.modules.reserve(calibrationData.size());
+  noise_.modules.reserve(calibrationData.size());
+  commonModePedestals_.modules.reserve(calibrationData.size());
+  commonModeSlope_.modules.reserve(calibrationData.size());
+  validity_.modules.reserve(calibrationData.size());
 
   for (const auto& item : calibrationData.items()) {
     const std::string typecode = item.key();
@@ -298,75 +219,67 @@ HGCalCalibrationDBWriter::HGCalCalibrationDBWriter(
           << "Module '" << typecode << "' contains no channels.";
     }
 
-    HGCalCalibrationModulePayload module;
-    module.typecode = typecode;
+    // These conditions currently support the pedestal workflow only.
+    // Reject calibrations that cannot be represented by these payloads.
+    for (const auto* key : {"BXm1_slope", "BXm1_ped", "TOTtoADC", "TOT_ped",
+                           "TOT_lin", "TOT_P0", "TOT_P1", "TOT_P2", "MIPS_scale"}) {
+      if (!moduleData.contains(key))
+        continue;
+      const float expected = (std::string(key) == "TOTtoADC" || std::string(key) == "MIPS_scale") ? 1.f : 0.f;
+      const auto values = readFloatVector(moduleData, key, nrows, typecode);
+      if (std::any_of(values.begin(), values.end(), [expected](float value) { return value != expected; }))
+        throw cms::Exception("InvalidData")
+            << "Non-default " << key << " for module '" << typecode
+            << "': this writer supports pedestal conditions only.";
+    }
 
-    module.channel = readChannelVector(moduleData, nrows, typecode);
+    // TOA corrections are outside the scope of these conditions.
+    for (const auto* key : {"TOA_CTDC", "TOA_FTDC", "TOA_TW"}) {
+      if (!moduleData.contains(key))
+        continue;
+      for (const auto& row : moduleData.at(key).get<std::vector<std::vector<float>>>()) {
+        if (std::any_of(row.begin(), row.end(), [](float x) { return x != 0.f; }))
+          throw cms::Exception("InvalidData")
+              << "Nonzero " << key << " for module '" << typecode
+              << "': TOA calibration is not supported by this payload.";
+      }
+    }
 
-    module.adcPed =
-        readFloatVector(moduleData, "ADC_ped", nrows, typecode);
-    module.noise =
-        readFloatVector(moduleData, "Noise", nrows, typecode);
-    module.cmPed =
-        readFloatVector(moduleData, "CM_ped", nrows, typecode);
-    module.cmSlope =
-        readFloatVector(moduleData, "CM_slope", nrows, typecode);
-
-    module.bxm1Slope =
-        readFloatVector(moduleData, "BXm1_slope", nrows, typecode);
-    module.bxm1Ped =
-        readFloatVector(moduleData,
-                        "BXm1_ped",
-                        nrows,
-                        typecode,
-                        false);
-
-    module.totToADC =
-        readFloatVector(moduleData, "TOTtoADC", nrows, typecode);
-    module.totPed =
-        readFloatVector(moduleData, "TOT_ped", nrows, typecode);
-    module.totLin =
-        readFloatVector(moduleData, "TOT_lin", nrows, typecode);
-    module.totP0 =
-        readFloatVector(moduleData, "TOT_P0", nrows, typecode);
-    module.totP1 =
-        readFloatVector(moduleData, "TOT_P1", nrows, typecode);
-    module.totP2 =
-        readFloatVector(moduleData, "TOT_P2", nrows, typecode);
-
-    module.toaCTDC = readFlattenedMatrix(
-        moduleData,
-        "TOA_CTDC",
-        nrows,
-        HGCalCalibrationModulePayload::kCTDCSize,
-        typecode);
-
-    module.toaFTDC = readFlattenedMatrix(
-        moduleData,
-        "TOA_FTDC",
-        nrows,
-        HGCalCalibrationModulePayload::kFTDCSize,
-        typecode);
-
-    module.toaTW = readFlattenedMatrix(
-        moduleData,
-        "TOA_TW",
-        nrows,
-        HGCalCalibrationModulePayload::kTWSize,
-        typecode);
-
-    module.mipsScale =
-        readFloatVector(moduleData, "MIPS_scale", nrows, typecode);
-
-    module.valid =
-        readValidVector(moduleData, nrows, typecode);
-
-    payload_.modules.push_back(std::move(module));
+    {
+      HGCalADCPedestalsModulePayload module;
+      module.typecode = typecode;
+      module.adcPed = readFloatVector(moduleData, "ADC_ped", nrows, typecode);
+      adcPedestals_.modules.push_back(std::move(module));
+    }
+    {
+      HGCalNoiseModulePayload module;
+      module.typecode = typecode;
+      module.noise = readFloatVector(moduleData, "Noise", nrows, typecode);
+      noise_.modules.push_back(std::move(module));
+    }
+    {
+      HGCalCommonModePedestalsModulePayload module;
+      module.typecode = typecode;
+      module.cmPed = readFloatVector(moduleData, "CM_ped", nrows, typecode);
+      commonModePedestals_.modules.push_back(std::move(module));
+    }
+    {
+      HGCalCommonModeSlopeModulePayload module;
+      module.typecode = typecode;
+      module.cmSlope = readFloatVector(moduleData, "CM_slope", nrows, typecode);
+      commonModeSlope_.modules.push_back(std::move(module));
+    }
+    {
+      HGCalCalibrationValidityModulePayload module;
+      module.typecode = typecode;
+      module.valid = readValidVector(moduleData, nrows, typecode);
+      validity_.modules.push_back(std::move(module));
+    }
   }
 
   edm::LogInfo("HGCalCalibrationDBWriter")
-      << "Parsed typed calibration payload for "
-      << payload_.modules.size() << " module typecodes.";
+      << "Parsed five pedestal condition payloads for "
+      << adcPedestals_.modules.size() << " module typecodes.";
 }
 
 void HGCalCalibrationDBWriter::endJob() {
@@ -377,14 +290,19 @@ void HGCalCalibrationDBWriter::endJob() {
         << "PoolDBOutputService is not configured.";
   }
 
-  poolDBService->createOneIOV<HGCalCalibrationPayload>(
-      payload_,
-      poolDBService->beginOfTime(),
-      recordName_);
+  poolDBService->createOneIOV<HGCalADCPedestalsPayload>(
+      adcPedestals_, poolDBService->beginOfTime(), "HGCalADCPedestalsRcd");
+  poolDBService->createOneIOV<HGCalNoisePayload>(
+      noise_, poolDBService->beginOfTime(), "HGCalNoiseRcd");
+  poolDBService->createOneIOV<HGCalCommonModePedestalsPayload>(
+      commonModePedestals_, poolDBService->beginOfTime(), "HGCalCommonModePedestalsRcd");
+  poolDBService->createOneIOV<HGCalCommonModeSlopePayload>(
+      commonModeSlope_, poolDBService->beginOfTime(), "HGCalCommonModeSlopeRcd");
+  poolDBService->createOneIOV<HGCalCalibrationValidityPayload>(
+      validity_, poolDBService->beginOfTime(), "HGCalCalibrationValidityRcd");
 
   edm::LogInfo("HGCalCalibrationDBWriter")
-      << "Stored HGCalCalibrationPayload in record '"
-      << recordName_ << "'.";
+      << "Stored five pedestal condition payloads in separate records.";
 }
 
 void HGCalCalibrationDBWriter::fillDescriptions(
@@ -395,10 +313,6 @@ void HGCalCalibrationDBWriter::fillDescriptions(
       .add<std::string>("jsonFile", "-")
       ->setComment(
           "Calibration JSON input file; use '-' to read from stdin.");
-
-  description
-      .add<std::string>("recordName", "HGCalCalibrationRcd")
-      ->setComment("Conditions record used by PoolDBOutputService.");
 
   descriptions.addWithDefaultLabel(description);
 }
