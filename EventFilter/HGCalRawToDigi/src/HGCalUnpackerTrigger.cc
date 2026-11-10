@@ -382,6 +382,9 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
             for (const auto& itc : rdp.getTcData())
               totE += itc.decodedE(rdp.type()) << dropLSB;
 
+            const uint8_t algo = uint8_t(econt_conf.getOutType());
+            const uint8_t nTCs = uint8_t(econt_conf.getNofTCs());
+
             //// How much of below will be **CONFIGURE** ed
             for (unsigned itc(0); itc < rdp.size(); itc++) {
               uint32_t tcidx = uint32_t(rdp.getTc(itc).address());
@@ -412,12 +415,12 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
               uint32_t denseIdx =
                   denseIdxRaw + denseIdxOffset;  // applying offset accounting for TCs and econts swapping
 
-              digisTrigger.view()[denseIdx].algo() = uint8_t(econt_conf.getOutType());
+              digisTrigger.view()[denseIdx].algo() = algo;
               digisTrigger.view()[denseIdx].sumType() = uint8_t(econt_conf.sumType);
               digisTrigger.view()[denseIdx].valid()(bx, 0) = true;
               digisTrigger.view()[denseIdx].nBxs() = uint8_t(tsh->numberOfBxs());
               digisTrigger.view()[denseIdx].econTId() = econTId;
-              digisTrigger.view()[denseIdx].nTCs() = uint8_t(econt_conf.getNofTCs());
+              digisTrigger.view()[denseIdx].nTCs() = nTCs;
               digisTrigger.view()[denseIdx].econtHeader()(bx, 0) = uint8_t(rdp.bx());
               digisTrigger.view()[denseIdx].expEcontHeader()(bx, 0) = uint8_t(expEcontHeader);
               digisTrigger.view()[denseIdx].encodedTotE()(bx, 0) =
