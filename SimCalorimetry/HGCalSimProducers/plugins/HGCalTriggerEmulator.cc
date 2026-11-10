@@ -10,7 +10,10 @@
 #include "FWCore/Utilities/interface/StreamID.h"
 
 #include "SimCalorimetry/HGCalSimProducers/interface/TPGFEModuleEmulation.hh"
+#include "SimCalorimetry/HGCalSimProducers/interface/TPGFEDataformatEmulation.hh"
+
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TPGFEDataformat.hh"
+
 #include "DataFormats/HGCalDigi/interface/HGCalRawDataDefinitions.h"
 #include "DataFormats/HGCalDigi/interface/HGCalTriggerDefinitions.h"
 
@@ -133,7 +136,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
       LogDebug("[HGCalTriggerEmulator]") << " with " << std::dec << tdaqConfig.econts.size() << " active ECON-Ts" << std::endl;
       for(unsigned int iecont=0; iecont<tdaqConfig.econts.size(); iecont++){
-        std::map<uint32_t, TPGFEDataformat::HalfHgcrocData> rocData;
+        std::map<uint32_t, TPGFEDataformatEmulation::HalfHgcrocData> rocData;
 
 
         // getting typecode of econt by inverting the typecode map
@@ -168,7 +171,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
         for (uint32_t ihroc = 0; ihroc < nhfrocs; ++ihroc) {
 
-          TPGFEDataformat::HalfHgcrocData hData;
+          TPGFEDataformatEmulation::HalfHgcrocData hData;
           hData.setBx(bx);
 
           LogDebug("[HGCalTriggerEmulator]") << "ihroc : " << ihroc << " | Setting ADC for half HGROC channels." << std::endl;
@@ -209,7 +212,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         LogDebug("[HGCalTriggerEmulator]") << "Size of the TC to ROCpin map: " << SiTCToROCpin.size() << std::endl;
 
         LogDebug("[HGCalTriggerEmulator]") << "\n--- Running HGCROC Emulation ---" << std::endl;
-        TPGFEDataformat::ModuleTcData modTcData = TPGFEModuleEmulation::EmulateHgroc(false, SiTCToROCpin, econtConfig, rocData);
+        TPGFEDataformatEmulation::ModuleTcData modTcData = TPGFEModuleEmulation::EmulateHgroc(false, SiTCToROCpin, econtConfig, rocData);
 
 
         LogDebug("[HGCalTriggerEmulator]") << "\n--- Running ECON-T Emulation ---" << std::endl;

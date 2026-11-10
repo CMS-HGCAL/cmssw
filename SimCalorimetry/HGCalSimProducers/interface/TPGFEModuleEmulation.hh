@@ -8,6 +8,8 @@
 #include <cstddef>
 
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TPGFEDataformat.hh"
+#include "SimCalorimetry/HGCalSimProducers/interface/TPGFEDataformatEmulation.hh"
+
 #include "CondFormats/HGCalObjects/interface/HGCalTriggerConfiguration.h"
 
 
@@ -53,8 +55,8 @@ namespace TPGFEModuleEmulation{
   }
 
   //The following emulation function performs 1) pedestal subtraction, 2) linearization, 3) compression
-  TPGFEDataformat::ModuleTcData EmulateHgroc(bool isSim, const std::map<uint32_t,std::vector<uint32_t>>& tcPinMap, const HGCalECONTConfig& econtCfg,  std::map<uint32_t,TPGFEDataformat::HalfHgcrocData>& rocdata){
-    TPGFEDataformat::ModuleTcData mdata;
+  TPGFEDataformatEmulation::ModuleTcData EmulateHgroc(bool isSim, const std::map<uint32_t,std::vector<uint32_t>>& tcPinMap, const HGCalECONTConfig& econtCfg,  std::map<uint32_t,TPGFEDataformatEmulation::HalfHgcrocData>& rocdata){
+    TPGFEDataformatEmulation::ModuleTcData mdata;
     uint16_t bx = 0xFFFF;
     const uint32_t nTCs = tcPinMap.size(); //read it from cfg econt
     uint8_t selTC4 = !(econtCfg.density);
@@ -87,7 +89,7 @@ namespace TPGFEModuleEmulation{
 
         LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: TC : " << itc << ", tcch: " << tcch <<", rocpin : "<<rocpin<<", hrocid: "<<hrocid<<", rocn: "<<rocn<<", half: "<<half<<std::endl; //print the channel data for the reference event
 
-        TPGFEDataformat::HalfHgcrocChannelData& chdata = rocdata.at(hrocid).getChannelData(rocpin); //get the channel data corresponding to the channel, which contains ADC, TOT, TC/Tp flag information. 
+        TPGFEDataformatEmulation::HalfHgcrocChannelData& chdata = rocdata.at(hrocid).getChannelData(rocpin); //get the channel data corresponding to the channel, which contains ADC, TOT, TC/Tp flag information. 
         bx = rocdata.at(hrocid).getBx(); // get the bx information from the half-ROC data
         if(chdata.getTcTp()==1) isTcTp1 = true;
         if(chdata.getTcTp()==2) isTcTp2 = true;
@@ -258,13 +260,13 @@ namespace TPGFEModuleEmulation{
   }
 
 
-  TPGFEDataformat::TcRawDataPacket EmulateEcontSTC(bool isSim, const HGCalECONTConfig& econtCfg , const TPGFEDataformat::ModuleTcData& mdata) {
+  TPGFEDataformat::TcRawDataPacket EmulateEcontSTC(bool isSim, const HGCalECONTConfig& econtCfg , const TPGFEDataformatEmulation::ModuleTcData& mdata) {
     //FIXME to be implemented
     TPGFEDataformat::TcRawDataPacket rdp;
     return rdp;
   }
 
-  TPGFEDataformat::TcRawDataPacket EmulateEcontBc(bool isSim, const HGCalECONTConfig& econtCfg , const TPGFEDataformat::ModuleTcData& mdata) {
+  TPGFEDataformat::TcRawDataPacket EmulateEcontBc(bool isSim, const HGCalECONTConfig& econtCfg , const TPGFEDataformatEmulation::ModuleTcData& mdata) {
     TPGFEDataformat::TcRawDataPacket rdp;
     uint32_t dropLSB = econtCfg.dropLSB ;
 
@@ -310,7 +312,7 @@ namespace TPGFEModuleEmulation{
   }//Emulate BC
     
   //The following emulation function performs 1) decompression, 2) calibration, 3) compression
-  TPGFEDataformat::TcRawDataPacket EmulateEcont(bool isSim,  const HGCalECONTConfig& econtCfg, const TPGFEDataformat::ModuleTcData& mdata)
+  TPGFEDataformat::TcRawDataPacket EmulateEcont(bool isSim,  const HGCalECONTConfig& econtCfg, const TPGFEDataformatEmulation::ModuleTcData& mdata)
   {
     const TPGFEDataformat::Type& outputType = econtCfg.getOutType();
 
