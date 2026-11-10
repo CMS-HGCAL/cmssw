@@ -8,7 +8,8 @@
 #include <cstddef>
 
 #include "EventFilter/HGCalRawToDigi/interface/TPG/TPGFEDataformat.hh"
-#include "SimCalorimetry/HGCalSimProducers/interface/TPGFEConfiguration.hh"
+#include "CondFormats/HGCalObjects/interface/HGCalTriggerConfiguration.h"
+
 
 namespace TPGFEModuleEmulation{
   uint16_t CompressHgroc(uint32_t val, uint8_t isldm){ // isldm stand for "is low density mode". It is determined by the SelTC4 parameter of HGCROC.
@@ -94,12 +95,12 @@ namespace TPGFEModuleEmulation{
 
         // chdata.print(); 
         if(!isSim){ //if not simulation, assumed beamtest data
-          //uint32_t ped = configs.getChPara().at(pck.packChId(hrocid,rocpin)).getAdcpedestal(); //get the pedestal of the channel, which is needed for pedestal subtraction in emulation
-          uint32_t ped = 0; //FIXME
+          uint8_t ped =  hrocCfg.ped[rocpin];  //FIXME
 
           if(!chdata.isTot()){ // if the signal is ADC, perform pedestal subtraction and threshold cut, and accumulate the ADC if the channel is not masked and pedestal is valid. If the channel is masked or pedestal is invalid, set the ADC to 0.
-            unsigned thr =  hrocCfg.adc_th; 
+            uint8_t thr =  hrocCfg.adc_th; 
             uint32_t adc = chdata.getAdc();
+
             adc = (adc>(ped+thr) and !(hrocCfg.isChMasked(rocpin)) and (ped<0xFF)) ? adc-ped : 0 ;
             totadc += adc; // accumulate the ADC of the channels corresponding to the TC
             LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: ped: " << ped << ", thr: " << thr <<", adc : "<<adc<<", hrocCfg.isChMasked(rocpin): "<< hrocCfg.isChMasked(rocpin) <<std::endl; //print the pedestal, threshold, ADC after pedestal subtraction and threshold cut, and masking information for the reference event

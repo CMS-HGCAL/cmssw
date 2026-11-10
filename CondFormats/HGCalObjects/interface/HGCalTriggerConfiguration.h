@@ -17,12 +17,13 @@
 
 // @short configuration for HGCROC
 struct HGCalROCTrigConfig {
+  uint8_t ped[36] = {0};
   uint8_t adc_th;   //5 bits adc th global for HGCROC &0x1F
   // FIXME read from cfg, atm dummy values
   uint64_t ClrAdcTot_trig = 0;  //36-bits 
   uint8_t MultFactor = 1; //5-bits
-  uint8_t Tot_P[4] = {0, 0, 0, 0};  //one per 9 channel (each with 7-bits)
-  uint8_t Tot_TH[4] = {0, 0, 0, 0}; //one per 9 channel (each with 8 bits)
+  uint8_t Tot_P[4] = {0};  //one per 9 channel (each with 7-bits)
+  uint8_t Tot_TH[4] = {0}; //one per 9 channel (each with 8 bits)
 
   bool isChMasked(uint32_t ich) const {
     int chnl = ich%36;
