@@ -322,8 +322,9 @@ namespace TPGFEModuleEmulation{
 
     if(outputType==TPGFEDataformat::BestC)
       return EmulateEcontBc(isSim, econtCfg, mdata);
-    else if(outputType==TPGFEDataformat::STC4A or outputType==TPGFEDataformat::STC4B or outputType==TPGFEDataformat::STC16 or TPGFEDataformat::CTC4A or TPGFEDataformat::CTC4B)
+    else if(outputType==TPGFEDataformat::STC4A or outputType==TPGFEDataformat::STC4B or outputType==TPGFEDataformat::STC16 or outputType==TPGFEDataformat::CTC4A or outputType==TPGFEDataformat::CTC4B)
       return EmulateEcontSTC(isSim, econtCfg, mdata); // FIXME to be implemented
+    else return EmulateEcontSTC(isSim, econtCfg, mdata); // FIXME -- here to prevent lack of return in non-void func (after fixing the elseif above) - Jan
   }
 
 }//end of namespace
