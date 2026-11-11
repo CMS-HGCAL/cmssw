@@ -126,59 +126,21 @@ namespace TPGFEDataformat {
                 << ", isTot = " << std::setw(2) << isTcTp3() << std::endl;
     }
 
-    static uint32_t Decode4E3M(uint16_t compressed) {
-      uint32_t mant = compressed & 0x7;
-      uint32_t expo = (compressed >> 3) & 0xF;
+    template <unsigned E, unsigned M>
+    static constexpr uint64_t DecodeEM(uint16_t compressed){
+      const uint64_t mant = compressed & ((1u << M) - 1);
+      const uint32_t expo = (compressed >> M) & ((1u << E) - 1);
 
-      if (expo == 0)
-        return mant;
-      if (expo == 1)
-        return 8 + mant;
-
-      uint32_t shift = expo + 2;
-      uint32_t decomp = 1 << shift;
-      uint32_t mpdeco = 1 << (shift - 4);
-      decomp = decomp | (mant << (shift - 3));
-      decomp = decomp | mpdeco;
-
-      return decomp;
+      // special cases -- no rounding/compression
+      if(expo == 0) return mant;
+      if(expo == 1) return (uint64_t(1) << M) | mant;
+      const uint32_t shift = expo + M - 1;
+      return (uint64_t(1) << shift) | (mant << (shift - M)) | (uint64_t(1) << (shift - M - 1));
     }
 
-    static uint64_t Decode5E3M(uint16_t compressed) {
-      uint32_t mant = compressed & 0x7;
-      uint32_t expo = (compressed >> 3) & 0x1F;
-
-      if (expo == 0)
-        return mant;
-      if (expo == 1)
-        return 8 + mant;
-
-      uint32_t shift = expo + 2;
-      uint64_t decomp = 1 << shift;
-      uint32_t mpdeco = 1 << (shift - 4);
-      decomp = decomp | (mant << (shift - 3));
-      decomp = decomp | mpdeco;
-
-      return decomp;
-    }
-
-    static uint64_t Decode5E4M(uint16_t compressed) {
-      uint32_t mant = compressed & 0xF;
-      uint32_t expo = (compressed >> 4) & 0x1F;
-
-      if (expo == 0)
-        return mant;
-      if (expo == 1)
-        return 8 + mant;
-
-      uint32_t shift = expo + 3;
-      uint64_t decomp = 1 << shift;
-      uint32_t mpdeco = 1 << (shift - 4);
-      decomp = decomp | (mant << (shift - 4));
-      decomp = decomp | mpdeco;
-
-      return decomp;
-    }
+    static uint32_t Decode4E3M(uint16_t c) { return static_cast<uint32_t>(DecodeEM<4, 3>(c)); } // TODO: Remove the cast? Not sure why this one was a different type. - Jan
+    static uint64_t Decode5E3M(uint16_t c) { return DecodeEM<5, 3>(c); }
+    static uint64_t Decode5E4M(uint16_t c) { return DecodeEM<5, 4>(c); }
 
     uint64_t decodedE(hgcal::econt::Type t) const {
       uint64_t decompressed = 0;
