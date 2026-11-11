@@ -27,11 +27,20 @@ namespace {
     LogDebug("[HGCalUnpackerTrigger]") << std::hex << " 32bit word: " << v[0] << std::dec << " ECONT header: " << bx
                                        << std::endl;
 
+    if(nTc <= 0){
+      cms::Exception ex("ValueError");
+      ex << "nTc "
+      << nTc
+      << " <= 0";
+      ex.addContext("Calling convertElinksToTcRawData()");
+      throw ex;
+    }
+    // assert(nTc > 0);
+
     bool bitMap(false);
     if (type == TPGFEDataformat::BestC)
       bitMap = (nTc > 7);
 
-    assert(nTc > 0);
     vTc.resize(0);
 
     unsigned lastWord(0);

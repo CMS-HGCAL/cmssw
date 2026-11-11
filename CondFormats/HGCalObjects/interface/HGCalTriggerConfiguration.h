@@ -9,11 +9,11 @@
 #include "CondFormats/Serialization/interface/Serializable.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "DataFormats/HGCalDigi/interface/HGCalTriggerDefinitions.h"
+#include "FWCore/Utilities/interface/Exception.h"
 #include <map>
 #include <vector>
 #include <iterator>
 #include <iomanip>
-#include <cassert>
 #include <cmath>
 
 // @short configuration for HGCROC
@@ -82,17 +82,44 @@ struct HGCalECONTConfig {
   }
 
   uint32_t getCalibration(uint32_t itc) const {
-    assert(itc<=47) ;
+    if(itc > hgcal::ECONT_FRAME::BC_MAX_TCADDR){
+      cms::Exception ex("ValueError");
+      ex << "TC index "
+      << itc
+      << " out of range [0, "
+      << hgcal::ECONT_FRAME::BC_MAX_TCADDR
+      << "]";
+      ex.addContext("Calling HGCalECONTConfig::getCalibration()");
+      throw ex;
+    }
     return uint32_t(calv.at(itc) & 0xFFF);
   }
 
   uint32_t getInputMux(uint32_t itc) const {
-    assert(itc<=47) ;
+    if(itc > hgcal::ECONT_FRAME::BC_MAX_TCADDR){
+      cms::Exception ex("ValueError");
+      ex << "TC index "
+      << itc
+      << " out of range [0, "
+      << hgcal::ECONT_FRAME::BC_MAX_TCADDR
+      << "]";
+      ex.addContext("Calling HGCalECONTConfig::getCalibration()");
+      throw ex;
+    }
     return (isConnectedMux(itc)) ? uint32_t(tcMux.at(itc)) : 0x80 ;
   }
 
   bool isConnectedMux(uint32_t itc) const {
-    assert(itc<=47) ;
+    if(itc > hgcal::ECONT_FRAME::BC_MAX_TCADDR){
+      cms::Exception ex("ValueError");
+      ex << "TC index "
+      << itc
+      << " out of range [0, "
+      << hgcal::ECONT_FRAME::BC_MAX_TCADDR
+      << "]";
+      ex.addContext("Calling HGCalECONTConfig::getCalibration()");
+      throw ex;
+    }
     return (tcMux.at(itc)>>7) ? false : true ;
   }
 
