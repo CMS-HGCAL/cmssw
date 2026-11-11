@@ -4,17 +4,13 @@
 // RecHits within each event are matched by HGCHit_denseIndex.
 // HGCHit_energy is the only physics quantity compared.
 //
-// The two NANO files must be produced using the same RAW input,
-// calibration content, geometry, and detector mapping.
 
 /*
-Build after activating the CMSSW environment with cmsenv:
+Commands for running compare_hgchit_energy.cc :
+
   g++ -O2 $(root-config --cflags) \
     "$CMSSW_BASE/src/CondCore/HGCalPlugins/test/compare_hgchit_energy.cpp" \
     -o compare_hgchit_energy $(root-config --libs)
-
-Run (JSON first, SQLite second):
-  ./compare_hgchit_energy JSON_NANO.root SQLITE_NANO.root
 */
 
 #include <TFile.h>
