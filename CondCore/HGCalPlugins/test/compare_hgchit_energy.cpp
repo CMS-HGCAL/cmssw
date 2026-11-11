@@ -13,13 +13,8 @@ Build after activating the CMSSW environment with cmsenv:
     "$CMSSW_BASE/src/CondCore/HGCalPlugins/test/compare_hgchit_energy.cpp" \
     -o compare_hgchit_energy $(root-config --libs)
 
-Run with the JSON file first and the SQLite file second:
+Run (JSON first, SQLite second):
   ./compare_hgchit_energy JSON_NANO.root SQLITE_NANO.root
-
-Expected: RESULT: PASS, zero missing/duplicate keys, zero RecHit count
-differences, zero energy mismatches and maximum absolute difference zero.
-Check matched-event and compared-energy counts against your input sample.
-Exit status: zero on PASS; nonzero on FAIL or input errors.
 */
 
 #include <TFile.h>
