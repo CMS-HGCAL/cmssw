@@ -34,7 +34,7 @@ namespace hgcal {
     */
     enum Type {
         //select : 0 = Threshold Sum (TS), 1 = Super Trigger Cell (STC), 2 = Best Choice (BC), 3 = Repeater, 4 = Autoencoder (AE) Settings of [5,7] revert to the Repeater algorithm
-        //stc_type : 0 = STC4B(5E+4M), 1 = STC16(5E+4M), 2 = CTC4A(4E+3M), 3 = STC4A(4E+3M), 4 = CTC4B(5E+3M)
+        //stc_type : 0 = STC4B(5E+4M), 1 = STC16(5E+4M), 2 = CTC4A(4E+3M), 3 = STC4A(4E+3M), 4 = CTC4B(5E+3M) // Jan: Based on below & decodedE(), CTC4B is 5E+4M. Double-check this?
         BestC, // TC energy format = 4E3M
         STC4A, // 4E3M
         STC4B, // 5E4M

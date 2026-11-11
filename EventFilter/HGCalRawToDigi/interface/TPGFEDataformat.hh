@@ -12,7 +12,7 @@
 #include "TMath.h"
 
 namespace TPGFEDataformat {
-  using namespace hgcal::econt;  // transitional: TPGFEDataformat::BestC etc. To be ultimately removed. - Jan
+  using namespace hgcal::econt;  // transitional. To be ultimately removed. - Jan
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////// Data Formats by Paul Dauncey /////////////////////////////////
@@ -24,7 +24,7 @@ namespace TPGFEDataformat {
   public:
     TcRawData() : _data(0), _rawE(0), _istctp1(false), _istctp2(false), _istctp3(false) {}
 
-    TcRawData(TPGFEDataformat::Type t,
+    TcRawData(hgcal::econt::Type t,
               uint8_t a,
               uint16_t e,
               uint64_t rawE = 0,
@@ -76,7 +76,7 @@ namespace TPGFEDataformat {
     }
 
     void setTriggerCell(
-        TPGFEDataformat::Type t, uint8_t a, uint16_t e, uint64_t rawE, bool istctp1, bool istctp2, bool istctp3) {
+        hgcal::econt::Type t, uint8_t a, uint16_t e, uint64_t rawE, bool istctp1, bool istctp2, bool istctp3) {
       setTriggerCell(t, a, e);
       _rawE = rawE;
       setTcTp1(istctp1);
@@ -84,36 +84,36 @@ namespace TPGFEDataformat {
       setTcTp3(istctp3);
     }
 
-    void setTriggerCell(TPGFEDataformat::Type t, uint8_t a, uint16_t e) {
+    void setTriggerCell(hgcal::econt::Type t, uint8_t a, uint16_t e) {
       switch (t) {
-        case TPGFEDataformat::BestC:
+        case hgcal::econt::BestC:
           //assert(a<=47); // moved as exc before filling in STAGEIO
           assert(e <= 0x7f);
           break;
-        case TPGFEDataformat::STC4A:
+        case hgcal::econt::STC4A:
           assert(a <= 3);
           assert(e <= 0x7f);
           break;
-        case TPGFEDataformat::STC4B:
+        case hgcal::econt::STC4B:
           assert(a <= 3);
           assert(e <= 0x1ff);
           break;
-        case TPGFEDataformat::STC16:
+        case hgcal::econt::STC16:
           assert(a <= 15);
           assert(e <= 0x1ff);
           break;
-        case TPGFEDataformat::CTC4A:
+        case hgcal::econt::CTC4A:
           assert(e <= 0x7f);
           //a = 0;
           break;
-        case TPGFEDataformat::CTC4B:
+        case hgcal::econt::CTC4B:
           assert(e <= 0x1ff);
           //a = 0;
           break;
         default:  //to allow unknown type
           assert(a == 0x3f);
           assert(e == 0);
-          ;
+          // ;
       }
       _data = (e << 6 | a);
     }
@@ -180,25 +180,25 @@ namespace TPGFEDataformat {
       return decomp;
     }
 
-    uint64_t decodedE(TPGFEDataformat::Type t) const {
+    uint64_t decodedE(hgcal::econt::Type t) const {
       uint64_t decompressed = 0;
       switch (t) {
-        case TPGFEDataformat::BestC:
+        case hgcal::econt::BestC:
           decompressed = Decode4E3M(energy());
           break;
-        case TPGFEDataformat::STC4A:
+        case hgcal::econt::STC4A:
           decompressed = Decode4E3M(energy());
           break;
-        case TPGFEDataformat::STC4B:
+        case hgcal::econt::STC4B:
           decompressed = Decode5E4M(energy());
           break;
-        case TPGFEDataformat::STC16:
+        case hgcal::econt::STC16:
           decompressed = Decode5E4M(energy());
           break;
-        case TPGFEDataformat::CTC4A:
+        case hgcal::econt::CTC4A:
           decompressed = Decode4E3M(energy());
           break;
-        case TPGFEDataformat::CTC4B:
+        case hgcal::econt::CTC4B:
           decompressed = Decode5E4M(energy());
           break;
         default:  //to allow unknown type
@@ -207,7 +207,7 @@ namespace TPGFEDataformat {
       return decompressed;
     }
 
-    void print(TPGFEDataformat::Type t) const {
+    void print(hgcal::econt::Type t) const {
       std::cout << "TPGFEDataformat::TcRawData(" << this << ")::print(): Data = 0x" << std::hex << ::std::setfill('0')
                 << std::setw(4) << _data << std::dec << ::std::setfill(' ') << ", address = " << std::setw(2)
                 << unsigned(address()) << ", raw = " << std::setw(10) << rawE() << ", energy = " << std::setw(3)
@@ -230,13 +230,13 @@ namespace TPGFEDataformat {
   class TcRawDataPacket {
   public:
     TcRawDataPacket() : _t(Unknown), _bx(0), _ms(0), _rawEms(0) { _tcdata.resize(0); }
-    TcRawDataPacket(TPGFEDataformat::Type t, uint8_t bx, uint8_t e) : _t(t), _bx(bx), _ms(e) { _tcdata.resize(0); }
-    TcRawDataPacket(TPGFEDataformat::Type t, uint8_t bx, uint8_t e, uint64_t upe)
+    TcRawDataPacket(hgcal::econt::Type t, uint8_t bx, uint8_t e) : _t(t), _bx(bx), _ms(e) { _tcdata.resize(0); }
+    TcRawDataPacket(hgcal::econt::Type t, uint8_t bx, uint8_t e, uint64_t upe)
         : _t(t), _bx(bx), _ms(e), _rawEms(upe) {
       _tcdata.resize(0);
     }
     const std::string& typeName() const { return TPGFEDataformat::tctypeName[type()]; }
-    TPGFEDataformat::Type type() const { return _t; }
+    hgcal::econt::Type type() const { return _t; }
     size_t size() const { return _tcdata.size(); }
     uint16_t moduleSum() const { return uint16_t(_ms & 0xff); }
     uint64_t rawEMS() const { return _rawEms; }
@@ -245,7 +245,7 @@ namespace TPGFEDataformat {
     TPGFEDataformat::TcRawData& getTc(uint32_t i) { return _tcdata.at(i); }
     bool is4E3M() const { return (_t == BestC or _t == STC4A or _t == CTC4A or _t == TS or _t == RA) ? true : false; }
     void reset() {
-      _t = TPGFEDataformat::Type::Unknown;
+      _t = hgcal::econt::Type::Unknown;
       _bx = 0;
       _ms = 0;
       _rawEms = 0;
@@ -270,18 +270,18 @@ namespace TPGFEDataformat {
       return false;
     }
 
-    void setTBM(TPGFEDataformat::Type t, uint8_t bx, uint8_t e) {
+    void setTBM(hgcal::econt::Type t, uint8_t bx, uint8_t e) {
       _t = t;
       _bx = bx;
       _ms = e;
     }
-    void setTBM(TPGFEDataformat::Type t, uint8_t bx, uint8_t e, uint64_t upe) {
+    void setTBM(hgcal::econt::Type t, uint8_t bx, uint8_t e, uint64_t upe) {
       _t = t;
       _bx = bx;
       _ms = e;
       _rawEms = upe;
     }
-    void setType(TPGFEDataformat::Type t) { _t = t; }
+    void setType(hgcal::econt::Type t) { _t = t; }
     void setModuleSum(uint8_t e) { _ms = e; }
     void setModuleSum(uint8_t e, uint64_t upe) {
       _ms = e;
@@ -290,7 +290,7 @@ namespace TPGFEDataformat {
     void setBX(uint8_t bx) { _bx = bx; }
     std::vector<TPGFEDataformat::TcRawData>& setTcData() { return _tcdata; }
     void setTcData(
-        TPGFEDataformat::Type t, uint8_t a, uint16_t e, uint64_t upe, bool isTcTp1, bool isTcTp2, bool isTcTp3) {
+        hgcal::econt::Type t, uint8_t a, uint16_t e, uint64_t upe, bool isTcTp1, bool isTcTp2, bool isTcTp3) {
       TPGFEDataformat::TcRawData tc;
       tc.setTriggerCell(t, a, e, upe, isTcTp1, isTcTp2, isTcTp3);
       _tcdata.push_back(tc);
@@ -354,7 +354,7 @@ namespace TPGFEDataformat {
     }
 
   private:
-    TPGFEDataformat::Type _t;
+    hgcal::econt::Type _t;
     uint8_t _bx;
     uint8_t _ms;
     uint64_t _rawEms;
