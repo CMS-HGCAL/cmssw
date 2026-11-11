@@ -6,11 +6,11 @@
 //
 
 /*
-Commands for running compare_hgchit_energy.cc :
-
+Build and run with cmsenv active:
   g++ -O2 $(root-config --cflags) \
     "$CMSSW_BASE/src/CondCore/HGCalPlugins/test/compare_hgchit_energy.cpp" \
     -o compare_hgchit_energy $(root-config --libs)
+  ./compare_hgchit_energy JSON_NANO.root SQLITE_NANO.root
 */
 
 #include <TFile.h>
