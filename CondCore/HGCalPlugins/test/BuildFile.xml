@@ -1,0 +1,4 @@
+<bin file="compare_hgchit_energy.cpp" name="compare_hgchit_energy">
+  <use name="root"/>
+  <flags NO_TESTRUN="1"/>
+</bin>

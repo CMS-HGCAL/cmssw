@@ -1,0 +1,4 @@
+<use name="CondFormats/HGCalObjects"/>
+<export>
+  <lib name="1"/>
+</export>
