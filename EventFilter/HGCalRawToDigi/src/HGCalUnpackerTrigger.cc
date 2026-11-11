@@ -1,6 +1,5 @@
 #include "EventFilter/HGCalRawToDigi/interface/HGCalUnpackerTrigger.h"
 #include "EventFilter/HGCalRawToDigi/interface/TPGFEDataformat.hh"
-// #include "EventFilter/HGCalRawToDigi/interface/TPG/Stage1IO.hh"
 #include "EventFilter/HGCalRawToDigi/interface/TpgSubpacketHeader.h"
 #include "DataFormats/HGCalDigi/interface/HGCalRawDataDefinitions.h"
 #include "DataFormats/HGCalDigi/interface/HGCalTriggerDefinitions.h"
