@@ -14,6 +14,12 @@
 
 
 namespace TPGFEModuleEmulation{
+
+  //TODO: Replace old funcs with these, check that they are equivalent
+  uint16_t CompressHgrocNew(uint32_t val, uint8_t isldm) { return TPGFEDataformat::TcRawData::EncodeEM<4, 3>(val >> (isldm ? 1 : 3)); }
+  uint16_t CompressEcontBcNew(uint64_t val, uint32_t dropLSB) { return TPGFEDataformat::TcRawData::EncodeEM<4, 3>(val >> dropLSB); }
+  uint16_t CompressEcontModsumNew(uint64_t val, uint32_t /*dropLSB*/) { return TPGFEDataformat::TcRawData::EncodeEM<5, 3>(val); }
+
   uint16_t CompressHgroc(uint32_t val, uint8_t isldm){ // isldm stand for "is low density mode". It is determined by the SelTC4 parameter of HGCROC.
 
       //////The configuration of half of ROC based on HGCROC3a [doc. no. v2.0] (Read subsection 1.3.3 of Page-39)
