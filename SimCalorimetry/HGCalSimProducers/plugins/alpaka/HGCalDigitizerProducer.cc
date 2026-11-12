@@ -68,6 +68,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     void produce(device::Event&, device::EventSetup const&) override;
     void generatePhaseShifts(Queue &, const HGCalMappingModuleIndexer &, HGCalDenseIndexInfoHost::ConstView, CLHEP::HepJamesRandom& );
 
+    const edm::EDGetTokenT<std::vector<float>> lhcPhaseShiftToken_;
     const edm::EDGetTokenT<hgcaldigi::HGCalSimHitAccumHost> g4HitsAccTkn_;
     edm::ESWatcher<HGCalAgeingCondsRcd> ageingCondsWatcher_;
     const edm::ESGetToken<hgcal::HGCalAgeingCondsHost, HGCalAgeingCondsRcd> ageingCondsTkn_;
@@ -101,6 +102,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   //
   HGCalDigitizerProducer::HGCalDigitizerProducer(const edm::ParameterSet& iConfig)
       : SynchronizingEDProducer(iConfig),
+        lhcPhaseShiftToken_{consumes<std::vector<float>>(iConfig.getParameter<edm::InputTag>("lhcPhaseShift"))},
         g4HitsAccTkn_{consumes<hgcaldigi::HGCalSimHitAccumHost>(iConfig.getParameter<edm::InputTag>("g4HitsAcc"))},
         ageingCondsTkn_{esConsumes(iConfig.getParameter<edm::ESInputTag>("ageingConds"))},
         denseIndexTkn_{esConsumes(iConfig.getParameter<edm::ESInputTag>("denseIndexer"))},
@@ -127,6 +129,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   //
   void HGCalDigitizerProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
+    desc.add<edm::InputTag>("lhcPhaseShift", edm::InputTag("lhcPhaseShift"));
     desc.add<edm::InputTag>("g4HitsAcc", edm::InputTag("hgcalDigis", "DIGI", "TEST"));
     desc.add("ageingConds", edm::ESInputTag{})->setComment("Label for ageing parameters");
     desc.add("readoutMap", edm::ESInputTag{})->setComment("Readout map of HGCAL (module indexer)");
@@ -179,6 +182,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     int ncellinfo = cellInfo.view().metadata().size();
     const auto& g4AccHits = iEvent.get(g4HitsAccTkn_);
     auto nchannels = g4AccHits.view().metadata().size();
+    // Read LHC phase shift
+    auto const& lhcPhaseShift = iEvent.getHandle(lhcPhaseShiftToken_);
+    auto const& lhc_phaseshift = lhcPhaseShift.isValid() ? lhcPhaseShift->at(1) : 0.;
 
     LogDebug("[HGCalDigitizerProducer]") << "Loaded accumulated Geant 4 hits for " << nchannels << " cells"
                                          << ", " << ageingConds.view().metadata().size() << " ageing conditions"
@@ -228,7 +234,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     //run digitization
     if (agedG4HitsAcc_device_.has_value()) {
-
       //populate ECON-D info and common mode
       econInfo_device_ = concentrator_.init(queue, ageingConds_device, moduleInfo_device, seed);
 
@@ -240,6 +245,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                 denseIndex_device,
                                                 cellInfo_device,
                                                 phaseShiftsDevice_.value(),
+                                                lhc_phaseshift,
                                                 seed);
 
       //havest the digis

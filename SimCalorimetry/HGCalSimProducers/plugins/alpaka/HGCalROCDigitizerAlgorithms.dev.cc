@@ -50,12 +50,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
-  // @short add the job-wide time jump of this cell's BE crate onto avgTOA (ns)
-  struct HGCalROCDigitizerKernel_addCrateTimeJump {
+  // @short add the phase shift of this cell due to "BE crate jumps" + LHC shift
+  struct HGCalROCDigitizerKernel_emulatePhaseShits {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   HGCalRealisticSimHitDevice::View realisticHits,
                                   HGCalDenseIndexInfoDevice::ConstView denseIndex,
-                                  HGCalPhaseShiftsDevice::ConstView phaseShifts) const {
+                                  HGCalPhaseShiftsDevice::ConstView phaseShifts,
+                                  float lhc_phaseshift) const {
       for (auto idx : uniform_elements(acc, realisticHits.metadata().size())) {
 
         const float deltaTOA = phaseShifts[idx].deltaT();
@@ -65,7 +66,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         for (auto j = 0; j < hgcaldigi::kTimeBins; j++) {
           const float t = toa(j, 0);
           if (t != 0.f) {
-            toa(j, 0) = t + deltaTOA;
+            toa(j, 0) = t + deltaTOA + lhc_phaseshift;
 #ifdef EDM_ML_DEBUG
             printf("cell %u fed %u avgTOA = %f -> %f [ns]\n", static_cast<unsigned>(idx), fed, t, toa(j, 0));
 #endif
@@ -164,6 +165,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                                  HGCalDenseIndexInfoDevice const& denseIndex,
                                                                  HGCalMappingCellParamDevice const& cellInfo,
                                                                  HGCalPhaseShiftsDevice const& phaseShifts,
+                                                                 double lhc_phaseshift,
                                                                  const uint64_t seed) const {
     LogDebug("HGCalROCDigitizerAlgorithms") << "Start of digitization" << std::endl;
     auto const ncells = device_realisticHits.view().metadata().size();
@@ -192,10 +194,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     alpaka::exec<Acc1D>(queue,
                         grid,
-                        HGCalROCDigitizerKernel_addCrateTimeJump{},
+                        HGCalROCDigitizerKernel_emulatePhaseShits{},
                         device_realisticHits.view(),
                         denseIndex.const_view(),
-                        phaseShifts.const_view());
+                        phaseShifts.const_view(),
+                        lhc_phaseshift);
                         
     alpaka::exec<Acc1D>(queue,
                         grid,
