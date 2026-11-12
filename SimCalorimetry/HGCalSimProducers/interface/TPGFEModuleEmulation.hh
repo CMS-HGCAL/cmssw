@@ -15,50 +15,49 @@
 
 namespace TPGFEModuleEmulation{
 
-  //TODO: Replace old funcs with these, check that they are equivalent
-  uint16_t CompressHgrocNew(uint32_t val, uint8_t isldm) { return TPGFEDataformat::TcRawData::EncodeEM<4, 3>(val >> (isldm ? 1 : 3)); }
-  uint16_t CompressEcontBcNew(uint64_t val, uint32_t dropLSB) { return TPGFEDataformat::TcRawData::EncodeEM<4, 3>(val >> dropLSB); }
-  uint16_t CompressEcontModsumNew(uint64_t val, uint32_t /*dropLSB*/) { return TPGFEDataformat::TcRawData::EncodeEM<5, 3>(val); }
+  uint16_t CompressHgroc(uint32_t val, uint8_t isldm) { return TPGFEDataformat::TcRawData::EncodeEM<4, 3>(val >> (isldm ? 1 : 3)); }
+  uint16_t CompressEcontBc(uint64_t val, uint32_t dropLSB) { return TPGFEDataformat::TcRawData::EncodeEM<4, 3>(val >> dropLSB); }
+  uint16_t CompressEcontModsum(uint64_t val, uint32_t /*dropLSB*/) { return TPGFEDataformat::TcRawData::EncodeEM<5, 3>(val); }
 
-  uint16_t CompressHgroc(uint32_t val, uint8_t isldm){ // isldm stand for "is low density mode". It is determined by the SelTC4 parameter of HGCROC.
+  // uint16_t CompressHgroc(uint32_t val, uint8_t isldm){ // isldm stand for "is low density mode". It is determined by the SelTC4 parameter of HGCROC.
 
-      //////The configuration of half of ROC based on HGCROC3a [doc. no. v2.0] (Read subsection 1.3.3 of Page-39)
-      //////EDMS ROCv3a: https://edms.cern.ch/ui/#!master/navigator/document?D:100570166:100570166:subDocs
-      //4E+3M
-      //Ref:https://graphics.stanford.edu/%7Eseander/bithacks.html
+  //     //////The configuration of half of ROC based on HGCROC3a [doc. no. v2.0] (Read subsection 1.3.3 of Page-39)
+  //     //////EDMS ROCv3a: https://edms.cern.ch/ui/#!master/navigator/document?D:100570166:100570166:subDocs
+  //     //4E+3M
+  //     //Ref:https://graphics.stanford.edu/%7Eseander/bithacks.html
 
-      //controlled by the SelTC4 parameter of HGCROC (1/0 for LD/HD)
+  //     //controlled by the SelTC4 parameter of HGCROC (1/0 for LD/HD)
 
-      val = (isldm)?val>>1:val>>3;
+  //     val = (isldm)?val>>1:val>>3;
 
-      uint32_t r = 0; // r will be log_2(v)
-      uint32_t sub ;
-      uint32_t shift ;
-      uint32_t mant ;
+  //     uint32_t r = 0; // r will be log_2(v)
+  //     uint32_t sub ;
+  //     uint32_t shift ;
+  //     uint32_t mant ;
 
-      if (val > 7) {
-        uint32_t v = val;
-        r = 0;
-        while (v >>= 1) r++;
-        sub = r - 2;
-        shift = r - 3;
-        if (sub <= 0xF) {
-          mant = (val >> shift) & 0x7;
-        } else {
-          sub = 0xF;
-          mant = 0x7;
-        }
-      } else {
-        r = 0;
-        sub = 0;
-        shift = 0;
-        mant = val & 0x7;
-      }
+  //     if (val > 7) {
+  //       uint32_t v = val;
+  //       r = 0;
+  //       while (v >>= 1) r++;
+  //       sub = r - 2;
+  //       shift = r - 3;
+  //       if (sub <= 0xF) {
+  //         mant = (val >> shift) & 0x7;
+  //       } else {
+  //         sub = 0xF;
+  //         mant = 0x7;
+  //       }
+  //     } else {
+  //       r = 0;
+  //       sub = 0;
+  //       shift = 0;
+  //       mant = val & 0x7;
+  //     }
 
-      uint16_t cdata = (sub<<3) | mant;
+  //     uint16_t cdata = (sub<<3) | mant;
 
-      return cdata;
-  }
+  //     return cdata;
+  // }
 
   //The following emulation function performs 1) pedestal subtraction, 2) linearization, 3) compression
   TPGFEDataformatEmulation::ModuleTcData EmulateHgroc(bool isSim, const std::map<uint32_t,std::vector<uint32_t>>& tcPinMap, const HGCalECONTConfig& econtCfg,  std::map<uint32_t,TPGFEDataformatEmulation::HalfHgcrocData>& rocdata){
@@ -166,78 +165,78 @@ namespace TPGFEModuleEmulation{
       return decomp;
   }
 
-  uint16_t CompressEcontBc(uint64_t val, uint32_t dropLSB){
-    //4E+3M
-    //controlled by the dropLSB parameter of ECON-T
-    val = val>>dropLSB;
+  // uint16_t CompressEcontBc(uint64_t val, uint32_t dropLSB){
+  //   //4E+3M
+  //   //controlled by the dropLSB parameter of ECON-T
+  //   val = val>>dropLSB;
 
-    uint32_t r = 0; // r will be lg(v)
-    uint32_t sub ;
-    uint32_t shift ;
-    uint32_t mant ;
+  //   uint32_t r = 0; // r will be lg(v)
+  //   uint32_t sub ;
+  //   uint32_t shift ;
+  //   uint32_t mant ;
 
-    if(val>7){
-      uint64_t v = val;
-      r = 0;
-      while (v >>= 1) r++;
-      sub = r - 2;
-      shift = r - 3;
-      if(sub<=0xF){
-        mant = (val>>shift) & 0x7;
-      }else{
-        sub = 0xF;
-        mant = 0x7;
-      }
-    }else{
-      r = 0;
-      sub = 0;
-      shift = 0;
-      mant = val & 0x7;
-    }
-    sub = sub & 0xF;
-    mant = mant & 0x7;
+  //   if(val>7){
+  //     uint64_t v = val;
+  //     r = 0;
+  //     while (v >>= 1) r++;
+  //     sub = r - 2;
+  //     shift = r - 3;
+  //     if(sub<=0xF){
+  //       mant = (val>>shift) & 0x7;
+  //     }else{
+  //       sub = 0xF;
+  //       mant = 0x7;
+  //     }
+  //   }else{
+  //     r = 0;
+  //     sub = 0;
+  //     shift = 0;
+  //     mant = val & 0x7;
+  //   }
+  //   sub = sub & 0xF;
+  //   mant = mant & 0x7;
 
-    uint16_t packed = (sub<<3) | mant;
+  //   uint16_t packed = (sub<<3) | mant;
 
-    return packed;
-  }
+  //   return packed;
+  // }
 
-  uint16_t CompressEcontModsum(uint64_t val, uint32_t dropLSB){
-    //5E+3M
-    //controlled by the dropLSB parameter of ECON-T
-    //val = val>>dropLSB;
+  // uint16_t CompressEcontModsum(uint64_t val, uint32_t dropLSB){
+  //   //5E+3M
+  //   //controlled by the dropLSB parameter of ECON-T
+  //   //val = val>>dropLSB;
 
-    uint32_t r = 0; // r will be lg(v)
-    uint32_t sub ;
-    uint32_t shift ;
-    uint32_t mant ;
+  //   uint32_t r = 0; // r will be lg(v)
+  //   uint32_t sub ;
+  //   uint32_t shift ;
+  //   uint32_t mant ;
 
-    if(val>7){
-      uint64_t v = val;
-      r = 0;
-      while (v >>= 1) r++;
-      sub = r - 2;
-      shift = r - 3;
-      if(sub<=0x1F){
-        mant = (val>>shift) & 0x7;
-      }else{
-        sub = 0x1F;
-        mant = 0x7;
-      }
-    }else{
-      r = 0;
-      sub = 0;
-      shift = 0;
-      mant = val & 0x7;
-    }
+  //   if(val>7){
+  //     uint64_t v = val;
+  //     r = 0;
+  //     while (v >>= 1) r++;
+  //     sub = r - 2;
+  //     shift = r - 3;
+  //     if(sub<=0x1F){
+  //       mant = (val>>shift) & 0x7;
+  //     }else{
+  //       sub = 0x1F;
+  //       mant = 0x7;
+  //     }
+  //   }else{
+  //     r = 0;
+  //     sub = 0;
+  //     shift = 0;
+  //     mant = val & 0x7;
+  //   }
 
-    sub = sub & 0x1F;
-    mant = mant & 0x7;
+  //   sub = sub & 0x1F;
+  //   mant = mant & 0x7;
 
-    uint16_t packed = (sub<<3) | mant;
+  //   uint16_t packed = (sub<<3) | mant;
 
-    return packed;
-  }
+  //   return packed;
+  // }
 
 
   void batcherOEMSort(std::vector<TPGFEDataformat::TcRawData>& tc) {
