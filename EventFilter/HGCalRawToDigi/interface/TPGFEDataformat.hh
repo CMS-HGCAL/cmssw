@@ -9,6 +9,7 @@
 #include <cassert>
 #include <vector>
 #include <algorithm>
+#include <bit>
 #include "TMath.h"
 
 namespace TPGFEDataformat {
@@ -127,6 +128,21 @@ namespace TPGFEDataformat {
     }
 
     template <unsigned E, unsigned M>
+    static constexpr uint16_t EncodeEM(uint64_t value){
+      // special case corresponding with exponent in {0,1} -- just return the input, it is small enough
+      if(value < (uint64_t(2) << M)) return (uint16_t)value;
+
+      const unsigned leadingBit = std::bit_width(value) - 1; // std::bit_width(x) == ceil(log_2(x+1)), see: https://en.cppreference.com/cpp/numeric/bit_width
+      const unsigned expo = leadingBit - M + 1;
+
+      // special case: value is too large, so saturate to the max code
+      if (expo >= (1u << E)) return (uint16_t)((1u << (E + M)) - 1);
+
+      const uint64_t mant = (value >> (leadingBit - M)) & ((1u << M) - 1);
+      return (uint16_t)((expo << M) | mant);
+    }
+
+    template <unsigned E, unsigned M>
     static constexpr uint64_t DecodeEM(uint16_t compressed){
       const uint64_t mant = compressed & ((1u << M) - 1);
       const uint32_t expo = (compressed >> M) & ((1u << E) - 1);
@@ -137,7 +153,6 @@ namespace TPGFEDataformat {
       const uint32_t shift = expo + M - 1;
       return (uint64_t(1) << shift) | (mant << (shift - M)) | (uint64_t(1) << (shift - M - 1));
     }
-
     static uint32_t Decode4E3M(uint16_t c) { return static_cast<uint32_t>(DecodeEM<4, 3>(c)); } // TODO: Remove the cast? Not sure why this one was a different type. - Jan
     static uint64_t Decode5E3M(uint16_t c) { return DecodeEM<5, 3>(c); }
     static uint64_t Decode5E4M(uint16_t c) { return DecodeEM<5, 4>(c); }
