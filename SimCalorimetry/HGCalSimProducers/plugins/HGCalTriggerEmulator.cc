@@ -196,12 +196,17 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
 
             }
             uint32_t absTC = (cellInfo_view.isHD()[cellInfoIdx]==0) ? (roc*16 + TrLink*4 + TrCell) : (roc*8 + TrLink*2 + TrCell) ;
-            uint32_t adc = digidaq.adc();
+            uint16_t adc = digidaq.adc();
+            uint16_t tot = digidaq.tot();
+            uint8_t tctp = digidaq.tctp();
 
             LogDebug("[HGCalTriggerEmulator]") << "\t rocpin " << rocpin << " chip " << roc << " TrLink " << TrLink << " TrCell " << TrCell << " TC " << absTC << std::endl;
             LogDebug("[HGCalTriggerEmulator]") << "\t ihROC " << ihroc << " ROC" << roc << " Half " << half << " rocpin " << rocpin << " ch " << roc*72 + rocpin << " adc "<< adc <<std::endl;
 
-            hData.getChannelData(rocpin%36).setAdc(adc, 0);
+            hData.setChAdc(rocpin%36, adc);
+            hData.setChTot(rocpin%36, tot);
+            hData.setChTctp(rocpin%36, tctp);
+
             SiTCToROCpin [absTC].push_back(roc*72 + rocpin);
             digi_idx++;
 

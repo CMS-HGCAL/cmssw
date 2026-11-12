@@ -61,16 +61,16 @@ namespace TPGFEModuleEmulation{
     const uint32_t nTCs = tcPinMap.size(); //read it from cfg econt
     uint8_t selTC4 = !(econtCfg.density);
     mdata.setNofTCs(nTCs);
-    //for (const auto& [itc, pinlist] : tcPinMap) {
+
     for (auto it = tcPinMap.begin(); it != tcPinMap.end(); ++it)	    
     { // loop over TCs of the module
       auto itc = it->first;
       LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: tclist["<<itc<<"] " << std::endl;
       uint32_t totadc = 0; // accumulated charge of the TC, which will be compressed and stored in the output TcData. For simulation, it is either accumulated ADC or TOT depending on the signal type; for beam-test data, it is the accumulated ADC after pedestal subtraction and threshold cut, or the accumulated TOT after threshold cut and pedestal correction, depending on the signal type.
-      bool isTot = false; // stand for whether the TC is triggered by TOT signal
-      bool isTcTp1 = false; // stand for whether the TC is triggered by a channel with TC/Tp flag = 1
-      bool isTcTp2 = false; // TC means trigger cell, and Tp means pass through. The TC/Tp flag information is provided in the input data for each channel, and is used to keep track of the signal type of the channels corresponding to the TC, which will be stored in the output TcData.
-      bool isTcTp3 = false; // ...
+      uint8_t isTot = 0; // stand for whether the TC is triggered by TOT signal
+      uint8_t isTcTp1 = 0; // stand for whether the TC is triggered by a channel with TC/Tp flag = 1
+      uint8_t isTcTp2 = 0; // TC means trigger cell, and Tp means pass through. The TC/Tp flag information is provided in the input data for each channel, and is used to keep track of the signal type of the channels corresponding to the TC, which will be stored in the output TcData.
+      uint8_t isTcTp3 = 0; // ...
 
       std::vector<uint32_t> pinlist = it->second;
       for(const auto& tcch : pinlist) 
@@ -91,45 +91,48 @@ namespace TPGFEModuleEmulation{
 
         TPGFEDataformatEmulation::HalfHgcrocChannelData& chdata = rocdata.at(hrocid).getChannelData(rocpin); //get the channel data corresponding to the channel, which contains ADC, TOT, TC/Tp flag information. 
         bx = rocdata.at(hrocid).getBx(); // get the bx information from the half-ROC data
-        if(chdata.getTcTp()==1) isTcTp1 = true;
-        if(chdata.getTcTp()==2) isTcTp2 = true;
-        if(chdata.getTcTp()==3) isTcTp3 = true;
+        if(chdata.tctp==1) isTcTp1 = 1;
+        if(chdata.tctp==2) isTcTp2 = 1;
+        if(chdata.tctp==3) {
+          isTcTp3 = 1;
+          isTot = 1;
+        }
 
         // chdata.print(); 
         if(!isSim){ //if not simulation, assumed beamtest data
           uint8_t ped =  hrocCfg.ped[rocpin];  //FIXME
 
-          if(!chdata.isTot()){ // if the signal is ADC, perform pedestal subtraction and threshold cut, and accumulate the ADC if the channel is not masked and pedestal is valid. If the channel is masked or pedestal is invalid, set the ADC to 0.
+          if(!isTot){ // if the signal is ADC, perform pedestal subtraction and threshold cut, and accumulate the ADC if the channel is not masked and pedestal is valid. If the channel is masked or pedestal is invalid, set the ADC to 0.
             uint8_t thr =  hrocCfg.adc_th; 
-            uint32_t adc = chdata.getAdc();
+            uint32_t adc = chdata.adc;
 
             adc = (adc>(ped+thr) and !(hrocCfg.isChMasked(rocpin)) and (ped<0xFF)) ? adc-ped : 0 ;
             totadc += adc; // accumulate the ADC of the channels corresponding to the TC
             LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: ped: " << ped << ", thr: " << thr <<", adc : "<<adc<<", hrocCfg.isChMasked(rocpin): "<< hrocCfg.isChMasked(rocpin) <<std::endl; //print the pedestal, threshold, ADC after pedestal subtraction and threshold cut, and masking information for the reference event
           }
           else{ // if the signal is TOT, perform threshold cut and pedestal correction.
-            uint32_t tot1 = (chdata.getTot()>=hrocCfg.getTotTH(rocpin)) ? (chdata.getTot()-hrocCfg.getTotP(rocpin)) : (hrocCfg.getTotTH(rocpin)-hrocCfg.getTotP(rocpin)) ;
+            uint32_t tot1 = (chdata.tot>=hrocCfg.getTotTH(rocpin)) ? (chdata.tot-hrocCfg.getTotP(rocpin)) : (hrocCfg.getTotTH(rocpin)-hrocCfg.getTotP(rocpin)) ;
             //ideally ped<255 condition should only be restricted for ADC case, however TOT signal triggers in emulation for event 146245 of relay 1695829026 and link 1, which is not that seen by ECONT data
             uint32_t totlin = (!(hrocCfg.isChMasked(rocpin)) and (ped<0xFF))?tot1*hrocCfg.MultFactor:0;  // perform pedestal correction and linearization for TOT signal, and set the TOT to 0 if the channel is masked or pedestal is invalid.
             totadc += totlin;
             //isTot = true;
-            LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: tot1: " << tot1 << ", tot: " << chdata.getTot() <<", thr : "<< hrocCfg.getTotTH(rocpin) <<", ped: "<< hrocCfg.getTotP(rocpin) << ", totlin : "<< totlin <<std::endl;
+            LogDebug("[HGCalTriggerEmulator]")<<"\t TPGFEModuleEmulation::HGCROCTPGEmulation::Emulate: tot1: " << tot1 << ", tot: " << chdata.tot <<", thr : "<< hrocCfg.getTotTH(rocpin) <<", ped: "<< hrocCfg.getTotP(rocpin) << ", totlin : "<< totlin <<std::endl;
           }//istot or adc
         }
         else{ // if simulation, directly accumulate ADC or TOT depending on the signal type without pedestal subtraction, threshold cut, and linearization, as the input simulation data is assumed to be already prepared with ideal detector response and perfectly calibrated.
           //check CMSSW for details should be 
-          if(!chdata.isTot())
-            totadc += chdata.getAdc(); 
+          if(!isTot)
+            totadc += chdata.adc; 
           else
-            totadc += chdata.getTot(); 
+            totadc += chdata.tot; 
         } //isCMSSW simulation of beam-test analysis
       } //loop of sensor channels
       
       mdata.setCharge(itc, totadc);
-      mdata.getTC(itc).setTot(isTot); //stand for tctp==3
-      mdata.getTC(itc).setTcTp1(isTcTp1);
-      mdata.getTC(itc).setTcTp2(isTcTp2);
-      mdata.getTC(itc).setTcTp3(isTcTp3);
+      mdata.setTot(itc, isTot); //stand for tctp==3
+      mdata.setTcTp1(itc, isTcTp1);
+      mdata.setTcTp2(itc, isTcTp2);
+      mdata.setTcTp3(itc, isTcTp3);
       mdata.setCdata(itc, CompressHgroc(totadc,selTC4 ));
   
     }//loop over TCs
@@ -280,15 +283,16 @@ namespace TPGFEModuleEmulation{
 
     for(uint32_t econtc = 0; econtc < nTCs;  econtc++)
     {
+      TPGFEDataformatEmulation::HgcrocTcData hrocTc = mdata.getTC(econtc);
 
-      uint64_t decompressed = DecompressEcont(mdata.getTC(econtc).getCdata(), econtCfg.density); //funny that return needs to defined as 64-bit
+      uint64_t decompressed = DecompressEcont(hrocTc.encoded, econtCfg.density); //funny that return needs to defined as 64-bit
       uint64_t decomp64bit = decompressed * econtCfg.getCalibration(econtc); //overflows for 12bit TOT
       LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::EmulateEcontBc (TC="<<econtc<<") decompressed: " << decompressed << ", decompressed*calib: " << decomp64bit << std::endl; 
       decompressed =  decomp64bit >> 11;
       decompressedMS += (decompressed >> dropLSB) ;
       LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::EmulateEcontBc (TC="<<econtc<<") decompressed*calib>>11: " << decompressed << ", decompressedMS: " << decompressedMS << std::endl; 
       uint16_t compressed_bc = CompressEcontBc(decompressed,dropLSB);
-      tcdata.setTriggerCell(outputType, econtc, compressed_bc, decompressed>>dropLSB, mdata.getTC(econtc).isTcTp1(), mdata.getTC(econtc).isTcTp2(), mdata.getTC(econtc).isTcTp3()) ;
+      tcdata.setTriggerCell(outputType, econtc, compressed_bc, decompressed>>dropLSB, hrocTc.istctp1, hrocTc.istctp2, hrocTc.istctp3) ;
       tcrawdatalist.push_back(tcdata);
     }
     batcherOEMSort(tcrawdatalist);
