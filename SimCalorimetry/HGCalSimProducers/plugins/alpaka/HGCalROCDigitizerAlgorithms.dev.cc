@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <cstdio>
 #include <sstream>
 #include <cmath>
 
@@ -71,8 +72,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         auto toa = realisticHits[idx].avgTOA();
         for (auto j = 0; j < hgcaldigi::kTimeBins; j++) {
           const float t = toa(j, 0);
-          if (t != 0.f)
+          if (t != 0.f) {
             toa(j, 0) = t + jump;
+            // temporary debug: print time before/after the crate jump (few cells have non-zero time)
+            printf("cell %u fed %u crate %u bin %d: avgTOA before %f ns, after %f ns (jump %f ns)\n",
+                   static_cast<unsigned>(idx), fed, static_cast<unsigned>(crate), j, t, t + jump, jump);
+          }
         }
       }
     }
