@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <set>
 #include <map>
 #include <set>
 #include <algorithm>  // for std::min
