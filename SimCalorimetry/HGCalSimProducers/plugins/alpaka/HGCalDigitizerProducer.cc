@@ -37,6 +37,8 @@
 #include "DataFormats/HGCalDigi/interface/alpaka/HGCalSimHitAccumDevice.h"
 #include "DataFormats/HGCalDigi/interface/HGCalDigiHost.h"
 #include "DataFormats/HGCalDigi/interface/alpaka/HGCalDigiDevice.h"
+#include "DataFormats/HGCalDigi/interface/HGCalECONDPacketInfoHost.h"
+#include "DataFormats/HGCalDigi/interface/alpaka/HGCalECONDPacketInfoDevice.h"
 #include "CondFormats/HGCalObjects/interface/HGCalAgeingCondsHost.h"
 #include "CondFormats/DataRecord/interface/HGCalAgeingCondsRcd.h"
 #include "CondFormats/DataRecord/interface/HGCalDenseIndexInfoRcd.h"
@@ -75,10 +77,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::ESWatcher<HGCalAgeingCondsRcd> ageingCondsWatcher_;
     const edm::ESGetToken<hgcal::HGCalAgeingCondsHost, HGCalAgeingCondsRcd> ageingCondsTkn_;
     const edm::ESGetToken<hgcal::HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexTkn_;
-    const edm::ESGetToken<hgcal::HGCalMappingCellParamHost, HGCalElectronicsMappingRcd> cellMappingToken_;
-    const edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIndexerTkn_;
+    const edm::ESGetToken<hgcal::HGCalMappingModuleParamHost, HGCalElectronicsMappingRcd> moduleInfoTkn_;
+    const edm::ESGetToken<hgcal::HGCalMappingCellParamHost, HGCalElectronicsMappingRcd> cellInfoToken_;
     int n_blocks_, n_threads_;
     const HGCalAgeingAlgorithms ripener_;
+    const HGCalECONDAlgorithms concentrator_;
     const HGCalROCDigitizerAlgorithms digitizer_;
     bool produceExtra_;
     std::optional<hgcaldigi::HGCalRealisticSimHitDevice> agedG4HitsAcc_device_;
@@ -91,6 +94,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     std::once_flag crateJumpCopy_;
     std::optional<device_buffer<Device, float[]>> crateJumpsDevice_;
     std::optional<device_buffer<Device, uint16_t[]>> crateOfFedDevice_;
+    std::optional<hgcaldigi::HGCalECONDPacketInfoDevice> econInfo_device_;
+    edm::EDPutTokenT<::hgcaldigi::HGCalECONDPacketInfoHost> econInfoTkn_;
   };
 
   //
@@ -99,15 +104,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         g4HitsAccTkn_{consumes<hgcaldigi::HGCalSimHitAccumHost>(iConfig.getParameter<edm::InputTag>("g4HitsAcc"))},
         ageingCondsTkn_{esConsumes(iConfig.getParameter<edm::ESInputTag>("ageingConds"))},
         denseIndexTkn_{esConsumes(iConfig.getParameter<edm::ESInputTag>("denseIndexer"))},
-        cellMappingToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("cellInfo"))},
-        moduleIndexerTkn_{esConsumes(edm::ESInputTag{})},
+        moduleInfoTkn_{esConsumes(iConfig.getParameter<edm::ESInputTag>("moduleInfo"))},
+        cellInfoToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("cellInfo"))},
         n_blocks_{iConfig.getParameter<int>("n_blocks")},
         n_threads_{iConfig.getParameter<int>("n_threads")},
         ripener_{n_blocks_, n_threads_},
+        concentrator_{n_blocks_, n_threads_},
         digitizer_{n_blocks_, n_threads_},
         produceExtra_(iConfig.getParameter<bool>("produceExtra")) {
-
     rocDigisTkn_ = produces("HGCROCDigis");
+    econInfoTkn_ = produces("HGCECONInfo");
 
     //add the extra products
     if (produceExtra_) {
@@ -122,6 +128,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     desc.add<edm::InputTag>("g4HitsAcc", edm::InputTag("hgcalDigis", "DIGI", "TEST"));
     desc.add("ageingConds", edm::ESInputTag{})->setComment("Label for ageing parameters");
     desc.add("denseIndexer", edm::ESInputTag{})->setComment("Dense indexer SoA source");
+    desc.add("moduleInfo", edm::ESInputTag{})->setComment("module info SoA source");
     desc.add("cellInfo", edm::ESInputTag{})->setComment("cell info SoA source");
     desc.add<bool>("produceExtra", true)->setComment("produce extra digitizer collections");
     desc.add<int>("n_blocks", -1);
@@ -134,14 +141,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     auto& queue = iEvent.queue();
     const auto& ageingConds = iSetup.getData(ageingCondsTkn_);
     const auto& denseIndexer = iSetup.getData(denseIndexTkn_);
-    const auto& cellInfo = iSetup.getData(cellMappingToken_);
+    const auto& moduleInfo = iSetup.getData(moduleInfoTkn_);
+    int nmodules = moduleInfo.view().metadata().size();
+    const auto& cellInfo = iSetup.getData(cellInfoToken_);
+    int ncellinfo = cellInfo.view().metadata().size();
     const auto& g4AccHits = iEvent.get(g4HitsAccTkn_);
-    auto ncells = g4AccHits.view().metadata().size();
+    auto nchannels = g4AccHits.view().metadata().size();
 
-    LogDebug("[HGCalDigitizerProducer]") << "Loaded accumulated Geant 4 hits for " << ncells << " cells"
+    LogDebug("[HGCalDigitizerProducer]") << "Loaded accumulated Geant 4 hits for " << nchannels << " cells"
                                          << ", " << ageingConds.view().metadata().size() << " ageing conditions"
                                          << ", " << denseIndexer.view().metadata().size() << " dense indices"
-                                         << ", and " << cellInfo.view().metadata().size() << " cell info indices";
+                                         << ", " << nmodules << " modules"
+                                         << ", and " << ncellinfo << " cell info indices";
 
 #ifdef EDM_ML_DEBUG
     alpaka::wait(queue);
@@ -199,11 +210,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const uint64_t seed = static_cast<uint64_t>(CLHEP::RandFlat::shootInt(&engine, std::numeric_limits<int>::max()));
 
     //copy conditions and dense indexer to device
-    hgcal::HGCalAgeingCondsDevice ageingConds_device(queue, ncells);
+    hgcal::HGCalAgeingCondsDevice ageingConds_device(queue, nchannels);
     alpaka::memcpy(queue, ageingConds_device.buffer(), ageingConds.const_buffer());
-    hgcal::HGCalDenseIndexInfoDevice denseIndex_device(queue, ncells);
+    hgcal::HGCalDenseIndexInfoDevice denseIndex_device(queue, nchannels);
     alpaka::memcpy(queue, denseIndex_device.buffer(), denseIndexer.const_buffer());
-    hgcal::HGCalMappingCellParamDevice cellInfo_device(queue, ncells);
+    hgcal::HGCalMappingModuleParamDevice moduleInfo_device(queue, nmodules);
+    alpaka::memcpy(queue, moduleInfo_device.buffer(), moduleInfo.const_buffer());
+    hgcal::HGCalMappingCellParamDevice cellInfo_device(queue, ncellinfo);
     alpaka::memcpy(queue, cellInfo_device.buffer(), cellInfo.const_buffer());
 
     //run ageing
@@ -211,8 +224,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     //run digitization
     if (agedG4HitsAcc_device_.has_value()) {
+
+      //populate ECON-D info and common mode
+      econInfo_device_ = concentrator_.init(queue, ageingConds_device, moduleInfo_device, seed);
+
+      //digitize channels
       rocDigisAcc_device_ = digitizer_.digitize(queue,
                                                 agedG4HitsAcc_device_.value(),
+                                                econInfo_device_.value(),
                                                 ageingConds_device,
                                                 denseIndex_device,
                                                 cellInfo_device,
@@ -222,6 +241,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                 static_cast<uint32_t>(crateOfFed_.size()),
                                                 static_cast<uint32_t>(crateJumps_.size()));
 
+      //havest the digis
       rocDigis_device_ = digitizer_.harvest(queue, rocDigisAcc_device_.value().const_view());
     }
 
@@ -229,7 +249,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::wait(queue);
     auto stop = std::chrono::steady_clock::now();
     std::chrono::duration<float> elapsed = stop - start;
-    LogDebug("[HGCalDigitizerProducer]") << "Time spent creating " << ncells << " digis: " << elapsed.count();
+    LogDebug("[HGCalDigitizerProducer]") << "Time spent creating digis of " << nchannels
+                                         << " channels: " << elapsed.count();
 #endif
   }
 
@@ -237,20 +258,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   void HGCalDigitizerProducer::produce(device::Event& iEvent, device::EventSetup const& iSetup) {
     LogDebug("[HGCalDigitizerProducer]") << "Storing HGCAL DIGIs in the event";
 
-    //copy to host
-    if (rocDigis_device_.has_value()) {
-      auto& queue = iEvent.queue();
-      auto const& digisDevice = rocDigis_device_.value();
-      ::hgcaldigi::HGCalDigiHost digisHost(digisDevice.view().metadata().size());
-      alpaka::memcpy(queue, digisHost.buffer(), digisDevice.const_buffer());
-      alpaka::wait(queue);
-      iEvent.emplace(rocDigisTkn_, std::move(digisHost));
-    } else{
-      ::hgcaldigi::HGCalDigiHost digisHost(0);
-      iEvent.emplace(rocDigisTkn_, std::move(digisHost));
-    }
-      
+    //copy to host (as the unpacker does for the time being)
+    auto& queue = iEvent.queue();
+    auto const& digisDevice = rocDigis_device_.value();
+    ::hgcaldigi::HGCalDigiHost digisHost(digisDevice.view().metadata().size());
+    alpaka::memcpy(queue, digisHost.buffer(), digisDevice.const_buffer());
+    iEvent.emplace(rocDigisTkn_, std::move(digisHost));
 
+    auto const& econdDevice = econInfo_device_.value();
+    ::hgcaldigi::HGCalECONDPacketInfoHost econdInfoHost(econdDevice.view().metadata().size());
+    alpaka::memcpy(queue, econdInfoHost.buffer(), econdDevice.const_buffer());
+    alpaka::wait(queue);
+    iEvent.emplace(econInfoTkn_, std::move(econdInfoHost));
+
+    //helpers
     if (produceExtra_) {
       if (agedG4HitsAcc_device_.has_value())
         iEvent.emplace(agedG4HitsAccTkn_, std::move(agedG4HitsAcc_device_.value()));

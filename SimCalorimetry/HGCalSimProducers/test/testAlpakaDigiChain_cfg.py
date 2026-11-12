@@ -2,7 +2,13 @@ import FWCore.ParameterSet.Config as cms
 
 #argument parsing
 from FWCore.ParameterSet.VarParsing import VarParsing
-options = VarParsing('python')
+options = VarParsing('standard')
+try:
+    from HGCalCommissioning.NanoTools.configure_sysval_nano_cff import setArgParserForNANO
+    setArgParserForNANO(options)
+except Exception as e:
+    print(e)
+    print('Was not able to configure NANO')
 options.register('verbosity',0,mytype=VarParsing.varType.int,
                  info='Tester verbosity: 0 = Base+FED prints / 1 = +Module prints / 2 = +Cell prints')
 options.register('modules','Geometry/HGCalMapping/data/ModuleMaps/modulelocator_test.txt',mytype=VarParsing.varType.string,
@@ -23,13 +29,16 @@ process = cms.Process("TEST")
 process.load('Configuration.Geometry.GeometryExtendedRun4D128Reco_cff')
 process.load('Configuration.Geometry.GeometryExtendedRun4D128_cff')
 
+#event content
+process.load("Configuration.EventContent.EventContent_cff")
+
 #source
 process.maxEvents = cms.untracked.PSet( 
     input = cms.untracked.int32(options.maxEvents) 
 )
 process.source = cms.Source(
     "PoolSource",
-    fileNames=cms.untracked.vstring(options.inputFiles)
+    fileNames=cms.untracked.vstring(options.files)
 )
 
 # electronics configuration
@@ -64,6 +73,18 @@ process.RandomNumberGeneratorService = cms.Service(
     )
 )
 
+# NANO output (adds hgCalSimHitAccumTable + NanoAODOutputModule, preserves the paths above)
+try:
+    from HGCalCommissioning.NanoTools.configure_sysval_nano_cff import configureNANOStep
+    options.skipMeta = True
+    options.isSimulation = True
+    process = configureNANOStep(process, options)
+except Exception as e:
+    print(e)
+    print('NANO will not be produced')
+
+
+# DIGI STEP
 
 # Geant4 accumulator: edmPluginHelp -m HGCalSimHitAccumulator@alpaka
 from SimCalorimetry.HGCalSimProducers.hgCalSimHitAccumulator_cfi import hgCalSimHitAccumulator
@@ -116,38 +137,45 @@ process.hgCalDigitizerProducer = cms.EDProducer(
     n_threads = cms.int32(1024)
 )
 
-
-# test path
-process.p = cms.Path(
+process.digi_step = cms.Path(
     process.hgCalSimHitAccumulator
     *process.hgCalDigitizerProducer
 )
+try:
+    process.schedule.insert(0, process.digi_step)
+except:
+    #NANO is not being used, start again
+    process.schedule = cms.Schedule(process.digi_step)
 
-#DQM
-process.DQMStore = cms.Service("DQMStore")
-process.load("DQM.HGCAL.hgcalDQM_cff")
-process.hgcaldigidqm.Digis = cms.InputTag('hgCalDigitizerProducer','HGCROCDigis')
-process.load("DQMServices.FileIO.DQMFileSaverOnline_cfi")
-process.dqmSaver.tag = 'HGCAL'
-process.dqmSaver.runNumber = 1
-
-process.dqmPath = cms.Path(
-    process.hgcalDQMSources  
-    #+process.hgCalDQMHarvester 
-    +process.dqmSaver
-)
-
-# output file
-process.out = cms.OutputModule("PoolOutputModule",
+# output file (standard EDM)
+process.edmoutput = cms.OutputModule("PoolOutputModule",
     outputCommands = cms.untracked.vstring(
         'drop *',
         'keep *_hgCalSimHitAccumulator_*_*',
         'keep *_hgCalDigitizerProducer_*_*'
     ),
     SelectEvents = cms.untracked.PSet(
-        SelectEvents = cms.vstring('p')
+        SelectEvents = cms.vstring('digi_step')
     ),
-    fileName = cms.untracked.string('alpaka_digis.root')
+    fileName = cms.untracked.string('DIGIs.root')
 )
+process.edmoutpath = cms.EndPath(process.edmoutput)
+process.schedule.append( process.edmoutpath )
 
-process.outpath = cms.EndPath(process.out)
+
+#DQM
+if True:
+    process.DQMStore = cms.Service("DQMStore")
+    process.load("DQM.HGCAL.hgcalDQM_cff")
+    process.hgcaldigidqm.Digis = cms.InputTag('hgCalDigitizerProducer','HGCROCDigis')
+    process.load("DQMServices.FileIO.DQMFileSaverOnline_cfi")
+    process.dqmSaver.tag = 'HGCAL'
+    process.dqmSaver.runNumber = 1
+    
+    process.dqmPath = cms.Path(
+        process.hgcalDQMSources  
+        #+process.hgCalDQMHarvester 
+        +process.dqmSaver
+    )
+    process.schedule.append( process.dqmPath )
+    process.options.numberOfConcurrentLuminosityBlocks = 1
