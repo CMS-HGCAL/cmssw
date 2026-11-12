@@ -71,7 +71,7 @@ namespace TPGFEDataformatEmulation{
                   << " ADC "<< _data[i].adc << ","
                   << " Tot "<< _data[i].tot << ","
                   << " bx: " << getBx() << ","
-                  << " TcTp: " << _data[i].tctp
+                  << " TcTp: " << uint32_t(_data[i].tctp)
                   << std::endl;
       }
     }
@@ -153,11 +153,11 @@ namespace TPGFEDataformatEmulation{
         << ", raw-uncompressed "
         << std::setw(10) << _data[i].raw
         << ", istot : "
-        << std::setw(2) << _data[i].isTot
+        << std::setw(2) << uint32_t(_data[i].isTot)
         << ", istctp1 : "
-        << std::setw(2) << _data[i].istctp1
+        << std::setw(2) << uint32_t(_data[i].istctp1)
         << ", istctp2 : "
-        << std::setw(2) << _data[i].istctp2
+        << std::setw(2) << uint32_t(_data[i].istctp2)
         << std::endl;
       }
     }
