@@ -93,11 +93,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                       HGCalAgeingCondsDevice const&,
                                       HGCalDenseIndexInfoDevice const&,
                                       HGCalMappingCellParamDevice const&,
-                                      const uint64_t,
-                                      float const* crateJumps,
-                                      uint16_t const* crateOfFed,
-                                      uint32_t nFed,
-                                      uint32_t nCrate) const;
+                                      HGCalPhaseShiftsDevice const &,
+                                      const uint64_t) const;
 
     /**
       @short steer the harvesting of ROC digis for the in-time bunch
