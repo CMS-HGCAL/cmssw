@@ -137,6 +137,7 @@ namespace hgcal {
     };
 
 
+
     /*
     * Some stuff for getExpEcontHeader, to avoid "magic numbers" in HGCalTriggerConfiguration.hh .
     * Having maps w/ a single value is a bit silly, but useful if we ever need to expand this. - Jan
@@ -156,6 +157,10 @@ namespace hgcal {
     };
 
   } // namespace econt
+
+  namespace hgcroc{
+    inline constexpr uint16_t NUM_CHANNELS = 36;
+  }
 
 }  // namespace hgcal
 #endif

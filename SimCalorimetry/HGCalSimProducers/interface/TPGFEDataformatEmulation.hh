@@ -26,7 +26,7 @@ namespace TPGFEDataformatEmulation{
   class HalfHgcrocData {
   public:
     enum {
-      NumberOfChannels=36
+      NumberOfChannels=hgcal::hgcroc::NUM_CHANNELS
     };
 
     HalfHgcrocData() : _bx(0xFFFF) {
@@ -95,7 +95,7 @@ namespace TPGFEDataformatEmulation{
   class ModuleTcData {
   public:
     enum {
-      MaxNumberOfTCs = 48
+      MaxNumberOfTCs = hgcal::econt::DEFAULT_MAX_TC
     };
 
     ModuleTcData() {
