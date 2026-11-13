@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <cstdio>
 #include <sstream>
 #include <cmath>
 
@@ -22,6 +23,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   struct HGCalROCDigitizerKernel_addNoise {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   HGCalRealisticSimHitDevice::View realisticHits,
+                                  HGCalECONDPacketInfoDevice::ConstView econds,
                                   HGCalAgeingCondsDevice::ConstView conds,
                                   HGCalDenseIndexInfoDevice::ConstView denseIndex,
                                   HGCalMappingCellParamDevice::ConstView cellInfo,
@@ -31,23 +33,45 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto engine = alpaka::rand::engine::createDefault(acc, seed + globalThreadIdx, 0);
       auto normal = alpaka::rand::distribution::createNormalReal<float>(acc);
 
-      // helper to add noise for each time slice
-      auto addNoise = [&](auto sumQ, float noise) {
-        for (auto j = 0; j < hgcaldigi::kTimeBins; j++) {
-          //@Christian noise here is fixed
-          sumQ(j, 0) = noise + sumQ(j, 0);
-        }
-      };  //end noise loop
-
       // dispatch operation
       for (auto idx : uniform_elements(acc, realisticHits.metadata().size())) {
-        auto hit = realisticHits[idx];
+        auto sumQ = realisticHits[idx].sumQ();
+        auto enc = conds[idx].enc();
         //auto cellIdx = denseIndex[idx].cellInfoIdx();
         //bool isSiPM = cellInfo[cellIdx].isSiPM();
-        const float noiseVal = normal(engine);
-        auto enc = conds[idx].enc() * noiseVal;
-        addNoise(hit.sumQ(), enc);
+
+        //loop over time slices
+        for (auto j = 0; j < hgcaldigi::kTimeBins; j++) {
+          const float r = normal(engine);
+          sumQ(j, 0) += r * enc;
+        }  //end time slices loop
+
       }  //end grid loop
+    }
+  };
+
+  // @short add the phase shift of this cell due to "BE crate jumps" + LHC shift
+  struct HGCalROCDigitizerKernel_emulatePhaseShits {
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
+                                  HGCalRealisticSimHitDevice::View realisticHits,
+                                  HGCalDenseIndexInfoDevice::ConstView denseIndex,
+                                  HGCalPhaseShiftsDevice::ConstView phaseShifts,
+                                  float lhc_phaseshift) const {
+      for (auto idx : uniform_elements(acc, realisticHits.metadata().size())) {
+        const float deltaTOA = phaseShifts[idx].deltaT();
+        auto toa = realisticHits[idx].avgTOA();
+        auto fed = denseIndex[idx].fedId();
+
+        for (auto j = 0; j < hgcaldigi::kTimeBins; j++) {
+          const float t = toa(j, 0);
+          if (t != 0.f) {
+            toa(j, 0) = t + deltaTOA + lhc_phaseshift;
+#ifdef EDM_ML_DEBUG
+            printf("cell %u fed %u avgTOA = %f -> %f [ns]\n", static_cast<unsigned>(idx), fed, t, toa(j, 0));
+#endif
+          }
+        }
+      }
     }
   };
 
@@ -65,7 +89,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         int code = static_cast<int>(std::round(value / lsb));
         if (!(code > 0.f))
           return 0u;
-        return static_cast<uint32_t>(code < 0 ? 0 : (code > maxCode ? maxCode : code));
+        return static_cast<uint32_t>(code > maxCode ? maxCode : code);
       };
 
       // build the energy part of the word
@@ -87,7 +111,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           uint16_t adcm1 = static_cast<uint16_t>(j > 0 ? quantize(qm1, adc_lsb, 1023) : 0);
           bool tc = (q > tot_thr);
           bool tp = tc;
-          uint16_t toa = static_cast<uint16_t>((q > toa_thr) * quantize(t, toa_lsb, 1023));
+          uint16_t toa = static_cast<uint16_t>(q > toa_thr ? quantize(t, toa_lsb, 1023) : 0);
 
           //compress all to 32b
           word(j, 0) = hgcaldigi::rocFrame(tc, tp, adcm1, adc, tot, toa, false);
@@ -135,11 +159,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   // @short apply the sequence of digitization kernels
   HGCalROCDigisAccumDevice HGCalROCDigitizerAlgorithms::digitize(Queue& queue,
                                                                  HGCalRealisticSimHitDevice& device_realisticHits,
+                                                                 HGCalECONDPacketInfoDevice const& device_econds,
                                                                  HGCalAgeingCondsDevice const& ageConds,
                                                                  HGCalDenseIndexInfoDevice const& denseIndex,
                                                                  HGCalMappingCellParamDevice const& cellInfo,
+                                                                 HGCalPhaseShiftsDevice const& phaseShifts,
+                                                                 double lhc_phaseshift,
                                                                  const uint64_t seed) const {
-    edm::LogWarning("HGCalROCDigitizerAlgorithms") << "Start of digitization" << std::endl;
+    LogDebug("HGCalROCDigitizerAlgorithms") << "Start of digitization" << std::endl;
     auto const ncells = device_realisticHits.view().metadata().size();
     HGCalROCDigisAccumDevice device_rocDigis(queue, ncells);
 
@@ -151,17 +178,26 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     //   - threads with a single element per thread on a GPU backend
     //   - elements within a single thread on a CPU backend
     auto grid = make_workdiv<Acc1D>(groups, items);
-    edm::LogWarning("HGCalROCDigitizerAlgorithms") << "N groups: " << groups << "\tN items: " << items << std::endl;
+    LogDebug("HGCalROCDigitizerAlgorithms") << "N groups: " << groups << "\tN items: " << items << std::endl;
 
     //execute digitization kernels
     alpaka::exec<Acc1D>(queue,
                         grid,
                         HGCalROCDigitizerKernel_addNoise{},
                         device_realisticHits.view(),
+                        device_econds.const_view(),
                         ageConds.const_view(),
                         denseIndex.const_view(),
                         cellInfo.const_view(),
                         seed);
+
+    alpaka::exec<Acc1D>(queue,
+                        grid,
+                        HGCalROCDigitizerKernel_emulatePhaseShits{},
+                        device_realisticHits.view(),
+                        denseIndex.const_view(),
+                        phaseShifts.const_view(),
+                        lhc_phaseshift);
 
     alpaka::exec<Acc1D>(queue,
                         grid,
@@ -183,7 +219,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   // @short apply all calibration kernels
   HGCalDigiDevice HGCalROCDigitizerAlgorithms::harvest(Queue& queue,
                                                        HGCalROCDigisAccumDevice::ConstView device_acc_rocDigis) const {
-    edm::LogWarning("HGCalROCDigitizerAlgorithms") << "Start of harvest" << std::endl;
+    LogDebug("HGCalROCDigitizerAlgorithms") << "Start of harvest" << std::endl;
     auto const ncells = device_acc_rocDigis.metadata().size();
     HGCalDigiDevice device_rocDigis(queue, ncells);
 
@@ -195,7 +231,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     //   - threads with a single element per thread on a GPU backend
     //   - elements within a single thread on a CPU backend
     auto grid = make_workdiv<Acc1D>(groups, items);
-    edm::LogWarning("HGCalROCDigitizerAlgorithms") << "N groups: " << groups << "\tN items: " << items << std::endl;
+    LogDebug("HGCalROCDigitizerAlgorithms") << "N groups: " << groups << "\tN items: " << items << std::endl;
 
     //execute digitization kernels
     alpaka::exec<Acc1D>(queue,

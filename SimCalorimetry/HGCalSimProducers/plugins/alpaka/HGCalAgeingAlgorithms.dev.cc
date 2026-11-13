@@ -64,7 +64,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                         HGCalAgeingCondsDevice const& ageConds,
                                                         HGCalDenseIndexInfoDevice const& denseIndex,
                                                         HGCalMappingCellParamDevice const& cellInfo) const {
-    edm::LogWarning("HGCalAgeingAlgorithms") << "Start of ageing: copying accumulators to device" << std::endl;
+    LogDebug("HGCalAgeingAlgorithms") << "Start of ageing: copying accumulators to device" << std::endl;
     auto const ncells = host_g4Hits.view().metadata().size();
     HGCalRealisticSimHitDevice device_g4Hits(queue, ncells);
     alpaka::memcpy(queue, device_g4Hits.buffer(), host_g4Hits.const_buffer());
@@ -77,7 +77,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     //   - threads with a single element per thread on a GPU backend
     //   - elements within a single thread on a CPU backend
     auto grid = make_workdiv<Acc1D>(groups, items);
-    edm::LogWarning("HGCalAgeingAlgorithms") << "N groups: " << groups << "\tN items: " << items << std::endl;
+    LogDebug("HGCalAgeingAlgorithms") << "N groups: " << groups << "\tN items: " << items << std::endl;
 
     //execute ageing kernels
     alpaka::exec<Acc1D>(queue,
@@ -88,11 +88,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         denseIndex.const_view(),
                         cellInfo.const_view());
 
-    //FIXME - uncomment ifdef for final version
-    //#ifdef EDM_ML_DEBUG
+#ifdef EDM_ML_DEBUG
     int n_hits_to_print = 10;
     alpaka::exec<Acc1D>(queue, grid, HGCalAgeingKernel_printHits{}, device_g4Hits.view(), n_hits_to_print);
-    //#endif
+#endif
 
     return device_g4Hits;
   }

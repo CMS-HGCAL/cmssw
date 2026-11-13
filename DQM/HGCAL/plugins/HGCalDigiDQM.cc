@@ -208,17 +208,15 @@ void HGCalDigiDQM::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
 
     auto digi = digis_view[i];
     uint8_t tctp = digi.tctp();
-    double adc = digi.adc();
-    double tot = digi.tot();
-    double toa = digi.toa();
-    double adcm = digi.adcm1();
-    double cmsum = digi.cm();
+    double adc = static_cast<double>(digi.adc());
+    double tot = static_cast<double>(digi.tot());
+    double toa = static_cast<double>(digi.toa());
+    double adcm = static_cast<double>(digi.adcm1());
+    double cmsum = static_cast<double>(digi.cm());
     uint16_t flags = digi.flags();
     double deltaadc = adc - adcm;
 
     if (flags == hgcal::DIGI_FLAG::NotAvailable)
-      continue;
-    if (adc < 0 && tot < 0)
       continue;
 
     // ADC mode
