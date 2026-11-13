@@ -13,6 +13,8 @@ options.register('sipmcells','Geometry/HGCalMapping/data/CellMaps/channels_sipmo
                  info="Path to SiPM-on-tile cell mapper. Absolute, or relative to CMSSW src directory")
 options.register('offsetfile','Geometry/HGCalMapping/data/CellMaps/calibration_to_surrounding_offsetMap.txt',mytype=VarParsing.varType.string,
                  info="Path to calibration-to-surrounding cell offset file. Absolute, or relative to CMSSW src directory")
+options.register('applyAgeing',False,mytype=VarParsing.varType.bool,
+                 info="Override calibration constants with ageing conditions (simulation only)")
 options.parseArguments()
 
 #source
@@ -33,8 +35,12 @@ kwargs = { k: getattr(options,k) for k in ['modules','sicells','sipmcells','offs
 process = customise_hgcalmapper(process, **kwargs)
 
 # ageing conditions
-from SimCalorimetry.HGCalSimAlgos.hgcal_ageing_byalgo_cfi import customise_hgcal_ageing_byalgo_startup
-process = customise_hgcal_ageing_byalgo_startup(process)
+from SimCalorimetry.HGCalSimAlgos.hgcal_ageing_byalgo_cfi import customise_hgcal_ageing_byalgo_startup, customise_hgcal_ageing_byalgo_eol
+if options.applyAgeing:
+  process = customise_hgcal_ageing_byalgo_eol(process)
+else:
+    process = customise_hgcal_ageing_byalgo_startup(process)
+#process = customise_hgcal_ageing_byalgo_startup(process)
 
 # Geant4 accumulator: edmPluginHelp -m HGCalSimHitAccumulator@alpaka
 from SimCalorimetry.HGCalSimProducers.hgCalSimHitAccumulator_cfi import hgCalSimHitAccumulator
