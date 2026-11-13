@@ -9,6 +9,7 @@
 
 #include "EventFilter/HGCalRawToDigi/interface/TPGFEDataformat.hh"
 #include "SimCalorimetry/HGCalSimProducers/interface/TPGFEDataformatEmulation.hh"
+#include "DataFormats/HGCalDigi/interface/HGCalTriggerDefinitions.h"
 
 #include "CondFormats/HGCalObjects/interface/HGCalTriggerConfiguration.h"
 
@@ -126,7 +127,7 @@ namespace TPGFEModuleEmulation{
   void batcherOEMSort(std::vector<TPGFEDataformat::TcRawData>& tc) {
     //C++ adaptation of batcher odd-even sorting of https://github.com/dnoonan08/ECONT_Emulator/ASICBlocks/bestchoice.py
     //Requires 49 Tcs for sorting
-    TPGFEDataformat::TcRawData dummy(TPGFEDataformat::Unknown,0x3f, 0, 0, false, false, false);
+    TPGFEDataformat::TcRawData dummy(hgcal::econt::Unknown,0x3f, 0, 0, false, false, false);
     tc.push_back(dummy);
 
     uint32_t N = uint32_t(tc.size());
@@ -161,7 +162,7 @@ namespace TPGFEModuleEmulation{
     TPGFEDataformat::TcRawDataPacket rdp;
     uint32_t dropLSB = econtCfg.dropLSB ;
 
-    const TPGFEDataformat::Type& outputType = econtCfg.getOutType();
+    const hgcal::econt::Type& outputType = econtCfg.getOutType();
 
     uint32_t nTCs =  mdata.getNofTCs();
     uint16_t bx = (mdata.getBx()==3564) ? 0xF : mdata.getBx() & 0x7 ; //make 8 modulo
@@ -204,11 +205,11 @@ namespace TPGFEModuleEmulation{
 
   //The following emulation function performs 1) decompression, 2) calibration, 3) compression
   TPGFEDataformat::TcRawDataPacket EmulateEcont(bool isSim,  const HGCalECONTConfig& econtCfg, const TPGFEDataformatEmulation::ModuleTcData& mdata){
-    const TPGFEDataformat::Type& outputType = econtCfg.getOutType();
+    const hgcal::econt::Type& outputType = econtCfg.getOutType();
 
-    if(outputType==TPGFEDataformat::BestC)
+    if(outputType==hgcal::econt::BestC)
       return EmulateEcontBc(isSim, econtCfg, mdata);
-    else if(outputType==TPGFEDataformat::STC4A or outputType==TPGFEDataformat::STC4B or outputType==TPGFEDataformat::STC16 or outputType==TPGFEDataformat::CTC4A or outputType==TPGFEDataformat::CTC4B)
+    else if(outputType==hgcal::econt::STC4A or outputType==hgcal::econt::STC4B or outputType==hgcal::econt::STC16 or outputType==hgcal::econt::CTC4A or outputType==hgcal::econt::CTC4B)
       return EmulateEcontSTC(isSim, econtCfg, mdata); // FIXME to be implemented
     else return EmulateEcontSTC(isSim, econtCfg, mdata); // FIXME -- here to prevent lack of return in non-void func (after fixing the elseif above) - Jan
   }

@@ -7,7 +7,7 @@
 using namespace hgcal;
 
 namespace {
-  void convertElinksToTcRawData(TPGFEDataformat::Type type,
+  void convertElinksToTcRawData(hgcal::econt::Type type,
                                 unsigned nTc,
                                 const uint32_t* v,
                                 TPGFEDataformat::TcRawDataPacket& vTcrdp) {
@@ -37,7 +37,7 @@ namespace {
     // assert(nTc > 0);
 
     bool bitMap(false);
-    if (type == TPGFEDataformat::BestC)
+    if (type == hgcal::econt::BestC)
       bitMap = (nTc > 7);
 
     vTc.resize(0);
@@ -46,7 +46,7 @@ namespace {
     unsigned lastBit(28);
     uint64_t d(v[0]);
 
-    if (type == TPGFEDataformat::BestC) {
+    if (type == hgcal::econt::BestC) {
       lastBit -= 8;
       vTcrdp.setTBM(type, bx, ((d >> lastBit) & 0xff));
       if (false)
@@ -64,7 +64,7 @@ namespace {
           lastBit += 32;
         }
 
-        if (type == TPGFEDataformat::BestC) {
+        if (type == hgcal::econt::BestC) {
           lastBit -= 6;
           uint8_t tcAddr = ((d >> lastBit) & ECONT_FRAME::BC_LO_TCADDR_MASK);
           LogDebug("[HGCalUnpackerTrigger]")
@@ -81,15 +81,15 @@ namespace {
           }
           vTc.push_back(TPGFEDataformat::TcRawData(type, tcAddr, 0));
         }
-        if (type == TPGFEDataformat::STC4A) {
+        if (type == hgcal::econt::STC4A) {
           lastBit -= 2;
           vTc.push_back(TPGFEDataformat::TcRawData(type, ((d >> lastBit) & 0x03), 0));
         }
-        if (type == TPGFEDataformat::STC4B) {
+        if (type == hgcal::econt::STC4B) {
           lastBit -= 2;
           vTc.push_back(TPGFEDataformat::TcRawData(type, ((d >> lastBit) & 0x03), 0));
         }
-        if (type == TPGFEDataformat::STC16) {
+        if (type == hgcal::econt::STC16) {
           lastBit -= 4;
           vTc.push_back(TPGFEDataformat::TcRawData(type, ((d >> lastBit) & 0x0f), 0));
         }
@@ -133,20 +133,20 @@ namespace {
         lastBit += 32;
       }
 
-      if (type == TPGFEDataformat::BestC) {
+      if (type == hgcal::econt::BestC) {
         lastBit -= 7;
         unsigned idx = nTc - tc - 1;  // to assign first energy to lowest tc address for high occupancy
         if (bitMap)
           vTc[idx] = TPGFEDataformat::TcRawData(type, vTc[idx].address(), (d >> lastBit) & 0x7f);
         else
           vTc[tc] = TPGFEDataformat::TcRawData(type, vTc[tc].address(), (d >> lastBit) & 0x7f);
-      } else if (type == TPGFEDataformat::STC4A) {
+      } else if (type == hgcal::econt::STC4A) {
         lastBit -= 7;
         vTc[tc] = TPGFEDataformat::TcRawData(type, vTc[tc].address(), (d >> lastBit) & 0x7f);
-      } else if (type == TPGFEDataformat::CTC4A) {
+      } else if (type == hgcal::econt::CTC4A) {
         lastBit -= 7;
         vTc.push_back(TPGFEDataformat::TcRawData(type, tc, (d >> lastBit) & 0x7f));
-      } else if (type == TPGFEDataformat::CTC4B) {
+      } else if (type == hgcal::econt::CTC4B) {
         lastBit -= 9;
         vTc.push_back(TPGFEDataformat::TcRawData(type, tc, (d >> lastBit) & 0x1ff));
       } else {
@@ -433,9 +433,9 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
               digisTrigger.view()[denseIdx].econtHeader()(bx, 0) = uint8_t(rdp.bx());
               digisTrigger.view()[denseIdx].expEcontHeader()(bx, 0) = uint8_t(expEcontHeader);
               digisTrigger.view()[denseIdx].encodedTotE()(bx, 0) =
-                  (rdp.type() == TPGFEDataformat::BestC) ? uint32_t(rdp.moduleSum()) : totE;
+                  (rdp.type() == hgcal::econt::BestC) ? uint32_t(rdp.moduleSum()) : totE;
               digisTrigger.view()[denseIdx].TotE()(bx, 0) =
-                  (rdp.type() == TPGFEDataformat::BestC)
+                  (rdp.type() == hgcal::econt::BestC)
                       ? uint32_t(TPGFEDataformat::TcRawData::Decode5E3M(rdp.moduleSum()) << dropLSB)
                       : totE;
               digisTrigger.view()[denseIdx].TCEnergy()(bx, 0) =

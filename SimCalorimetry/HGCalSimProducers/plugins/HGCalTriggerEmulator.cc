@@ -245,8 +245,8 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           emuldigisTrigger.view()[denseIdx].nTCs() = nTCs;
           emuldigisTrigger.view()[denseIdx].econtHeader()(bx,0) = uint8_t(rdp.bx());
           emuldigisTrigger.view()[denseIdx].expEcontHeader()(bx,0) = uint8_t(0);
-          emuldigisTrigger.view()[denseIdx].encodedTotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(rdp.moduleSum()) : totE ;
-          emuldigisTrigger.view()[denseIdx].TotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(TPGFEDataformat::TcRawData::Decode5E3M(rdp.moduleSum())<< dropLSB) : totE ;
+          emuldigisTrigger.view()[denseIdx].encodedTotE()(bx,0) = (rdp.type()==hgcal::econt::BestC)? uint32_t(rdp.moduleSum()) : totE ;
+          emuldigisTrigger.view()[denseIdx].TotE()(bx,0) = (rdp.type()==hgcal::econt::BestC)? uint32_t(TPGFEDataformat::TcRawData::Decode5E3M(rdp.moduleSum())<< dropLSB) : totE ;
           emuldigisTrigger.view()[denseIdx].TCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).decodedE(rdp.type()) << dropLSB);
           emuldigisTrigger.view()[denseIdx].encodedTCEnergy()(bx,0) = uint32_t(rdp.getTc(itc).energy());
           emuldigisTrigger.view()[denseIdx].TCAddress()(bx,0) = uint8_t(rdp.getTc(itc).address());

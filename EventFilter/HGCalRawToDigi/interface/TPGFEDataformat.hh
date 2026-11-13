@@ -13,7 +13,6 @@
 #include "TMath.h"
 
 namespace TPGFEDataformat {
-  using namespace hgcal::econt;  // transitional. To be ultimately removed. - Jan
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////// Data Formats by Paul Dauncey /////////////////////////////////
@@ -255,7 +254,7 @@ namespace TPGFEDataformat {
 
   class TcRawDataPacket {
   public:
-    TcRawDataPacket() : _t(Unknown), _bx(0), _ms(0), _rawEms(0) { _tcdata.resize(0); }
+    TcRawDataPacket() : _t(hgcal::econt::Unknown), _bx(0), _ms(0), _rawEms(0) { _tcdata.resize(0); }
     TcRawDataPacket(hgcal::econt::Type t, uint8_t bx, uint8_t e) : _t(t), _bx(bx), _ms(e) { _tcdata.resize(0); }
     TcRawDataPacket(hgcal::econt::Type t, uint8_t bx, uint8_t e, uint64_t upe)
         : _t(t), _bx(bx), _ms(e), _rawEms(upe) {
@@ -269,7 +268,7 @@ namespace TPGFEDataformat {
     uint16_t bx() const { return uint16_t(_bx); }
     const std::vector<TPGFEDataformat::TcRawData>& getTcData() const { return _tcdata; }
     TPGFEDataformat::TcRawData& getTc(uint32_t i) { return _tcdata.at(i); }
-    bool is4E3M() const { return (_t == BestC or _t == STC4A or _t == CTC4A or _t == TS or _t == RA) ? true : false; }
+    bool is4E3M() const { return (_t == hgcal::econt::BestC or _t == hgcal::econt::STC4A or _t == hgcal::econt::CTC4A or _t == hgcal::econt::TS or _t == hgcal::econt::RA) ? true : false; }
     void reset() {
       _t = hgcal::econt::Type::Unknown;
       _bx = 0;
