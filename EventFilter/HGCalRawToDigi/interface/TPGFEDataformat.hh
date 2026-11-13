@@ -2,11 +2,11 @@
 #define TPGFEDataformat_h
 
 #include "DataFormats/HGCalDigi/interface/HGCalTriggerDefinitions.h"
+#include "FWCore/Utilities/interface/Exception.h"
 #include <iostream>
 #include <iomanip>
 #include <cstdint>
 #include <cstring>
-#include <cassert>
 #include <vector>
 #include <algorithm>
 #include <bit>
@@ -78,45 +78,12 @@ namespace TPGFEDataformat {
 
     void setTriggerCell(
         hgcal::econt::Type t, uint8_t a, uint16_t e, uint64_t rawE, bool istctp1, bool istctp2, bool istctp3) {
-      setTriggerCell(t, a, e);
+      check(t, a, e);
+      _data = (e << 6 | a);
       _rawE = rawE;
       setTcTp1(istctp1);
       setTcTp2(istctp2);
       setTcTp3(istctp3);
-    }
-
-    void setTriggerCell(hgcal::econt::Type t, uint8_t a, uint16_t e) {
-      switch (t) {
-        case hgcal::econt::BestC:
-          //assert(a<=47); // moved as exc before filling in STAGEIO
-          assert(e <= 0x7f);
-          break;
-        case hgcal::econt::STC4A:
-          assert(a <= 3);
-          assert(e <= 0x7f);
-          break;
-        case hgcal::econt::STC4B:
-          assert(a <= 3);
-          assert(e <= 0x1ff);
-          break;
-        case hgcal::econt::STC16:
-          assert(a <= 15);
-          assert(e <= 0x1ff);
-          break;
-        case hgcal::econt::CTC4A:
-          assert(e <= 0x7f);
-          //a = 0;
-          break;
-        case hgcal::econt::CTC4B:
-          assert(e <= 0x1ff);
-          //a = 0;
-          break;
-        default:  //to allow unknown type
-          assert(a == 0x3f);
-          assert(e == 0);
-          // ;
-      }
-      _data = (e << 6 | a);
     }
 
     void print() const {
@@ -199,6 +166,88 @@ namespace TPGFEDataformat {
     bool _istctp1;
     bool _istctp2;
     bool _istctp3;
+
+    // TODO: Should check the values in here; not sure they are correct.
+    //       These can ultimately be moved to HGCalTriggerDefinitions.h - Jan
+    void check(hgcal::econt::Type t, uint8_t a, uint16_t e) {
+
+      uint16_t eMax1 = 0x7f;
+      uint16_t eMax2 = 0x1ff;
+
+      uint16_t aDefaultUnknown = 0x3f;
+
+      uint16_t eMax = 0;
+      uint16_t aMax = 0;
+
+      switch (t) {
+        case hgcal::econt::BestC:
+          aMax = hgcal::ECONT_FRAME::BC_MAX_TCADDR;
+          eMax = eMax1;
+          break;
+        case hgcal::econt::STC4A:
+          aMax = 3;
+          eMax = eMax1;
+          break;
+        case hgcal::econt::STC4B:
+          aMax = 3;
+          eMax = eMax2;
+          break;
+        case hgcal::econt::STC16:
+          aMax = 15;
+          eMax = eMax2;
+          break;
+        case hgcal::econt::CTC4A:
+          eMax = eMax1;
+          break;
+        case hgcal::econt::CTC4B:
+          eMax = eMax2;
+          break;
+        default:  //to allow unknown type
+
+          if(a != aDefaultUnknown){
+            cms::Exception ex("ValueError");
+            ex << "a != "
+            << aDefaultUnknown
+            << " for hgcal::econt::Type "
+            << t;
+            ex.addContext("Calling TcRawData::check()");
+            throw ex;
+          }
+
+          if(e != 0){
+            cms::Exception ex("ValueError");
+            ex << "e != "
+            << 0
+            << " for hgcal::econt::Type "
+            << t;
+            ex.addContext("Calling TcRawData::check()");
+            throw ex;
+          }
+          return;
+          // ;
+      }
+
+      if(a > aMax && aMax > 0){
+        cms::Exception ex("ValueError");
+        ex << "a > "
+        << aMax
+        << " for hgcal::econt::Type "
+        << t;
+        ex.addContext("Calling TcRawData::check()");
+        throw ex;
+      }
+
+      if(e > eMax && eMax > 0){
+        cms::Exception ex("ValueError");
+        ex << "e > "
+        << eMax
+        << " for hgcal::econt::Type "
+        << t;
+        ex.addContext("Calling TcRawData::check()");
+        throw ex;
+      }
+      return;
+    }
   };
 
   static std::string tctypeName[10] = {

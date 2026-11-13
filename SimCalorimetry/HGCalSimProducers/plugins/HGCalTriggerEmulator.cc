@@ -176,7 +176,7 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
           LogDebug("[HGCalTriggerEmulator]") << "ihroc : " << ihroc << " | Setting ADC for half HGROC channels." << std::endl;
 
 
-          for (uint32_t ch = 0; ch < 37; ++ch)  {
+          for (uint32_t ch = 0; ch < hgcroc::NUM_CHANNELS+1; ++ch)  { // +1 due to calibration
 
             uint32_t cellInfoIdx(denseIndexInfo_view.cellInfoIdx()[digi_idx]);
 
@@ -227,18 +227,22 @@ void HGCalTriggerEmulator::produce(edm::Event& iEvent, const edm::EventSetup& iS
         uint32_t totE = 0; // module sum, for BC is over all the 48 TCs
         for(const auto& itc: rdp.getTcData()) totE += itc.decodedE(rdp.type()) << dropLSB;
 
+        const uint8_t algo = uint8_t(econtConfig.getOutType());
+        const uint8_t nTCs = uint8_t(econtConfig.getNofTCs());
+        const uint8_t sumType = uint8_t(econtConfig.sumType);
+
         for(unsigned itc(0) ; itc < rdp.size() ; itc++){
 
           uint32_t tcidx = uint32_t(rdp.getTc(itc).address());
 
           uint32_t denseIdx = moduleTriggerIndexer.getIndexForModuleData(fedId, globalEcontIdx, tcidx) ; // before any swapping
 
-          emuldigisTrigger.view()[denseIdx].algo() = uint8_t(econtConfig.getOutType());
-          emuldigisTrigger.view()[denseIdx].sumType() = uint8_t(econtConfig.sumType);
+          emuldigisTrigger.view()[denseIdx].algo() = algo;
+          emuldigisTrigger.view()[denseIdx].sumType() = sumType;
           emuldigisTrigger.view()[denseIdx].valid()(bx,0) = true;
           emuldigisTrigger.view()[denseIdx].nBxs() = uint8_t(1);
           emuldigisTrigger.view()[denseIdx].econTId() = globalEcontIdx;
-          emuldigisTrigger.view()[denseIdx].nTCs() = uint8_t(econtConfig.getNofTCs());
+          emuldigisTrigger.view()[denseIdx].nTCs() = nTCs;
           emuldigisTrigger.view()[denseIdx].econtHeader()(bx,0) = uint8_t(rdp.bx());
           emuldigisTrigger.view()[denseIdx].expEcontHeader()(bx,0) = uint8_t(0);
           emuldigisTrigger.view()[denseIdx].encodedTotE()(bx,0) = (rdp.type()==TPGFEDataformat::BestC)? uint32_t(rdp.moduleSum()) : totE ;

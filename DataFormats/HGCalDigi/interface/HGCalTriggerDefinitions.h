@@ -3,6 +3,7 @@
 
 #include <cstdint>  // for uint8_t
 #include <map> // std::map
+#include <vector> // std::vector
 
 namespace hgcal {
 
@@ -15,6 +16,8 @@ namespace hgcal {
                        TDAQ_BUF_STAT_POS = 16, TDAQ_BUF_STAT_MASK = 0xf,
                        TDAQ_CHANNEL_ID_POS = 8, TDAQ_CHANNEL_ID_MASK = 0xff,
                        TDAQ_PKT_LENGTH_POS = 0, TDAQ_PKT_LENGTH_MASK = 0xffff;
+
+    inline const std::vector<uint8_t> elinksDefaultMapping = {0, 1, 2, 3, 4, 5, 6, 14, 7, 8, 9, 10, 11, 12, 13, 15};
 
   }  // namespace BACKEND_FRAME
 
@@ -58,39 +61,41 @@ namespace hgcal {
       {4, AE}
     };
 
-    // ECON-T `stcType` -> output Type
-    inline const std::map<uint8_t, Type> stcType2Type{
-      {0, STC4B},
-      {1, STC16},
-      {2, CTC4A},
-      {3, STC4A},
-      {4, CTC4B}
+    // ECON-T `stcType` -> output Type;
+    // implemented as a vector instead of a (trivial) map
+    inline const std::vector<Type> stcType2Type{
+      STC4B,
+      STC16,
+      CTC4A,
+      STC4A,
+      CTC4B
     };
 
     inline constexpr uint32_t DEFAULT_MAX_TC = 48;
     // Number of e-links -> (max) number of  TCs
-    inline const std::map<uint8_t, uint32_t> NofElinks2NofTCs{
-      {1,   1},
-      {2,   4},
-      {3,   6},
-      {4,   9},
-      {5,  14},
-      {6,  18},
-      {7,  23},
-      {8,  28},
-      {9,  32},
-      {10, 37},
-      {11, 41},
-      {12, 46},
-      {13, DEFAULT_MAX_TC}
+    inline const std::vector<uint32_t> NofElinks2NofTCs{
+      0, // e-links = 0
+      1, // e-links = 1
+      4, // e-links = 2
+      6, // e-links = 3
+      9, // e-links = 4
+      14, // e-links = 5
+      18, // e-links = 6
+      23, // e-links = 7
+      28, // e-links = 8
+      32, // e-links = 9
+      37, // e-links = 10
+      41, // e-links = 11
+      46, // e-links = 12
+      DEFAULT_MAX_TC // e-links >= 13
     };
 
-    inline const std::map<uint8_t, uint8_t> DEFAULT_MAX_STC{
-      {0, 12},
-      {1,  3},
-      {2, 12},
-      {3, 12},
-      {4, 12}
+    inline const std::vector<uint8_t> DEFAULT_MAX_STC{ // TODO: Double-check
+      12,
+       3,
+      12,
+      12,
+      12
     };
     // stcType -> { eportTxNumen -> max number of STCs }.
     // Each inner entry applies from its key upward, until the next key
@@ -135,8 +140,6 @@ namespace hgcal {
         }
       } // CTC4B
     };
-
-
 
     /*
     * Some stuff for getExpEcontHeader, to avoid "magic numbers" in HGCalTriggerConfiguration.hh .

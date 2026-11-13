@@ -56,20 +56,19 @@ struct HGCalECONTConfig {
   std::vector<uint32_t> offset;
   std::vector<HGCalROCTrigConfig> hgcrocs;
 
-  uint32_t getNofTCs() const { return getBCType(); } // TODO: Remove the redundancy of getNofTCs() <-> getBCType()? - Jan
-
-  uint32_t getBCType() const {
+  uint32_t getNofTCs() const {
     using namespace hgcal::econt;
     return getOutType() == BestC
-              ? floorLookup(NofElinks2NofTCs, eportTxNumen)
+              ? NofElinks2NofTCs.at(eportTxNumen)
               : 0;
   }
 
   hgcal::econt::Type getOutType() const {
     using namespace hgcal::econt;
-    if (select == SELECT_STC) {
-      const auto it = stcType2Type.find(stcType);
-      return it != stcType2Type.end() ? it->second : Unknown;
+    if(select == SELECT_STC) {
+      return (stcType <= stcType2Type.size()) ? stcType2Type.at(stcType) : Unknown;
+      // const auto it = stcType2Type.find(stcType);
+      // return it != stcType2Type.end() ? it->second : Unknown;
     }
     const auto it = select2Type.find(select);
     return it != select2Type.end() ? it->second : Unknown;

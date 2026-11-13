@@ -192,7 +192,7 @@ namespace TPGFEModuleEmulation{
     if (realTcSize > 0 && tcrawdatalist.back().address() == 0x3f) { // check if this condition still make sense.
       realTcSize--;
     }
-    uint32_t nofBCTcs = econtCfg.getBCType();
+    uint32_t nofBCTcs = econtCfg.getNofTCs();
     if (nofBCTcs > realTcSize) {
       LogDebug("[HGCalTriggerEmulator]") << "TPGFEModuleEmulation::EmulateBC Only found " << realTcSize << " TCs but expected " << nofBCTcs << std::endl;
       nofBCTcs = realTcSize;

@@ -251,7 +251,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 
         // elinks map
         // ordering of elinks is trivial, with the 8 and 16 in the last position of the array, as default
-        std::vector<uint8_t> elinks_mapping = {0, 1, 2, 3, 4, 5, 6, 14, 7, 8, 9, 10, 11, 12, 13, 15};
+        std::vector<uint8_t> elinks_mapping = TDAQ_FRAME::elinksDefaultMapping;
 
         const auto& elinksMap = fedConfig.elinksMap;
         auto it = elinksMap.find(TdaqIdx);
@@ -392,6 +392,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
 
             const uint8_t algo = uint8_t(econt_conf.getOutType());
             const uint8_t nTCs = uint8_t(econt_conf.getNofTCs());
+            const uint8_t sumType = uint8_t(econt_conf.sumType);
 
             //// How much of below will be **CONFIGURE** ed
             for (unsigned itc(0); itc < rdp.size(); itc++) {
@@ -424,7 +425,7 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                   denseIdxRaw + denseIdxOffset;  // applying offset accounting for TCs and econts swapping
 
               digisTrigger.view()[denseIdx].algo() = algo;
-              digisTrigger.view()[denseIdx].sumType() = uint8_t(econt_conf.sumType);
+              digisTrigger.view()[denseIdx].sumType() = sumType;
               digisTrigger.view()[denseIdx].valid()(bx, 0) = true;
               digisTrigger.view()[denseIdx].nBxs() = uint8_t(tsh->numberOfBxs());
               digisTrigger.view()[denseIdx].econTId() = econTId;
@@ -448,12 +449,6 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
                   << ", tcMuxSwapOffset: " << tcMuxSwapOffset << ", econtSwapOffset: " << econtSwapOffset
                   << ", denseIdxOffset: " << denseIdxOffset << ", denseIdx: "
                   << denseIdx
-                  //  << ", getDenseTCIndex00: " << moduleIndexer.getDenseTCIndex(fedId, econTId, 0, tcidx)
-                  //  << ", getDenseTCIndex01: " << moduleIndexer.getDenseTCIndex(fedId, econTId+1, 1, tcidx)
-                  //  << ", getDenseTCIndex02: " << moduleIndexer.getDenseTCIndex(fedId, econTId+2, 2, tcidx)
-                  //  << ", getIndexForModuleData00: " << moduleIndexer.getIndexForModuleData(fedId, econTId, tcidx)
-                  //  << ", getIndexForModuleData01: " << moduleIndexer.getIndexForModuleData(fedId, econTId+1, tcidx)
-                  //  << ", getIndexForModuleData02: " << moduleIndexer.getIndexForModuleData(fedId, econTId+2, tcidx)
                   << std::endl;
               LogDebug("[HGCalUnpackerTrigger]")
                   << "HGCalUnpackerTrigger::parseFEDData "
@@ -495,8 +490,4 @@ bool HGCalUnpackerTrigger::parseFEDData(unsigned fedId,
   }  // tdaqs loop
 
   return true;
-}
-
-bool HGCalUnpackerTrigger::parseTDAQBlock() {
-  return true;  // NOTE: Look at this. - Jan
 }

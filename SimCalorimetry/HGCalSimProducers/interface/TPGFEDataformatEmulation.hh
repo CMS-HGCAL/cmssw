@@ -6,7 +6,6 @@
 #include <iomanip>
 #include <cstdint>
 #include <cstring>
-#include <cassert>
 #include <vector>
 #include <algorithm>
 #include "TMath.h"
@@ -25,16 +24,13 @@ namespace TPGFEDataformatEmulation{
 
   class HalfHgcrocData {
   public:
-    enum {
-      NumberOfChannels=hgcal::hgcroc::NUM_CHANNELS
-    };
 
     HalfHgcrocData() : _bx(0xFFFF) {
       setZero();
     }
 
     void setZero() {
-      std::memset((void *)_data,0,sizeof(HalfHgcrocChannelData)*NumberOfChannels);
+      std::memset((void *)_data,0,sizeof(HalfHgcrocChannelData)*hgcal::hgcroc::NUM_CHANNELS);
     }
 
     void setBx(uint16_t bx) { _bx = bx;}
@@ -44,7 +40,7 @@ namespace TPGFEDataformatEmulation{
     uint8_t hasTcTp2() const { return hasTcTp(2); }
     uint8_t hasTcTp3() const { return hasTOT(); }
     uint8_t hasTcTp(uint16_t tctpval) const {
-      for(unsigned i(0);i<NumberOfChannels;i++)
+      for(unsigned i(0);i<hgcal::hgcroc::NUM_CHANNELS;i++)
         if(_data[i].tctp==tctpval) {
         // std::cout << "TOT/TOA noted for ich : " << i << std::endl;
         // _data[i].print();
@@ -66,7 +62,7 @@ namespace TPGFEDataformatEmulation{
     void print() const {
       std::cout << "HalfHgcrocData(" << this << ")::print()" << std::endl;
 
-      for(unsigned i(0);i<NumberOfChannels;i++) {
+      for(unsigned i(0);i<hgcal::hgcroc::NUM_CHANNELS;i++) {
         std::cout << " Channel " << std::setw(2) << i << " = 0x"
                   << " ADC "<< _data[i].adc << ","
                   << " Tot "<< _data[i].tot << ","
@@ -79,7 +75,7 @@ namespace TPGFEDataformatEmulation{
   private:
     uint16_t _bx;//from ECON header
     uint16_t _bxId;//from Slink trailer
-    HalfHgcrocChannelData _data[NumberOfChannels];
+    HalfHgcrocChannelData _data[hgcal::hgcroc::NUM_CHANNELS];
   };
 
 
@@ -94,15 +90,12 @@ namespace TPGFEDataformatEmulation{
 
   class ModuleTcData {
   public:
-    enum {
-      MaxNumberOfTCs = hgcal::econt::DEFAULT_MAX_TC
-    };
 
     ModuleTcData() {
       setZero();
     }
     void setZero() {
-      std::memset((void *)_data,0,sizeof(HgcrocTcData)*MaxNumberOfTCs);
+      std::memset((void *)_data,0,sizeof(HgcrocTcData)*hgcal::econt::DEFAULT_MAX_TC);
       NumberOfTCs=0;
     }
     void setTcTp1(uint32_t i, uint8_t value) { _data[i].istctp1 = value; }
@@ -163,7 +156,7 @@ namespace TPGFEDataformatEmulation{
     }
 
   private:
-    HgcrocTcData _data[MaxNumberOfTCs];
+    HgcrocTcData _data[hgcal::econt::DEFAULT_MAX_TC];
     uint16_t _bx;
     uint16_t NumberOfTCs;
   };
