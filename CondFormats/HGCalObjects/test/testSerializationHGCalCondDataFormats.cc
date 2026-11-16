@@ -2,6 +2,18 @@
 #include "CondFormats/HGCalObjects/src/headers.h"
 
 int main() {
+  // calibration conditions
+  testSerialization<HGCalADCPedestalsModulePayload>();
+  testSerialization<HGCalNoiseModulePayload>();
+  testSerialization<HGCalCommonModePedestalsModulePayload>();
+  testSerialization<HGCalCommonModeSlopeModulePayload>();
+  testSerialization<HGCalCalibrationValidityModulePayload>();
+  testSerialization<HGCalADCPedestalsPayload>();
+  testSerialization<HGCalNoisePayload>();
+  testSerialization<HGCalCommonModePedestalsPayload>();
+  testSerialization<HGCalCommonModeSlopePayload>();
+  testSerialization<HGCalCalibrationValidityPayload>();
+
   //dense indexers
   testSerialization<HGCalDenseIndexerBase>();
   testSerialization<HGCalMappingCellIndexer>();

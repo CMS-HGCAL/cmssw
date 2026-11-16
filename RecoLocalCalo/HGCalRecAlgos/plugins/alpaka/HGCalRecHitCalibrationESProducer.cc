@@ -20,7 +20,7 @@
 #include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHost.h"
 #include "CondFormats/HGCalObjects/interface/alpaka/HGCalCalibrationParameterDevice.h"
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
-#include "CondFormats/DataRecord/interface/HGCalModuleConfigurationRcd.h"  // depends on HGCalElectronicsMappingRcd
+#include "CondFormats/DataRecord/interface/HGCalCalibrationRcd.h"  // depends on HGCalElectronicsMappingRcd
 #include "DataFormats/ForwardDetId/interface/HGCSiliconDetId.h"            // for HGCSiliconDetId::waferType
 #include "RecoLocalCalo/HGCalRecAlgos/interface/HGCalESProducerTools.h"    // for json, search_modkey
 
@@ -90,7 +90,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       }
 
       // @short create the ESProducer product: a SoA with channel-level calibration constants
-      std::optional<hgcalrechit::HGCalCalibParamHost> produce(const HGCalModuleConfigurationRcd& iRecord) {
+      std::optional<hgcalrechit::HGCalCalibParamHost> produce(const HGCalCalibrationRcd& iRecord) {
         auto const& moduleIndexer = iRecord.get(indexToken_);
         auto const& moduleMapper = iRecord.get(mapToken_);
         edm::LogInfo("HGCalCalibrationESProducer") << "produce: filename=" << filename_.fullPath().c_str();

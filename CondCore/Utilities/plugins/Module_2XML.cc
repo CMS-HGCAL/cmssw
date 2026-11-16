@@ -132,6 +132,11 @@ PAYLOAD_2XML_MODULE(pluginUtilities_payload2xml) {
   PAYLOAD_2XML_CLASS(GEMMaskedStrips);
   PAYLOAD_2XML_CLASS(GEMDeadStrips);
   //PAYLOAD_2XML_CLASS( HBHENegativeEFilter );
+  PAYLOAD_2XML_CLASS(HGCalADCPedestalsPayload);
+  PAYLOAD_2XML_CLASS(HGCalNoisePayload);
+  PAYLOAD_2XML_CLASS(HGCalCommonModePedestalsPayload);
+  PAYLOAD_2XML_CLASS(HGCalCommonModeSlopePayload);
+  PAYLOAD_2XML_CLASS(HGCalCalibrationValidityPayload);
   PAYLOAD_2XML_CLASS(HcalChannelQuality);
   PAYLOAD_2XML_CLASS(HcalDcsValues);
   PAYLOAD_2XML_CLASS(HcalElectronicsMap);

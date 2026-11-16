@@ -72,4 +72,51 @@
     <field name="vmax_" mapping="blob"/>
   </class>
 
+
+  <!-- HGCal channel calibration conditions -->
+  <class name="HGCalADCPedestalsModulePayload" class_version="0">
+    <field name="typecode" mapping="blob"/>
+    <field name="adcPed" mapping="blob"/>
+  </class>
+
+  <class name="HGCalADCPedestalsPayload" class_version="0">
+    <field name="modules" mapping="blob"/>
+  </class>
+
+  <class name="HGCalNoiseModulePayload" class_version="0">
+    <field name="typecode" mapping="blob"/>
+    <field name="noise" mapping="blob"/>
+  </class>
+
+  <class name="HGCalNoisePayload" class_version="0">
+    <field name="modules" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCommonModePedestalsModulePayload" class_version="0">
+    <field name="typecode" mapping="blob"/>
+    <field name="cmPed" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCommonModePedestalsPayload" class_version="0">
+    <field name="modules" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCommonModeSlopeModulePayload" class_version="0">
+    <field name="typecode" mapping="blob"/>
+    <field name="cmSlope" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCommonModeSlopePayload" class_version="0">
+    <field name="modules" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCalibrationValidityModulePayload" class_version="0">
+    <field name="typecode" mapping="blob"/>
+    <field name="valid" mapping="blob"/>
+  </class>
+
+  <class name="HGCalCalibrationValidityPayload" class_version="0">
+    <field name="modules" mapping="blob"/>
+  </class>
+
 </lcgdict>

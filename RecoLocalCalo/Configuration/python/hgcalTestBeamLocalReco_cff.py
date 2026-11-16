@@ -88,7 +88,6 @@ def runRecoForSep2024TB(process):
 
     process.hgcalSoARecHits = cms.EDProducer('HGCalRecHitsProducer@alpaka',
                                              digis=cms.InputTag('hgcalDigis', ''),
-                                             calibSource=cms.ESInputTag('hgcalCalibParamESProducer', ''),
                                              n_hits_scale=cms.int32(1),
                                              n_blocks=cms.int32(1024),
                                              n_threads=cms.int32(1024),

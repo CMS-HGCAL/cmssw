@@ -1,3 +1,8 @@
+#include "CondFormats/HGCalObjects/interface/HGCalADCPedestalsPayload.h"
+#include "CondFormats/HGCalObjects/interface/HGCalNoisePayload.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCommonModePedestalsPayload.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCommonModeSlopePayload.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCalibrationValidityPayload.h"
 #include "CondFormats/HGCalObjects/interface/HGCalConfiguration.h"
 #include "CondFormats/HGCalObjects/interface/HGCalDenseIndexerBase.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
