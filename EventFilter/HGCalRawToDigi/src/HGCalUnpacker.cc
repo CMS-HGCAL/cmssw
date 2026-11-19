@@ -310,32 +310,34 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
           }
           LogDebug("[HGCalUnpacker]") << "fedId = " << fedId << ", captureblockIdx = " << captureblockIdx
                                       << ", econdIdx = " << econdIdx << ", erxIdx = " << erxIdx;
-          econdPacketInfo.view()[ECONDdenseIdx].cm()(erxIdx, 0) =
+
+          // Remapping of ECOND due to multiplexing. For LD modules erxIdx == mux
+          // for HD the order is not [0, 1, 2, ...] but [1, 0, 3, 2, ...]
+          // erxIdx_correct stores the correct order with which we can map denseIdx
+          const int32_t mux = fedConfig.econds[globalECONDIdx].rocs[erxIdx].muxMode;
+          const uint32_t erxIdx_correct = (mux == -1) ? erxIdx : static_cast<uint32_t>(mux);
+
+          econdPacketInfo.view()[ECONDdenseIdx].cm()(erxIdx_correct, 0) =
               (econd_payload[iword] >> ECOND_FRAME::COMMONMODE0_POS) & ECOND_FRAME::COMMONMODE0_MASK;
-          econdPacketInfo.view()[ECONDdenseIdx].cm()(erxIdx, 1) =
+          econdPacketInfo.view()[ECONDdenseIdx].cm()(erxIdx_correct, 1) =
               (econd_payload[iword] >> ECOND_FRAME::COMMONMODE1_POS) & ECOND_FRAME::COMMONMODE1_MASK;
           // check if the eRx sub-packet is empty (the "F" flag in the eRx sub-packet header)
           if (((econd_payload[iword] >> ECOND_FRAME::ERXFORMAT_POS) & ECOND_FRAME::ERXFORMAT_MASK) == 1) {
-            LogDebug("[HGCalUnpacker]") << "eRxIdx = " << erxIdx << " is empty";
+            LogDebug("[HGCalUnpacker]") << "eRxIdx = " << erxIdx_correct << " is empty";
             iword += 1;  // length of an empty eRx header (32 bits)
             continue;    // go to the next eRx
           }
 
           // erx header
-          uint16_t cmSum = ((econd_payload[iword] >> ECOND_FRAME::COMMONMODE0_POS) & ECOND_FRAME::COMMONMODE0_MASK) +
-                           ((econd_payload[iword] >> ECOND_FRAME::COMMONMODE1_POS) & ECOND_FRAME::COMMONMODE1_MASK);
           uint64_t erxHeader = ((uint64_t)econd_payload[iword] << 32) | ((uint64_t)econd_payload[iword + 1]);
           LogDebug("[HGCalUnpacker]") << "erx_headers = 0x" << std::hex << std::setfill('0') << std::setw(16)
-                                      << erxHeader << ", cmSum = " << std::dec << cmSum;
+                                      << erxHeader;
           iword += 2;
-
-          const int32_t mux = fedConfig.econds[globalECONDIdx].rocs[erxIdx].muxMode;
-          int32_t delta = (mux == -1) ? 0 : (mux - static_cast<int>(erxIdx)) * 37;
 
           // parse erx body (channel data)
           uint32_t iBit = 0;
           for (uint32_t channelIdx = 0; channelIdx < HGCalMappingCellIndexer::maxChPerErx_; channelIdx++) {
-            uint32_t denseIdx = moduleIndexer.getIndexForModuleData(fedId, globalECONDIdx, erxIdx, channelIdx) + delta;
+            uint32_t denseIdx = moduleIndexer.getIndexForModuleData(fedId, globalECONDIdx, erxIdx_correct, channelIdx);
             // check if the channel has data
             if (((erxHeader >> channelIdx) & 1) == 0) {
               continue;
@@ -352,7 +354,6 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
             digis.view()[denseIdx].adc() = (temp >> adcShift_[code]) & adcMask_[code];
             digis.view()[denseIdx].tot() = hgcaldigi_acc::unpackTOT(temp);
             digis.view()[denseIdx].toa() = (temp >> toaShift_[code] & toaMask_[code]);
-            digis.view()[denseIdx].cm() = cmSum;
             digis.view()[denseIdx].flags() = 0;
             iBit += erxBodyBits_[code];
 
@@ -362,7 +363,6 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
                                         << ", adc = " << digis.view()[denseIdx].adc()
                                         << ", tot = " << digis.view()[denseIdx].tot()
                                         << ", toa = " << digis.view()[denseIdx].toa()
-                                        << ", cm = " << digis.view()[denseIdx].cm() << std::hex
                                         << ", flags = " << digis.view()[denseIdx].flags();
           }
           iword += iBit / 32;
@@ -384,31 +384,29 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
           LogDebug("[HGCalUnpacker]") << "fedId = " << fedId << ", captureblockIdx = " << captureblockIdx
                                       << ", econdIdx = " << econdIdx << ", erxIdx=" << erxIdx;
 
-          econdPacketInfo.view()[ECONDdenseIdx].cm()(erxIdx, 0) =
+          const int32_t mux = fedConfig.econds[globalECONDIdx].rocs[erxIdx].muxMode;
+          const uint32_t erxIdx_correct = (mux == -1) ? erxIdx : static_cast<uint32_t>(mux);
+
+          econdPacketInfo.view()[ECONDdenseIdx].cm()(erxIdx_correct, 0) =
               (econd_payload[iword] >> ECOND_FRAME::COMMONMODE0_POS) & ECOND_FRAME::COMMONMODE0_MASK;
-          econdPacketInfo.view()[ECONDdenseIdx].cm()(erxIdx, 1) =
+          econdPacketInfo.view()[ECONDdenseIdx].cm()(erxIdx_correct, 1) =
               (econd_payload[iword] >> ECOND_FRAME::COMMONMODE1_POS) & ECOND_FRAME::COMMONMODE1_MASK;
           // check if the eRx sub-packet is empty (the "F" flag in the eRx sub-packet header)
           if (((econd_payload[iword] >> ECOND_FRAME::ERXFORMAT_POS) & ECOND_FRAME::ERXFORMAT_MASK) == 1) {
-            LogDebug("[HGCalUnpacker]") << "erxIdx = " << erxIdx << " is empty";
+            LogDebug("[HGCalUnpacker]") << "erxIdx = " << erxIdx_correct << " is empty";
             iword += 1;  // length of an empty eRx header (32 bits)
             continue;    // go to the next eRx
           }
 
           // erx header
-          uint16_t cmSum = ((econd_payload[iword] >> ECOND_FRAME::COMMONMODE0_POS) & ECOND_FRAME::COMMONMODE0_MASK) +
-                           ((econd_payload[iword] >> ECOND_FRAME::COMMONMODE1_POS) & ECOND_FRAME::COMMONMODE1_MASK);
           uint64_t erxHeader = ((uint64_t)econd_payload[iword] << 32) | ((uint64_t)econd_payload[iword + 1]);
           LogDebug("[HGCalUnpacker]") << "erx_headers = 0x" << std::hex << std::setfill('0') << std::setw(16)
-                                      << erxHeader << ", cmSum = " << std::dec << cmSum;
+                                      << erxHeader;
           iword += 2;
-
-          const int32_t mux = fedConfig.econds[globalECONDIdx].rocs[erxIdx].muxMode;
-          int32_t delta = (mux == -1) ? 0 : (mux - static_cast<int>(erxIdx)) * 37;
 
           // parse erx body (channel data)
           for (uint32_t channelIdx = 0; channelIdx < HGCalMappingCellIndexer::maxChPerErx_; channelIdx++) {
-            uint32_t denseIdx = moduleIndexer.getIndexForModuleData(fedId, globalECONDIdx, erxIdx, channelIdx) + delta;
+            uint32_t denseIdx = moduleIndexer.getIndexForModuleData(fedId, globalECONDIdx, erxIdx_correct, channelIdx);
             // check if the channel has data
             if (((erxHeader >> channelIdx) & 1) == 0) {
               continue;
@@ -416,7 +414,6 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
 
             digis.view()[denseIdx].tctp() = hgcaldigi_acc::unpackTcTp(econd_payload[iword]);
             digis.view()[denseIdx].toa() = hgcaldigi_acc::unpackTOA(econd_payload[iword]);
-            digis.view()[denseIdx].cm() = cmSum;
 
             // check if in characterization mode
             if (fedConfig.econds[globalECONDIdx].rocs[erxIdx / 2].charMode) {
@@ -440,7 +437,6 @@ uint16_t HGCalUnpacker::parseFEDData(unsigned fedId,
                                         << ", adc = " << digis.view()[denseIdx].adc()
                                         << ", tot = " << digis.view()[denseIdx].tot()
                                         << ", toa = " << digis.view()[denseIdx].toa()
-                                        << ", cm = " << digis.view()[denseIdx].cm() << std::hex
                                         << ", flags = " << digis.view()[denseIdx].flags();
           }
         }
