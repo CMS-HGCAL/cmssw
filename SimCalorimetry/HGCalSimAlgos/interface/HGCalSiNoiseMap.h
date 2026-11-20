@@ -14,7 +14,7 @@
    @class HGCalSiNoiseMap
    @short derives from HGCalRadiation map to parse fluence parameters, provides Si-specific functions
    As the class is expected to provide a fixed benchmark, the values are hardcoded following the two references below
-   [1] https://cms-alcm.web.cern.ch/notes/CMS-DN-2024-006/DN2019_045_v1.pdf
+   [1] https://cms-alcm.web.cern.ch/notes/CMS-DN-2019-045/DN2019_045_v3.pdf
    [2] https://cms-alcm.web.cern.ch/notes/CMS-DN-2024-006/DN2024_006_v1.pdf
 */
 template <typename T>
@@ -110,6 +110,7 @@ public:
   std::vector<double> &getIleakParam() { return ileakParam_; }
   std::vector<std::vector<double> > &getENCsParam() { return encsParam_; }
   std::vector<double> &getLSBPerGain() { return lsbPerGain_; }
+  double getQe2fC() const { return qe2fc_; }
   void setDefaultADCPulseShape(const hgc_digi::FEADCPulseShape &adcPulse) { defaultADCPulse_ = adcPulse; };
   const hgc_digi::FEADCPulseShape &adcPulseForGain(GainRange_t gain) {
     if (ignoreGainDependentPulse_)

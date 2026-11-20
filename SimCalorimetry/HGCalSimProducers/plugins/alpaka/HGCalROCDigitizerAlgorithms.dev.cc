@@ -14,6 +14,7 @@
 #include "SimCalorimetry/HGCalSimProducers/interface/alpaka/HGCalDigitizerAlgorithms.h"
 #include "SimCalorimetry/HGCalSimAlgos/interface/alpaka/HGCROCChannelFramer.h"
 #include "DataFormats/HGCalDigi/interface/HGCalRawDataDefinitions.h"
+#include "CondFormats/HGCalObjects/interface/HGCalMappingCellIndexer.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -44,6 +45,54 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         for (auto j = 0; j < hgcaldigi::kTimeBins; j++) {
           const float r = normal(engine);
           sumQ(j, 0) += r * enc;
+        }  //end time slices loop
+
+      }  //end grid loop
+    }
+  };
+
+  // @short this kernel takes care of CM subtraction
+  struct HGCalROCDigitizerKernel_cmSubtraction {
+    ALPAKA_FN_ACC void operator()(Acc1D const& acc,
+                                  HGCalRealisticSimHitDevice::View realisticHits,
+                                  HGCalECONDPacketInfoDevice::ConstView econds,
+                                  HGCalAgeingCondsDevice::ConstView conds,
+                                  HGCalDenseIndexInfoDevice::ConstView denseIndex,
+                                  HGCalMappingCellParamDevice::ConstView cellInfo,
+                                  hgcalrechit::HGCalCalibParamDevice::ConstView calibs,
+                                  const uint64_t seed) const {
+
+      // dispatch operation
+      for (auto idx : uniform_elements(acc, realisticHits.metadata().size())) {
+        auto indexinfo = denseIndex[idx];
+
+        // SiPM-on-tile (Sci) cells: to be decided (xtalk = SiPM pixel cross-talk, not a CM factor)
+        auto cellIdx = indexinfo.cellInfoIdx();
+        bool isSiPM = cellInfo[cellIdx].isSiPM();
+        if (isSiPM)
+          continue;
+
+        auto sumQ = realisticHits[idx].sumQ();
+        // Retrieve channel index inside the current module
+        auto chIdx = indexinfo.chNumber();
+        // Retrieve eRx index (one eRx 37 channels). Max 12 eRx per ECOND
+        auto erx = chIdx / HGCalMappingCellIndexer::maxChPerErx_;
+        // Retrieve ECOND index
+        auto econdenseidx = indexinfo.modInfoIdx();
+        auto cmm = econds[econdenseidx].cm();
+        
+        // cm is Eigen::Matrix<uint16_t, 12, 2>;
+        // cmm(erx, 0) + cmm(erx, 1) -> int 
+        // 0.5 needs to be float to make everything consistent -> 0.5f
+        const float cmavg = 0.5f * (cmm(erx, 0) + cmm(erx, 1));
+
+        // Si cells: CM average minus its pedestal (CM_ped of the calibration, the same used in fillCM, needed to not bias the noise to values > 0),
+        // converted from ADC counts to charge (fC) as sumQ; unconnected cells have adc_lsb = 0
+        const float cmq = (cmavg - calibs[idx].CM_ped()) * conds[idx].adc_lsb();
+
+        //loop over time slices
+        for (auto j = 0; j < hgcaldigi::kTimeBins; j++) {
+          sumQ(j, 0) += cmq;
         }  //end time slices loop
 
       }  //end grid loop
@@ -150,7 +199,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         digi.adc() = hgcaldigi::unpackADC(word);
         digi.tot() = hgcaldigi::unpackTOT(word);
         digi.toa() = hgcaldigi::unpackTOA(word);
-        digi.cm() = 0;
         digi.flags() = hgcal::DIGI_FLAG::FULL_READOUT;
       }  //end grid loop
     }
@@ -163,6 +211,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                                  HGCalAgeingCondsDevice const& ageConds,
                                                                  HGCalDenseIndexInfoDevice const& denseIndex,
                                                                  HGCalMappingCellParamDevice const& cellInfo,
+                                                                 hgcalrechit::HGCalCalibParamDevice const& calibs,
                                                                  HGCalPhaseShiftsDevice const& phaseShifts,
                                                                  double lhc_phaseshift,
                                                                  const uint64_t seed) const {
@@ -189,6 +238,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                         ageConds.const_view(),
                         denseIndex.const_view(),
                         cellInfo.const_view(),
+                        seed);
+
+    alpaka::exec<Acc1D>(queue,
+                        grid,
+                        HGCalROCDigitizerKernel_cmSubtraction{},
+                        device_realisticHits.view(),
+                        device_econds.const_view(),
+                        ageConds.const_view(),
+                        denseIndex.const_view(),
+                        cellInfo.const_view(),
+                        calibs.const_view(),
                         seed);
 
     alpaka::exec<Acc1D>(queue,

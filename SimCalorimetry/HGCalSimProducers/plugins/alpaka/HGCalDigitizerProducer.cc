@@ -50,6 +50,9 @@
 #include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDevice.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingModuleIndexer.h"
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
+#include "SimCalorimetry/HGCalSimAlgos/interface/HGCalSiNoiseMap.h"
+#include "CondFormats/DataRecord/interface/HGCalModuleConfigurationRcd.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCalibrationParameterHost.h"
 
 //kernels handlers
 #include "SimCalorimetry/HGCalSimProducers/interface/alpaka/HGCalDigitizerAlgorithms.h"
@@ -79,9 +82,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> readoutMapTkn_;
     const edm::ESGetToken<hgcal::HGCalMappingModuleParamHost, HGCalElectronicsMappingRcd> moduleInfoTkn_;
     const edm::ESGetToken<hgcal::HGCalMappingCellParamHost, HGCalElectronicsMappingRcd> cellInfoToken_;
+    const edm::ESGetToken<hgcalrechit::HGCalCalibParamHost, HGCalModuleConfigurationRcd> calibTkn_;
     const int n_blocks_, n_threads_;
     const HGCalAgeingAlgorithms ripener_;
     const HGCalECONDAlgorithms concentrator_;
+    HGCalCMNoiseParams cmNoiseParams_;
     const HGCalROCDigitizerAlgorithms digitizer_;
 
     bool produceExtra_;
@@ -112,6 +117,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         readoutMapTkn_{esConsumes(iConfig.getParameter<edm::ESInputTag>("readoutMap"))},
         moduleInfoTkn_{esConsumes(iConfig.getParameter<edm::ESInputTag>("moduleInfo"))},
         cellInfoToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("cellInfo"))},
+        calibTkn_{esConsumes(iConfig.getParameter<edm::ESInputTag>("calibSource"))},
         n_blocks_{iConfig.getParameter<int>("n_blocks")},
         n_threads_{iConfig.getParameter<int>("n_threads")},
         ripener_{n_blocks_, n_threads_},
@@ -121,6 +127,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         crateTimeJumpsSigma_ns_(static_cast<float>(iConfig.getParameter<double>("crateTimeJumpsSigma_ns"))) {
     rocDigisTkn_ = produces("HGCROCDigis");
     econInfoTkn_ = produces("HGCECONInfo");
+
+    // common-mode (CM) channel noise per Si gain: code enc_s (capacitance term only, CM channels have no
+    // leakage current) at the CM channel capacitance, converted from electrons to ADC counts
+    HGCalSiNoiseMap<HGCSiliconDetId> siNoiseMap;
+    auto const& encsParam = siNoiseMap.getENCsParam();    // per gain: enc_s = a + b*C + c*C^2 [electrons]
+    auto const& lsbPerGain = siNoiseMap.getLSBPerGain();  // per gain: [fC / ADC count]
+    const double cmCap = iConfig.getParameter<double>("cmCapacitance");
+    for (unsigned int g = 0; g < HGCalCMNoiseParams::kNGains; g++) {
+      auto const& p = encsParam[g];
+      const double enc_s = p[0] + p[1] * cmCap + p[2] * cmCap * cmCap;
+      cmNoiseParams_.noiseADC[g] = static_cast<float>(enc_s * siNoiseMap.getQe2fC() / lsbPerGain[g]);
+    }
 
     //add the extra products
     if (produceExtra_) {
@@ -142,6 +160,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     desc.add<bool>("produceExtra", true)->setComment("produce extra digitizer collections");
     desc.add<double>("crateTimeJumpsSigma_ns", 0.015)
         ->setComment("typical width of a time jump associated to a BE crate [ns]");
+    desc.add<double>("cmCapacitance", 47.)
+        ->setComment("input capacitance of the common-mode (CM) channels [pF], sets their noise");
+    desc.add("calibSource", edm::ESInputTag{})
+        ->setComment("calibration parameters (same as reco): CM_ped is used as pedestal of the CM channels");
     desc.add<int>("n_blocks", -1);
     desc.add<int>("n_threads", -1);
     descriptions.addWithDefaultLabel(desc);
@@ -220,6 +242,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     alpaka::memcpy(queue, moduleInfo_device.buffer(), moduleInfo.const_buffer());
     hgcal::HGCalMappingCellParamDevice cellInfo_device(queue, ncellinfo);
     alpaka::memcpy(queue, cellInfo_device.buffer(), cellInfo.const_buffer());
+    const auto& calibs = iSetup.getData(calibTkn_);
+    hgcalrechit::HGCalCalibParamDevice calibs_device(queue, calibs.view().metadata().size());
+    alpaka::memcpy(queue, calibs_device.buffer(), calibs.const_buffer());
 
     // special procedure to generate and copy the vector of time jumps to the device (avoid doing it twice)
     // note 1: move to an ESProducer following the pattern above....
@@ -242,7 +267,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     //run digitization
     if (agedG4HitsAcc_device_.has_value()) {
       //populate ECON-D info and common mode
-      econInfo_device_ = concentrator_.init(queue, ageingConds_device, moduleInfo_device, seed);
+      econInfo_device_ =
+          concentrator_.init(queue, ageingConds_device, moduleInfo_device, denseIndex_device, calibs_device, cmNoiseParams_, seed);
 
       //digitize channels
       rocDigisAcc_device_ = digitizer_.digitize(queue,
@@ -251,6 +277,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                                 ageingConds_device,
                                                 denseIndex_device,
                                                 cellInfo_device,
+                                                calibs_device,
                                                 phaseShiftsDevice_.value(),
                                                 lhc_phaseshift,
                                                 seed);

@@ -22,6 +22,7 @@
   <use name="SimDataFormats/CaloHit"/>
   <use name="CondFormats/HGCalObjects"/>
   <use name="CondFormats/DataRecord"/>
+  <use name="SimCalorimetry/HGCalSimAlgos"/>
   <use name="HeterogeneousCore/AlpakaCore"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
   <flags ALPAKA_BACKENDS="1"/>

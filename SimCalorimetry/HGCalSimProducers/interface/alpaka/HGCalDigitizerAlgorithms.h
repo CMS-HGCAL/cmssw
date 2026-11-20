@@ -17,6 +17,8 @@
 #include "CondFormats/DataRecord/interface/HGCalDenseIndexInfoRcd.h"
 #include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHost.h"
 #include "CondFormats/HGCalObjects/interface/alpaka/HGCalMappingParameterDevice.h"
+#include "CondFormats/HGCalObjects/interface/HGCalCalibrationParameterHost.h"
+#include "CondFormats/HGCalObjects/interface/alpaka/HGCalCalibrationParameterDevice.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -24,7 +26,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
   using namespace hgcal;
   using namespace cms::alpakatools;
 
-  /** 
+  /**
+    @short noise of the common-mode (CM) channels, in ADC counts (the CM pedestal is CM_ped of the calibration)
+    noiseADC[g] = code enc_s (capacitance term, no leakage current) at the CM channel capacitance, for Si gain range g
+  */
+  struct HGCalCMNoiseParams {
+    static constexpr unsigned int kNGains = 3;  // Si gain ranges: 80, 160, 320 fC
+    float noiseADC[kNGains];
+  };
+
+  /**
     @short print realistic G4 hits for debugging purposes
   */
   struct HGCalAgeingKernel_printHits {
@@ -93,6 +104,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                       HGCalAgeingCondsDevice const&,
                                       HGCalDenseIndexInfoDevice const&,
                                       HGCalMappingCellParamDevice const&,
+                                      hgcalrechit::HGCalCalibParamDevice const&,
                                       HGCalPhaseShiftsDevice const&,
                                       double,
                                       const uint64_t) const;
@@ -116,6 +128,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     HGCalECONDPacketInfoDevice init(Queue&,
                                     HGCalAgeingCondsDevice const&,
                                     HGCalMappingModuleParamDevice const&,
+                                    HGCalDenseIndexInfoDevice const&,
+                                    hgcalrechit::HGCalCalibParamDevice const&,
+                                    HGCalCMNoiseParams const&,
                                     const uint64_t) const;
 
   private:

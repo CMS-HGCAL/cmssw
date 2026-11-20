@@ -302,7 +302,8 @@ typename HGCalSiNoiseMap<T>::SiCellOpCharacteristics HGCalSiNoiseMap<T>::getSiCe
   } else {
     siop.enc_s = encsParam_[gain][0] + encsParam_[gain][1] * cellCap + encsParam_[gain][2] * pow(cellCap, 2);
     siop.enc_p = getENCpad(siop.ileak);
-    siop.core.noise = hypot(siop.enc_p * encCommonNoiseSub_, siop.enc_s) * qe2fc_;
+    // no common-mode (CM) penalty here: it comes from the explicit CM simulation and subtraction
+    siop.core.noise = hypot(siop.enc_p, siop.enc_s * encCommonNoiseSub_) * qe2fc_;
   }
 
   return siop;

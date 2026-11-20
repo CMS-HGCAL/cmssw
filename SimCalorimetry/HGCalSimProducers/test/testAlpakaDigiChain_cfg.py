@@ -159,6 +159,7 @@ process.hgcalCalibParamESProducer = cms.ESProducer( # ESProducer to load calibra
 process.hgcalRecHits = cms.EDProducer(
     'alpaka_serial_sync::HGCalRecHitsProducer',
     digis=cms.InputTag('hgCalDigitizerProducer','HGCROCDigis'),
+    econd = cms.InputTag('hgCalDigitizerProducer', 'HGCECONInfo'),
     calibSource=cms.ESInputTag('hgcalCalibParamESProducer', ''),
     k_noise=cms.double(-1000),
     n_hits_scale=cms.int32(1),
@@ -200,6 +201,7 @@ if True:
     process.DQMStore = cms.Service("DQMStore")
     process.load("DQM.HGCAL.hgcalDQM_cff")
     process.hgcaldigidqm.Digis = cms.InputTag('hgCalDigitizerProducer','HGCROCDigis')
+    process.hgcaldigidqm.Econd = cms.InputTag('hgCalDigitizerProducer', 'HGCECONInfo')
     process.load("DQMServices.FileIO.DQMFileSaverOnline_cfi")
     process.dqmSaver.tag = 'HGCAL'
     process.dqmSaver.runNumber = 1
