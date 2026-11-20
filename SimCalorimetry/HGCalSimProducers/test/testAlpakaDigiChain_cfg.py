@@ -70,6 +70,10 @@ if options.applyAgeing:
 else:
     process = customise_hgcal_ageing_byalgo_startup(process)
 
+# LHC phase shift source
+process.load('CondTools.RunInfo.lhcPhaseShift_cfi')
+process.load('CondTools.RunInfo.lhcPhaseShiftESSource_cfi')
+
 # random number generator service
 process.RandomNumberGeneratorService = cms.Service(
     "RandomNumberGeneratorService",
@@ -170,6 +174,7 @@ process.hgcalRecHits = cms.EDProducer(
 # step
 process.digi_step = cms.Path(
     process.hgCalSimHitAccumulator
+    *process.lhcPhaseShift
     *process.hgCalDigitizerProducer
     *process.hgcalRecHits
 )
@@ -205,9 +210,12 @@ if True:
     process.load("DQMServices.FileIO.DQMFileSaverOnline_cfi")
     process.dqmSaver.tag = 'HGCAL'
     process.dqmSaver.runNumber = 1
+    process.hgcalrechitdqm.RecHits = cms.InputTag('hgcalRecHits','')
+    process.hgcalRecHitDQMSources = cms.Sequence(process.hgcalrechitdqm)
     
     process.dqmPath = cms.Path(
         process.hgcalDQMSources  
+        +process.hgcalRecHitDQMSources
         #+process.hgCalDQMHarvester 
         +process.dqmSaver
     )

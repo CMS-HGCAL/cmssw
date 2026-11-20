@@ -14,6 +14,7 @@
 #include "CondFormats/HGCalObjects/interface/HGCalMappingParameterHost.h"
 #include "DQM/HGCAL/interface/HGCalDQMCommon.h"
 #include "CondFormats/DataRecord/interface/HGCalElectronicsMappingRcd.h"
+#include "CondFormats/RunInfo/interface/LHCInfoPerFill.h"
 
 /**
  * \class HGCalRecHitDQM
@@ -28,6 +29,7 @@ class HGCalRecHitDQM : public DQMEDAnalyzer {
 public:
   using MonitoredElement_t = hgcal::dqm::HGCalDQMModule;
   typedef std::pair<uint32_t, uint32_t> MonitoredElementKey_t;
+  static constexpr auto MAXBX = LHCInfoPerFill::bunchSlots;
   explicit HGCalRecHitDQM(const edm::ParameterSet&);
   ~HGCalRecHitDQM() override;
 
@@ -39,6 +41,8 @@ private:
   void analyze(const edm::Event&, const edm::EventSetup&) override;
 
   const edm::EDGetTokenT<HGCalSoARecHitsHostCollection> rechitsTkn_;
+  const edm::EDGetTokenT<float> lhcPhaseShiftToken_;
+  const edm::EDGetTokenT<int> lhcBunchCrossingToken_;
   edm::ESGetToken<hgcal::HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexInfoTkn_;
   edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIdxTkn_;
   edm::ESGetToken<hgcal::HGCalMappingModuleParamHost, HGCalElectronicsMappingRcd> moduleInfoTkn_;
@@ -55,6 +59,10 @@ private:
   // per-module TProfile: <E_nMIPs> vs channel; consumed by harvester as avgrechit_nmips.
   std::map<MonitoredElementKey_t, MonitorElement*> avgRechitNmips_;
   std::map<int, std::string> endCapKey = {{-1, "Minus"}, {1, "Plus"}};
+  // once crate information available in the collection to be replaced :):
+  std::map<uint32_t, int> cratePerFED_;
+  // first int expected to be -1 or 1 to say which endcap we are at and then second in to be   the crate....
+  std::map<int, MonitorElement*> phaseShiftPerBX_, recHitTimePerBX_, recHitTimePerCrate_, recHitTimePerBXCrate_;
 };
 
 //
@@ -63,6 +71,8 @@ private:
 
 HGCalRecHitDQM::HGCalRecHitDQM(const edm::ParameterSet& iConfig)
     : rechitsTkn_(consumes<HGCalSoARecHitsHostCollection>(iConfig.getParameter<edm::InputTag>("RecHits"))),
+      lhcPhaseShiftToken_{consumes<float>(edm::InputTag("lhcPhaseShift"))},
+      lhcBunchCrossingToken_{consumes<int>(edm::InputTag("lhcPhaseShift:bunchCrossing"))},
       denseIndexInfoTkn_(esConsumes()),
       moduleIdxTkn_(esConsumes<edm::Transition::BeginRun>()),
       moduleInfoTkn_(esConsumes<edm::Transition::BeginRun>()),
@@ -79,6 +89,10 @@ void HGCalRecHitDQM::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
   bool toProcess = (nProcessed_ < minEvents_) || (nProcessed_ % prescaleFactor_ == 0);
   if (!toProcess)
     return;
+
+  //read information for phase shifts
+  const auto& psHandle = iEvent.getHandle(lhcPhaseShiftToken_);
+  const auto& bxHandle = iEvent.getHandle(lhcBunchCrossingToken_);
 
   //read rechits and dense index info
   const auto& denseIndexInfo = iSetup.getData(denseIndexInfoTkn_);
@@ -171,6 +185,13 @@ void HGCalRecHitDQM::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     hitsum[endcap][layer] += 1;
     h_energy->Fill(nmips);
     if (time > 0) {
+      const auto& ps = psHandle.isValid() ? *psHandle : 0;
+      const auto& bx = bxHandle.isValid() ? *bxHandle : -1;
+      const auto& crate = cratePerFED_.at(indexinfo.fedId());
+      phaseShiftPerBX_.at(endcap)->Fill(bx, ps);
+      recHitTimePerBX_.at(endcap)->Fill(bx, time);
+      recHitTimePerCrate_.at(endcap)->Fill(crate, time);
+      recHitTimePerBXCrate_.at(endcap)->Fill(crate * MAXBX + bx, time);
       h_time->Fill(time);
       h_timevsE->Fill(nmips, time);
     }
@@ -200,6 +221,17 @@ void HGCalRecHitDQM::bookHistograms(DQMStore::IBooker& ibook, edm::Run const& ru
   // bookHistograms runs once per run: rebuild the module maps instead of appending to them.
   followedModules_.clear();
   HGCALMap.clear();
+  phaseShiftPerBX_.clear();
+  recHitTimePerBX_.clear();
+  recHitTimePerCrate_.clear();
+  recHitTimePerBXCrate_.clear();
+  cratePerFED_.clear();
+  for (const auto& fed : moduleIndexer.fedReadoutSequences()) {
+    if (fed.readoutTypes_.empty())
+      continue;
+    cratePerFED_[fed.id] = fed.crate;
+  }
+
   for (const auto& ele : hgcal::dqm::readoutModules(moduleIndexer, moduleInfo)) {
     followedModules_[MonitoredElementKey_t(ele.fedid, ele.modid)] = ele;
     HGCALMap[ele.endcap][ele.layer][ele.cassette][ele.typecode] = ele;
@@ -244,6 +276,36 @@ void HGCalRecHitDQM::bookHistograms(DQMStore::IBooker& ibook, edm::Run const& ru
       recHitSummariesLayers_[endcap][layer]["rechittimevsenergy"] =
           ibook.book2D("rechittimevsenergy", label + ";Energy [MIP]; RecHit time [ps]", 100, -10, 1000, 100, 0, 5000);
     }
+    // RecHit timing information per crate.
+    const auto& crates = moduleIndexer.uniqueCrates();
+    if (!crates.empty()) {
+      const auto [minIt, maxIt] = std::minmax_element(crates.begin(), crates.end());
+      const int minCrate = *minIt;
+      const int maxCrate = *maxIt;
+      ibook.setCurrentFolder(endcapFolder);
+      recHitTimePerCrate_[endcap] = ibook.bookProfile("rechittimevscrateProfile",
+                                                      label + ";Crate number;Mean RecHit time [ps]",
+                                                      maxCrate - minCrate + 1,
+                                                      minCrate - 0.5,
+                                                      maxCrate + 0.5,
+                                                      0.,
+                                                      0.,
+                                                      "");
+      recHitTimePerBXCrate_[endcap] = ibook.bookProfile("rechittimevsbxcrateProfile",
+                                                        label + ";Crate+BX number;Mean RecHit time [ps]",
+                                                        (maxCrate - minCrate + 1) * MAXBX,
+                                                        minCrate * MAXBX - 0.5,
+                                                        (maxCrate + 1) * MAXBX + 0.5,
+                                                        0.,
+                                                        0.,
+                                                        "");
+    }
+    // RecHit timing information per bunch crossing (bx)
+    ibook.setCurrentFolder(endcapFolder);
+    phaseShiftPerBX_[endcap] = ibook.bookProfile(
+        "phaseshiftvsbxProfile", label + ";Bunch crossing;Phase shift [ps]", MAXBX, -0.5, MAXBX - 0.5, 0., 0., "");
+    recHitTimePerBX_[endcap] = ibook.bookProfile(
+        "rechittimevsbxProfile", label + ";Bunch crossing;Mean RecHit time [ps]", MAXBX, -0.5, MAXBX - 0.5, 0., 0., "");
   }
 }
 
@@ -252,7 +314,6 @@ void HGCalRecHitDQM::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<edm::InputTag>("RecHits", edm::InputTag("hgcalRecHits", ""));
   desc.add<unsigned int>("MinimumEvents", 5000);
   desc.add<unsigned int>("PrescaleFactor", 5000);
-  desc.add<bool>("isSimulation", false);
   descriptions.add("hgcalrechitdqm", desc);
 }
 
