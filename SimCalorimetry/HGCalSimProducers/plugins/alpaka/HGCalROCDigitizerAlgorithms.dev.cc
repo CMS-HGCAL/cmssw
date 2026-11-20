@@ -51,8 +51,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     }
   };
 
-  // @short this kernel takes care of CM subtraction
-  struct HGCalROCDigitizerKernel_cmSubtraction {
+  // @short this kernel adds the common-mode (CM) noise of the eRx (CM average minus CM_ped) to the Si cells
+  struct HGCalROCDigitizerKernel_addCM {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   HGCalRealisticSimHitDevice::View realisticHits,
                                   HGCalECONDPacketInfoDevice::ConstView econds,
@@ -242,7 +242,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     alpaka::exec<Acc1D>(queue,
                         grid,
-                        HGCalROCDigitizerKernel_cmSubtraction{},
+                        HGCalROCDigitizerKernel_addCM{},
                         device_realisticHits.view(),
                         device_econds.const_view(),
                         ageConds.const_view(),
