@@ -41,7 +41,6 @@ private:
   void analyze(const edm::Event&, const edm::EventSetup&) override;
 
   const edm::EDGetTokenT<HGCalSoARecHitsHostCollection> rechitsTkn_;
-  const edm::EDGetTokenT<float> lhcPhaseShiftToken_;
   const edm::EDGetTokenT<int> lhcBunchCrossingToken_;
   edm::ESGetToken<hgcal::HGCalDenseIndexInfoHost, HGCalDenseIndexInfoRcd> denseIndexInfoTkn_;
   edm::ESGetToken<HGCalMappingModuleIndexer, HGCalElectronicsMappingRcd> moduleIdxTkn_;
@@ -61,8 +60,8 @@ private:
   std::map<int, std::string> endCapKey = {{-1, "Minus"}, {1, "Plus"}};
   // once crate information available in the collection to be replaced :):
   std::map<uint32_t, int> cratePerFED_;
-  // first int expected to be -1 or 1 to say which endcap we are at and then second in to be   the crate....
-  std::map<int, MonitorElement*> phaseShiftPerBX_, recHitTimePerBX_, recHitTimePerCrate_, recHitTimePerBXCrate_;
+  // first int expected to be -1 or 1 to say which endcap we are at and then second int to be the layer
+  std::map<int, std::map<int, MonitorElement*>> recHitTimePerBXCrate_;
 };
 
 //
@@ -71,7 +70,6 @@ private:
 
 HGCalRecHitDQM::HGCalRecHitDQM(const edm::ParameterSet& iConfig)
     : rechitsTkn_(consumes<HGCalSoARecHitsHostCollection>(iConfig.getParameter<edm::InputTag>("RecHits"))),
-      lhcPhaseShiftToken_{consumes<float>(edm::InputTag("lhcPhaseShift"))},
       lhcBunchCrossingToken_{consumes<int>(edm::InputTag("lhcPhaseShift:bunchCrossing"))},
       denseIndexInfoTkn_(esConsumes()),
       moduleIdxTkn_(esConsumes<edm::Transition::BeginRun>()),
@@ -91,8 +89,8 @@ void HGCalRecHitDQM::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     return;
 
   //read information for phase shifts
-  const auto& psHandle = iEvent.getHandle(lhcPhaseShiftToken_);
   const auto& bxHandle = iEvent.getHandle(lhcBunchCrossingToken_);
+  const auto& bx = bxHandle.isValid() ? *bxHandle : -1;
 
   //read rechits and dense index info
   const auto& denseIndexInfo = iSetup.getData(denseIndexInfoTkn_);
@@ -185,13 +183,8 @@ void HGCalRecHitDQM::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     hitsum[endcap][layer] += 1;
     h_energy->Fill(nmips);
     if (time > 0) {
-      const auto& ps = psHandle.isValid() ? *psHandle : 0;
-      const auto& bx = bxHandle.isValid() ? *bxHandle : -1;
       const auto& crate = cratePerFED_.at(indexinfo.fedId());
-      phaseShiftPerBX_.at(endcap)->Fill(bx, ps);
-      recHitTimePerBX_.at(endcap)->Fill(bx, time);
-      recHitTimePerCrate_.at(endcap)->Fill(crate, time);
-      recHitTimePerBXCrate_.at(endcap)->Fill(crate * MAXBX + bx, time);
+      recHitTimePerBXCrate_.at(endcap).at(layer)->Fill(crate * MAXBX + bx, time);
       h_time->Fill(time);
       h_timevsE->Fill(nmips, time);
     }
@@ -221,9 +214,6 @@ void HGCalRecHitDQM::bookHistograms(DQMStore::IBooker& ibook, edm::Run const& ru
   // bookHistograms runs once per run: rebuild the module maps instead of appending to them.
   followedModules_.clear();
   HGCALMap.clear();
-  phaseShiftPerBX_.clear();
-  recHitTimePerBX_.clear();
-  recHitTimePerCrate_.clear();
   recHitTimePerBXCrate_.clear();
   cratePerFED_.clear();
   for (const auto& fed : moduleIndexer.fedReadoutSequences()) {
@@ -275,37 +265,23 @@ void HGCalRecHitDQM::bookHistograms(DQMStore::IBooker& ibook, edm::Run const& ru
           ibook.book1D("rechitenergy", label + ";RecHit energy [MIPs]; RecHits", 100, 0, 250);
       recHitSummariesLayers_[endcap][layer]["rechittimevsenergy"] =
           ibook.book2D("rechittimevsenergy", label + ";Energy [MIP]; RecHit time [ps]", 100, -10, 1000, 100, 0, 5000);
+
+      // RecHit timing information per crate.
+      const auto& crates = moduleIndexer.uniqueCrates();
+      if (!crates.empty()) {
+        const auto [minIt, maxIt] = std::minmax_element(crates.begin(), crates.end());
+        const int minCrate = *minIt;
+        const int maxCrate = *maxIt;
+        recHitTimePerBXCrate_[endcap][layer] = ibook.bookProfile("rechittimevsbxcrateProfile",
+                                                                 label + ";Crate+BX number;Mean RecHit time [ps]",
+                                                                 (maxCrate - minCrate + 1) * MAXBX,
+                                                                 minCrate * MAXBX - 0.5,
+                                                                 (maxCrate + 1) * MAXBX + 0.5,
+                                                                 0.,
+                                                                 0.,
+                                                                 "");
+      }
     }
-    // RecHit timing information per crate.
-    const auto& crates = moduleIndexer.uniqueCrates();
-    if (!crates.empty()) {
-      const auto [minIt, maxIt] = std::minmax_element(crates.begin(), crates.end());
-      const int minCrate = *minIt;
-      const int maxCrate = *maxIt;
-      ibook.setCurrentFolder(endcapFolder);
-      recHitTimePerCrate_[endcap] = ibook.bookProfile("rechittimevscrateProfile",
-                                                      label + ";Crate number;Mean RecHit time [ps]",
-                                                      maxCrate - minCrate + 1,
-                                                      minCrate - 0.5,
-                                                      maxCrate + 0.5,
-                                                      0.,
-                                                      0.,
-                                                      "");
-      recHitTimePerBXCrate_[endcap] = ibook.bookProfile("rechittimevsbxcrateProfile",
-                                                        label + ";Crate+BX number;Mean RecHit time [ps]",
-                                                        (maxCrate - minCrate + 1) * MAXBX,
-                                                        minCrate * MAXBX - 0.5,
-                                                        (maxCrate + 1) * MAXBX + 0.5,
-                                                        0.,
-                                                        0.,
-                                                        "");
-    }
-    // RecHit timing information per bunch crossing (bx)
-    ibook.setCurrentFolder(endcapFolder);
-    phaseShiftPerBX_[endcap] = ibook.bookProfile(
-        "phaseshiftvsbxProfile", label + ";Bunch crossing;Phase shift [ps]", MAXBX, -0.5, MAXBX - 0.5, 0., 0., "");
-    recHitTimePerBX_[endcap] = ibook.bookProfile(
-        "rechittimevsbxProfile", label + ";Bunch crossing;Mean RecHit time [ps]", MAXBX, -0.5, MAXBX - 0.5, 0., 0., "");
   }
 }
 

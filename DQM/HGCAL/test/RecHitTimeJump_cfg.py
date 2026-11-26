@@ -12,23 +12,6 @@ options.register("inputFile", "DQM_V0001_HGCAL_R000000001.root",
 options.parseArguments()
 input_file = os.path.abspath(options.inputFile.removeprefix("file:"))
 
-# Check the actual input before running the framework: booked plots can be empty.
-source = ROOT.TFile.Open(input_file, "READ")
-if not source or source.IsZombie():
-    raise RuntimeError(f"Cannot open {input_file}")
-found = 0
-for endcap in ("Minus", "Plus"):
-    path = f"DQMData/Run 1/HGCAL/Run summary/EndCap_{endcap}/rechittimevscrateProfile"
-    profile = source.Get(path)
-    if profile and profile.InheritsFrom("TProfile"):
-        found += 1
-        print(f"{path}: {profile.GetEntries():g} entries", flush=True)
-    else:
-        print(f"Missing: {path}", flush=True)
-source.Close()
-if not found:
-    raise RuntimeError("No RecHit crate profiles found. Check whether RecHits were produced and monitored.")
-
 process = cms.Process("HARVESTING")
 process.load("CondTools.RunInfo.lhcPhaseShiftESSource_cfi")
 process.load("FWCore.MessageService.MessageLogger_cfi")
